@@ -1,0 +1,624 @@
+INVO TRADER DATASET — EXPLORATORY DATA ANALYSIS REPORT
+Generated: 2026-10-05 06:00 UTC
+Source: master/invo_trades_master.csv
+
+==============================================================================
+  0. DATASET OVERVIEW
+==============================================================================
+Total unique trades:   15,713
+  closed: 15,552   open: 161
+Unique traders:        52
+Unique tickers:        443
+Entry date range:      2024-02-22 -> 2026-10-05
+
+--- Trades per month ---
+  2024-02      3  
+  2024-03      4  
+  2024-04     22  
+  2024-05      4  
+  2024-06     96  #
+  2024-07    115  #
+  2024-08    225  ###
+  2024-09     56  
+  2024-10     37  
+  2024-11    187  ##
+  2024-12     92  #
+  2025-01    220  ##
+  2025-02    555  #######
+  2025-03    600  ########
+  2025-04    420  #####
+  2025-05    444  #####
+  2025-06    316  ####
+  2025-07    616  ########
+  2025-08    326  ####
+  2025-09    173  ##
+  2025-10    173  ##
+  2025-11     74  
+  2025-12    115  #
+  2026-01    217  ##
+  2026-02    231  ###
+  2026-03    223  ##
+  2026-04  1,118  ##############
+  2026-05    416  #####
+  2026-06    831  ###########
+  2026-07  1,553  ####################
+  2026-08  2,800  #####################################
+  2026-09  2,993  ########################################
+  2026-10    458  ######
+
+==============================================================================
+  1. TEMPORAL & SESSION CLUSTERING
+==============================================================================
+
+--- Entries by UTC hour ---
+  00:00    434  ###############  <- Asia open
+  01:00    488  #################
+  02:00    377  #############
+  03:00    423  ###############
+  04:00    426  ###############
+  05:00    454  ################
+  06:00    539  ###################
+  07:00    606  #####################
+  08:00    643  #######################  <- EU open
+  09:00    674  ########################
+  10:00    719  #########################
+  11:00    734  ##########################
+  12:00    765  ###########################
+  13:00    894  ################################  <- US equity open 13:30
+  14:00  1,009  ####################################  <- US equity open 13:30
+  15:00  1,115  ########################################
+  16:00  1,000  ###################################
+  17:00    809  #############################
+  18:00    797  ############################
+  19:00    701  #########################
+  20:00    639  ######################
+  21:00    554  ###################
+  22:00    484  #################
+  23:00    429  ###############
+
+--- Entries by day of week ---
+  Mon  2,385  #######################################
+  Tue  2,193  ####################################
+  Wed  2,336  ######################################
+  Thu  2,317  ######################################
+  Fri  2,406  ########################################
+  Sat  1,907  ###############################
+  Sun  2,169  ####################################
+
+--- Hour x Day heatmap (trade counts) ---
+  hour |  Mon   Tue   Wed   Thu   Fri   Sat   Sun
+  00   |   71    50    62    59    82    55    55
+  01   |   45    71    82    75    60    75    80
+  02   |   60    58    44    48    46    47    74
+  03   |   49    62    54    62    47    87    62
+  04   |   59    56    59    53    78    57    64
+  05   |   74    59    82    62    51    69    57
+  06   |   85    85    82    78    79    64    66
+  07   |   96    83    73   102    90    95    67
+  08   |  114    87    84    93    92    91    82
+  09   |  103    90    97    86   115    87    96
+  10   |  171    92    92    77    88    93   106
+  11   |  126    77    99    88   130   100   114
+  12   |  104   127   137   112    98    92    95
+  13   |  123   141   122   148   137   113   110
+  14   |  137   141   170   131   191   112   127
+  15   |  190   167   183   176   153   114   132
+  16   |  129   156   125   172   167   110   141
+  17   |  129   104   133   136   103   101   103
+  18   |  120    99   134   141   134    67   102
+  19   |  102   107   117   112   126    62    75
+  20   |  112    96    96    92   105    58    80
+  21   |   62    91    94    84    84    68    71
+  22   |   56    46    63    70    84    45   120
+  23   |   68    48    52    60    66    45    90
+
+==============================================================================
+  2. CONCENTRATION & PARETO
+==============================================================================
+Trader Gini coefficient: 0.61
+Top 5 traders:  38% of all trades
+Top 10 traders: 59% of all trades
+Top 20 traders: 86% of all trades
+
+Top 20 tickers = 52% of trades; tickers with exactly 1 trade: 57 of 443
+
+--- Top 25 tickers by trade count ---
+  BTC          2,469  (15.7%)  long  57% / short  43%
+  ETH            785  ( 5.0%)  long  56% / short  44%
+  SOL            751  ( 4.8%)  long  56% / short  44%
+  XRP            416  ( 2.6%)  long  64% / short  36%
+  ZEC            416  ( 2.6%)  long  56% / short  44%
+  PUMP           403  ( 2.6%)  long  30% / short  70%
+  HYPE           352  ( 2.2%)  long  77% / short  23%
+  CASHCAT        300  ( 1.9%)  long  47% / short  53%
+  NEAR           278  ( 1.8%)  long  53% / short  47%
+  PENGU          267  ( 1.7%)  long  63% / short  37%
+  SUI            234  ( 1.5%)  long  59% / short  41%
+  WLD            224  ( 1.4%)  long  46% / short  54%
+  ONDO           196  ( 1.2%)  long  36% / short  64%
+  DOGE           194  ( 1.2%)  long  69% / short  31%
+  TAO            194  ( 1.2%)  long  68% / short  32%
+  AAVE           172  ( 1.1%)  long  35% / short  65%
+  ARB            155  ( 1.0%)  long  46% / short  54%
+  ENA            154  ( 1.0%)  long  27% / short  73%
+  ADA            141  ( 0.9%)  long  49% / short  51%
+  JUP            133  ( 0.8%)  long  52% / short  48%
+  FARTCOIN       130  ( 0.8%)  long  31% / short  69%
+  LIT            123  ( 0.8%)  long  46% / short  54%
+  VVV            123  ( 0.8%)  long  46% / short  54%
+  UNI            117  ( 0.7%)  long  51% / short  49%
+  AVAX           115  ( 0.7%)  long  71% / short  29%
+
+==============================================================================
+  3. EXECUTION STYLE & CONVICTION
+==============================================================================
+
+--- Direction ---
+  long 6,944 (44.2%)   short 8,769 (55.8%)
+
+--- Leverage distribution ---
+  min 1 | p25 5 | median 10 | p75 20 | p90 40 | p99 40 | max 40
+
+--- Hold time distribution (closed trades) ---
+  < 5 min    1,346  ( 8.7%)  ###
+  5-15 min   1,592  (10.2%)  ####
+  15-60 min  3,146  (20.2%)  ########
+  1-4 h      3,406  (21.9%)  ########
+  4-24 h     3,893  (25.0%)  ##########
+  1-7 d      1,731  (11.1%)  ####
+  > 7 d        438  ( 2.8%)  #
+  p10 6m | p25 23m | median 2.0h | p75 10.4h | p90 1.5d
+
+==============================================================================
+  4. RAW PERFORMANCE (Invo self-reported — paper, leveraged, treat with suspicion)
+==============================================================================
+Win rate:        87.8%
+Average win:     +20.1%   (median +10.0%)
+Average loss:    -45.3%   (median -30.7%)
+Payoff ratio:    0.44
+Expectancy:      +12.13% per trade (on margin)
+
+--- Exit reason breakdown ---
+  user_closed        11,238  mean   +17.7%  median    +9.1%
+  take_profit_hit     2,482  mean   +17.0%  median   +10.2%
+  stop_loss_hit         678  mean   -16.0%  median   -10.4%
+  liquidated            563  mean   -78.7%  median   -52.8%
+  token_delisted         38  mean   -63.6%  median  -100.0%
+  admin                   1  mean  -100.0%  median  -100.0%
+
+Liquidations: 563 (3.6% of closed trades)
+
+--- Stop-loss / target discipline ---
+  trades with stop_loss set:    2,095 (13%)
+  trades with price_target set: 7,021 (45%)
+
+--- Per-trader breakdown (all traders, sorted by trade count) ---
+  trader               n   win%   lev  hold_h  long%  sum_ret%
+  booobsas          2275  97.0%  13.4     1.0    24%     16969
+  bones             1104  87.7%  16.3     1.1    38%     26604
+  nicush             938  88.0%  16.3     2.4    60%     13828
+  luxora             799  86.0%  13.3     7.5    50%     18079
+  usdc               766  78.3%  18.9     2.4    43%      4759
+  laurentiu_02       696  97.4%  12.6     1.6    34%      3967
+  vodkastrash        681  91.6%  17.8     1.9    31%     16241
+  xk1ngss            678  82.3%   7.1     1.1    36%      5522
+  beutiful_boy       642  90.7%  11.6     1.3    19%      3921
+  akira              602  94.5%   9.1     7.7    60%      5396
+  glitty             583  87.0%  15.1     0.8    37%      4374
+  cobieg             575  88.0%   9.2     6.5    47%      2789
+  mystery            564  74.1%  12.3     1.0    32%     11123
+  mocagoat           560  92.7%  19.5     2.1    78%      4350
+  rps                427  93.2%  19.0     1.6    56%      3211
+  oozypath           387  91.5%  13.4     2.1    26%      4060
+  bip                348  95.7%  16.3     1.8    55%      3786
+  money_grinder      294  80.6%   8.9    19.7    89%     -2299
+  balmulla           271  81.5%   4.9    14.2    56%      2596
+  gabesmith          233  94.0%   7.1     5.1    63%      3497
+  mrbeanenjoyer      230  72.6%   6.2     0.2    30%      1315
+  cooperfitztrades   220  80.9%  18.9     1.5    68%       471
+  bartpeeters        171  88.9%  19.3     1.8    63%      8593
+  phoenix_ehv_       153  79.1%  21.2     3.4    76%      2491
+  ferrarilover       133  97.0%  19.8     0.3     6%      6579
+  liarak             119  59.7%  17.4     4.0    54%       599
+  gogeba             101  89.1%  20.7     3.0    52%       942
+  roadtoporsche       96  60.4%  17.6     2.7    48%       188
+  f1sch1              93  78.5%  24.8     3.7    52%       460
+  jannie_dinther      78  88.5%  10.0    11.3    44%      1409
+  rssan0307           75  46.7%  30.4     0.9    68%       435
+  killianfen654       60  88.3%  15.3    17.4   100%      1076
+  pxs                 58  69.0%   5.2   204.9   100%      2757
+  0liver_crypto       55  90.9%  33.6     0.2    56%       237
+  musso               50  86.0%  22.8     2.1    58%      2384
+  pl                  43  48.8%   5.2    92.7    88%       690
+  ethanmulls          42  57.1%  17.4     4.6    38%        50
+  mertyx222           39  46.2%   8.3     2.7    69%       779
+  harryhess_12        38  97.4%  19.2     0.2    53%       484
+  thefinessekid72     35  91.4%  17.1     2.0    51%       277
+  jjkea               35  77.1%  20.2     3.4    66%       199
+  zeta1994            35  82.9%  23.0     0.7    37%       254
+  shequi              34  73.5%  16.2     6.1    91%       479
+  ztrades             30  93.3%  39.9     2.9    57%       584
+  connorbot9660       29  75.9%  11.7     4.6    41%        49
+  vladica             18  88.9%  26.3     1.8    33%       121
+  veyjuvan7           17  94.1%  25.6     3.9    59%       296
+  moisawho            16  62.5%  18.2     5.0    38%       -12
+  patskoo              8  37.5%  24.5    16.5    50%       -55
+  kizan_               8  62.5%  36.2     2.0    75%       211
+  kalicia              6 100.0%  29.2    19.2    83%       389
+  ru_elenes            4  25.0%  13.8   245.4    75%      1179
+
+==============================================================================
+  5. HERDING & SYNCHRONICITY
+==============================================================================
+ 15m window:   7.1% of entries follow >=1 other trader into same coin | >=2 others:  1.0% | direction agreement: 79%
+  1h window:  16.0% of entries follow >=1 other trader into same coin | >=2 others:  4.9% | direction agreement: 73%
+  4h window:  30.3% of entries follow >=1 other trader into same coin | >=2 others: 15.1% | direction agreement: 69%
+
+Interpretation: mostly independent operators; crowding is the exception.
+
+==============================================================================
+  6. MARKET STATE AT ENTRY x FORWARD RETURNS  (76 tickers, 11,382 trades with targets)
+==============================================================================
+NOTE: forward returns are direction-adjusted, unleveraged, fee-free.
+If built from a partial candle pull this section skews toward top tickers.
+
+--- Forward return summary (their entries) — edge decay curve ---
+  + 30m  n=11,382  mean +0.521%  median +0.175%  hit 63.0%
+  +  1h  n=11,382  mean +0.526%  median +0.203%  hit 62.0%
+  +  2h  n=11,382  mean +0.537%  median +0.241%  hit 61.2%
+  +  4h  n=11,382  mean +0.517%  median +0.269%  hit 59.8%
+  +  8h  n=11,125  mean +0.555%  median +0.319%  hit 59.0%
+  + 12h  n=10,917  mean +0.503%  median +0.352%  hit 58.7%
+  + 24h  n=10,681  mean +0.482%  median +0.388%  hit 56.9%
+  + 48h  n=10,322  mean +0.505%  median +0.390%  hit 54.8%
+
+--- By side ---
+  long   1h +0.487%   4h +0.483%   24h +0.672%   (n=5,741)
+  short  1h +0.566%   4h +0.551%   24h +0.279%   (n=5,641)
+
+--- MAE / MFE within 24h (stop & target design input) ---
+  MAE (worst adverse): median -1.90%  p25 -4.33%  p10 -9.07%
+  MFE (best favorable): median 2.72%  p75 5.34%  p90 9.73%
+
+--- Volume z-score at entry -> 4h edge ---
+  quiet (<0)         n=5,465  mean 4h +0.545%  hit 59.2%
+  normal (0-1)       n=2,716  mean 4h +0.437%  hit 61.1%
+  elevated (1-2)     n=1,249  mean 4h +0.718%  hit 60.8%
+  spike (>2)         n=1,838  mean 4h +0.751%  hit 60.2%
+
+--- Volatility regime at entry -> 4h edge ---
+  compressed (<0.7)  n=  937  mean 4h +0.166%  hit 56.4%
+  normal (0.7-1)     n=4,058  mean 4h +0.596%  hit 59.8%
+  expanding (1-1.3)  n=3,740  mean 4h +0.638%  hit 61.2%
+  exploding (>1.3)   n=2,533  mean 4h +0.586%  hit 59.8%
+
+--- Position in 24h range at entry -> 4h edge ---
+  near 24h low       n=2,632  mean 4h +0.486%  hit 60.0%
+  low-mid            n=2,374  mean 4h +0.633%  hit 59.8%
+  high-mid           n=2,374  mean 4h +0.461%  hit 59.6%
+  near 24h high      n=3,885  mean 4h +0.661%  hit 60.3%
+
+--- Parkinson vol percentile -> 4h edge ---
+  low vol regime     n=2,334  mean 4h +0.522%  hit 62.8%
+  mid                n=5,119  mean 4h +0.578%  hit 59.9%
+  high vol regime    n=3,929  mean 4h +0.434%  hit 58.1%
+
+--- Cohort crowding (other traders, prior 4h) -> 4h edge ---
+  alone              n=7,236  mean 4h +0.571%  hit 59.9%
+  1 other            n=1,933  mean 4h +0.441%  hit 60.8%
+  2-3 others         n=1,463  mean 4h +0.329%  hit 58.9%
+  4+ others          n=  750  mean 4h +0.554%  hit 59.1%
+
+--- Funding percentile (7d) at entry -> 4h edge  [top tickers only] ---
+  low (<20th)        n=1,512  mean 4h +0.246%  hit 60.3%
+  mid                n=3,279  mean 4h +0.347%  hit 60.3%
+  high (>80th)       n=3,109  mean 4h +0.557%  hit 58.1%
+
+--- Edge by hour of day (UTC) -> 1h fwd ---
+  00:00  n= 285  +0.519%  #########################
+  01:00  n= 338  +1.010%  ##################################################
+  02:00  n= 255  +0.558%  ###########################
+  03:00  n= 271  +0.707%  ###################################
+  04:00  n= 296  +0.714%  ###################################
+  05:00  n= 305  +0.569%  ############################
+  06:00  n= 382  +1.095%  ######################################################
+  07:00  n= 429  +0.807%  ########################################
+  08:00  n= 457  +0.304%  ###############
+  09:00  n= 482  +0.604%  ##############################
+  10:00  n= 512  +0.287%  ##############
+  11:00  n= 517  +0.577%  ############################
+  12:00  n= 570  +0.526%  ##########################
+  13:00  n= 677  +0.420%  #####################
+  14:00  n= 769  +0.362%  ##################
+  15:00  n= 853  -0.057%  
+  16:00  n= 745  +0.506%  #########################
+  17:00  n= 600  +0.333%  ################
+  18:00  n= 610  +0.751%  #####################################
+  19:00  n= 519  +0.184%  #########
+  20:00  n= 486  +1.172%  ##########################################################
+  21:00  n= 347  +0.619%  ##############################
+  22:00  n= 351  +0.455%  ######################
+  23:00  n= 326  +0.773%  ######################################
+
+==============================================================================
+  7. DATA INTEGRITY AUDIT
+==============================================================================
+Duplicate trade_ids:        0
+Trades missing entry_price: 0
+Trades missing opened_at:   0
+closed_at before opened_at: 0
+hold_seconds disagrees with timestamps by >60s: 0
+entry_price <= 0:           0
+future-dated entries:       0
+
+--- Null rate of key columns ---
+  leverage         0.0% null
+  return_pct       1.0% null
+  hold_seconds     1.0% null
+  stop_loss       86.7% null
+  price_target    55.3% null
+  closed_at        1.0% null
+
+Binance pull coverage so far: 87 / 443 tickers
+Not on Binance futures (2 tickers, 346 trades): CASHCAT, CSPR
+  -> fall back to Hyperliquid puller (bn/invo_market_data.py) for these.
+Feature matrix rows: 11,733 of 15,713 trades (346 price-mismatch flags)
+
+==============================================================================
+  8. RETURN DISTRIBUTION SHAPE & OUTLIER SENSITIVITY
+==============================================================================
+4h fwd return: mean +0.517%  std 6.16%  skew -0.44  kurtosis 76.8 (normal=0)
+
+Does the edge survive removing lucky outliers?
+  full mean:            +0.517%
+  drop top 1% trades:   +0.166%
+  drop top/bot 1%:      +0.529%  (winsorized)
+  drop top/bot 5%:      +0.508%  (winsorized)
+  median:               +0.269%
+
+--- Histogram of 4h fwd returns ---
+      <-10%    161  ####
+   -10..-5%    194  ####
+    -5..-2%    733  ##################
+    -2..-1%    884  ######################
+   -1..-.5%    880  ######################
+    -.5..0%  1,719  ############################################
+     0...5%  1,941  ##################################################
+     .5..1%  1,330  ##################################
+      1..2%  1,487  ######################################
+      2..5%  1,406  ####################################
+     5..10%    412  ##########
+       >10%    235  ######
+
+--- Class balance (future ML target base rates, 4h horizon) ---
+  fwd_ret_4h > +0.00%:  59.8% of trades
+  fwd_ret_4h > +0.10%:  56.1% of trades
+  fwd_ret_4h > +0.25%:  50.6% of trades
+  fwd_ret_4h > +0.50%:  42.8% of trades
+
+==============================================================================
+  9. EDGE STABILITY OVER TIME & BTC REGIME
+==============================================================================
+
+--- 4h edge by quarter ---
+  2024Q1  n=    5  (too few)
+  2024Q2  n=   64  mean +1.119%  hit 62.5%
+  2024Q3  n=  219  mean +0.442%  hit 58.0%
+  2024Q4  n=  179  mean +0.428%  hit 60.9%
+  2025Q1  n=  535  mean +0.735%  hit 59.3%
+  2025Q2  n=  512  mean +0.076%  hit 60.4%
+  2025Q3  n=  746  mean +0.616%  hit 60.2%
+  2025Q4  n=  280  mean +0.519%  hit 58.6%
+  2026Q1  n=  438  mean +0.618%  hit 58.7%
+  2026Q2  n=1,811  mean +0.631%  hit 59.4%
+  2026Q3  n=6,224  mean +0.486%  hit 60.2%
+  2026Q4  n=  369  mean +0.413%  hit 57.5%
+
+--- 4h edge by BTC regime (30d BTC return: bull >+10%, bear <-10%) ---
+  bear   n=1,062  mean +0.766%  hit 62.8%
+  bull   n=3,046  mean +0.560%  hit 59.3%
+  chop   n=7,274  mean +0.462%  hit 59.6%
+
+==============================================================================
+  10. PER-TRADER SKILL (our fwd returns, not Invo's numbers)
+==============================================================================
+
+--- Traders ranked by 4h fwd return after their entries (min 50 matrix rows) ---
+  trader               n  mean_4h%   hit%
+  balmulla           243    +1.473  57.2%
+  mrbeanenjoyer       59    +1.264  57.6%
+  bartpeeters        130    +1.200  60.8%
+  beutiful_boy       414    +1.041  66.7%
+  bones              657    +0.819  59.8%
+  vodkastrash        473    +0.699  63.2%
+  akira              535    +0.685  63.7%
+  laurentiu_02       545    +0.641  63.3%
+  booobsas          1673    +0.619  60.9%
+  gogeba             101    +0.605  61.4%
+  nicush             772    +0.559  59.2%
+  luxora             588    +0.529  62.9%
+  rps                369    +0.519  62.3%
+  jannie_dinther      54    +0.473  61.1%
+  gabesmith          169    +0.466  57.4%
+  phoenix_ehv_       149    +0.455  61.1%
+  glitty             372    +0.453  57.0%
+  mocagoat           493    +0.415  55.6%
+  bip                338    +0.406  62.1%
+  cobieg             485    +0.349  56.9%
+  usdc               644    +0.348  60.6%
+  roadtoporsche       82    +0.309  56.1%
+  liarak             119    +0.230  62.2%
+  0liver_crypto       54    +0.145  53.7%
+  xk1ngss            398    +0.091  54.5%
+  musso               50    +0.073  56.0%
+  rssan0307           75    +0.052  52.0%
+  oozypath           246    +0.035  63.8%
+  money_grinder      165    -0.002  58.2%
+  killianfen654       73    -0.084  46.6%
+  f1sch1              82    -0.230  51.2%
+  cooperfitztrades   200    -0.303  52.5%
+  mystery            122    -1.060  50.0%
+
+  traders with positive 4h edge: 28 of 33 (with n>=50)
+
+--- Skill persistence: each trader's 1st-half edge vs 2nd-half edge (n>=100) ---
+  traders tested: 25 | rank correlation 1st->2nd half: +0.18 | same-sign edge both halves: 80%
+  (positive correlation = skill persists; ~0 = past edge doesn't predict future edge)
+
+==============================================================================
+  11. EXIT QUALITY — money left on the table
+==============================================================================
+Winning trades analyzed: 9,732
+Median capture ratio (realized gain / best available gain in 24h): 29%
+Winners capturing <25% of the 24h MFE: 45%
+Median left on table per winner: 1.79% (unleveraged)
+-> systematic exits have clear room to beat their manual exits.
+
+==============================================================================
+  12. EDGE BY TICKER TIER
+==============================================================================
+  altcoin/meme  n=6,268  mean 4h +0.703%  hit 60.2%
+  major         n=5,114  mean 4h +0.288%  hit 59.4%
+
+--- Top tickers by trade count (4h edge each) ---
+  AAVE        n=  172  mean +0.640%  hit 66.3%
+  ADA         n=  140  mean +0.855%  hit 65.0%
+  ARB         n=  154  mean +0.078%  hit 57.1%
+  AVAX        n=  115  mean +0.675%  hit 62.6%
+  BTC         n=2,463  mean +0.253%  hit 59.0%
+  CRV         n=  107  mean +0.895%  hit 69.2%
+  DOGE        n=  194  mean +0.167%  hit 60.8%
+  ENA         n=  154  mean +0.751%  hit 59.1%
+  ETH         n=  784  mean +0.367%  hit 58.4%
+  FARTCOIN    n=  130  mean +0.682%  hit 60.8%
+  HBAR        n=  102  mean +0.724%  hit 60.8%
+  HYPE        n=  350  mean +0.379%  hit 60.6%
+  JUP         n=  133  mean +1.069%  hit 63.2%
+  KAITO       n=  115  mean +1.614%  hit 65.2%
+  LINK        n=  111  mean +0.184%  hit 59.5%
+  LIT         n=  107  mean +4.246%  hit 60.7%
+  NEAR        n=  274  mean +0.449%  hit 60.6%
+  ONDO        n=  195  mean +0.261%  hit 56.4%
+  PENGU       n=  267  mean +0.785%  hit 55.8%
+  PUMP        n=  394  mean +0.746%  hit 60.9%
+  SOL         n=  748  mean +0.224%  hit 59.1%
+  SUI         n=  234  mean +0.593%  hit 62.8%
+  TAO         n=  194  mean +0.675%  hit 52.1%
+  UNI         n=  115  mean +0.634%  hit 54.8%
+  VVV         n=  122  mean +1.930%  hit 63.9%
+  WLD         n=  224  mean +0.517%  hit 57.1%
+  XRP         n=  414  mean +0.307%  hit 59.4%
+  ZEC         n=  412  mean +0.748%  hit 61.9%
+
+==============================================================================
+  13. FEATURE INFORMATION COEFFICIENTS & REDUNDANCY
+==============================================================================
+IC = Spearman rank corr(feature, 4h fwd return). |IC| > 0.03 is meaningful at this n.
+  feature                       IC       n
+  f_natr_24h                +0.105  11,382  <-- 
+  f_park_vol_24h            +0.103  11,382  <-- 
+  f_leverage                -0.099  11,382  <-- 
+  f_bb_bw_20                +0.092  11,382  <-- 
+  f_dist_low_24h            +0.082  11,382  <-- 
+  f_cohort_n_24h            -0.063  11,382  <-- 
+  f_cohort_traders_24h      -0.061  11,382  <-- 
+  f_ret_24h                 +0.047  11,382  <-- 
+  f_ema20_dev               +0.044  11,382  <-- 
+  f_cohort_traders_4h       -0.043  11,382  <-- 
+  f_ema50_dev               +0.043  11,380  <-- 
+  f_cohort_n_4h             -0.041  11,382  <-- 
+  f_dist_high_24h           -0.037  11,382  <-- 
+  f_ret_4h                  +0.032  11,382  <-- 
+  f_cohort_traders_1h       -0.031  11,382  <-- 
+  f_range_pos_24h           +0.031  11,268  <-- 
+  f_cohort_sameside_4h      -0.030  11,382
+  f_cohort_n_1h             -0.029  11,382
+  f_fund_vel                -0.029   7,900
+  f_ret_1h                  +0.028  11,382
+  f_atr_ratio_6_24          +0.023  11,268
+  f_vol_z_1h                +0.021  11,268
+  f_fund_rate               -0.020   7,900
+  f_park_pctl_30d           +0.017  11,382
+  f_dow                     +0.013  11,382
+  f_taker_buy_ratio         +0.013  11,268
+  f_fund_pctl_7d            +0.007   7,900
+  f_hour_utc                -0.004  11,382
+
+--- Highly correlated feature pairs (|spearman| > 0.7) — redundancy for ML ---
+  f_ret_4h <-> f_range_pos_24h: +0.70
+  f_ret_4h <-> f_ema20_dev: +0.76
+  f_ret_24h <-> f_dist_low_24h: +0.73
+  f_ret_24h <-> f_range_pos_24h: +0.81
+  f_ret_24h <-> f_ema20_dev: +0.87
+  f_ret_24h <-> f_ema50_dev: +0.90
+  f_dist_high_24h <-> f_range_pos_24h: +0.71
+  f_dist_low_24h <-> f_range_pos_24h: +0.73
+  f_dist_low_24h <-> f_ema20_dev: +0.76
+  f_dist_low_24h <-> f_ema50_dev: +0.74
+  f_dist_low_24h <-> f_bb_bw_20: +0.71
+  f_dist_low_24h <-> f_park_vol_24h: +0.71
+  f_range_pos_24h <-> f_ema20_dev: +0.89
+  f_range_pos_24h <-> f_ema50_dev: +0.80
+  f_ema20_dev <-> f_ema50_dev: +0.91
+  f_natr_24h <-> f_bb_bw_20: +0.87
+  f_natr_24h <-> f_park_vol_24h: +0.99
+  f_bb_bw_20 <-> f_park_vol_24h: +0.89
+  f_fund_rate <-> f_fund_pctl_7d: +0.72
+  f_cohort_n_1h <-> f_cohort_traders_1h: +0.82
+  f_cohort_n_1h <-> f_cohort_n_4h: +0.73
+  f_cohort_traders_1h <-> f_cohort_traders_4h: +0.70
+  f_cohort_n_4h <-> f_cohort_traders_4h: +0.87
+  f_cohort_n_4h <-> f_cohort_n_24h: +0.76
+  f_cohort_n_4h <-> f_cohort_sameside_4h: +0.89
+  f_cohort_traders_4h <-> f_cohort_n_24h: +0.70
+  f_cohort_traders_4h <-> f_cohort_traders_24h: +0.75
+  f_cohort_traders_4h <-> f_cohort_sameside_4h: +0.77
+  f_cohort_n_24h <-> f_cohort_traders_24h: +0.91
+
+==============================================================================
+  14. NAIVE COHORT EQUITY CURVE & EFFECTIVE SAMPLE SIZE
+==============================================================================
+Strategy: take every entry, equal weight, hold 4h, unleveraged, fee-free.
+  2024-02  month     +8.0%  cum      +8.0%  
+  2024-03  month     +0.4%  cum      +8.4%  
+  2024-04  month    +44.5%  cum     +52.9%  
+  2024-05  month     +1.1%  cum     +54.0%  
+  2024-06  month    +26.1%  cum     +80.1%  
+  2024-07  month    +20.0%  cum    +100.1%  
+  2024-08  month    +59.2%  cum    +159.2%  #
+  2024-09  month    +17.6%  cum    +176.8%  
+  2024-10  month    -11.5%  cum    +165.4%  
+  2024-11  month    +73.6%  cum    +239.0%  #
+  2024-12  month    +14.4%  cum    +253.4%  
+  2025-01  month    +44.8%  cum    +298.2%  
+  2025-02  month   +594.1%  cum    +892.3%  ############
+  2025-03  month   -246.0%  cum    +646.4%  #####
+  2025-04  month    -35.9%  cum    +610.5%  
+  2025-05  month   +247.3%  cum    +857.8%  #####
+  2025-06  month   -172.5%  cum    +685.2%  ###
+  2025-07  month   +293.0%  cum    +978.3%  ######
+  2025-08  month   +114.8%  cum   +1093.0%  ##
+  2025-09  month    +51.6%  cum   +1144.6%  #
+  2025-10  month    +13.4%  cum   +1157.9%  
+  2025-11  month    +36.8%  cum   +1194.8%  
+  2025-12  month    +95.1%  cum   +1289.9%  ##
+  2026-01  month    +45.7%  cum   +1335.5%  
+  2026-02  month   +104.6%  cum   +1440.1%  ##
+  2026-03  month   +120.3%  cum   +1560.3%  ##
+  2026-04  month   +314.4%  cum   +1874.7%  ######
+  2026-05  month   +169.2%  cum   +2043.9%  ###
+  2026-06  month   +659.9%  cum   +2703.8%  ##############
+  2026-07  month   +628.8%  cum   +3332.5%  #############
+  2026-08  month   +984.1%  cum   +4316.6%  ####################
+  2026-09  month  +1410.5%  cum   +5727.1%  ##############################
+  2026-10  month   +152.4%  cum   +5879.5%  ###
+
+Total (sum of per-trade 4h returns): +5879.5%  | worst peak-to-trough: -281.8%
+Months positive: 29 / 33
+BTC buy & hold over same span: +65.1%
+
+--- Effective sample size ---
+  11,382 trades collapse into 7,591 independent (ticker x 4h-window) clusters.
+  Significance tests must use the cluster count, not the trade count.
+
+END OF REPORT

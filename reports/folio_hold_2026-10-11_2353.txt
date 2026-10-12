@@ -1,0 +1,21 @@
+FOLIO HOLD COMPARISON — 2026-10-11 23:51 UTC | Invo 60, 2025-26
+
+arm                            $10k ->     ret%   maxdd trades  win%     avg
+current (all books 24h)    $    23,687  +136.9%   -8.7%    615   53%  +1.81%
+    loser3_maj        388 trades  pnl $+2,361
+    capit_invo        127 trades  pnl $+5,666
+    capit_maj          11 trades  pnl $+3,935
+    short_hold24       89 trades  pnl $+1,725
+
+longs 48h, short 24h       $    19,262   +92.6%   -8.1%    564   49%  +1.59%
+    loser3_maj        361 trades  pnl $-90
+    capit_invo        104 trades  pnl $+4,551
+    capit_maj          11 trades  pnl $+3,484
+    short_hold24       88 trades  pnl $+1,317
+
+everything 48h             $    19,279   +92.8%   -8.1%    563   48%  +1.59%
+    loser3_maj        361 trades  pnl $-100
+    capit_invo        103 trades  pnl $+4,587
+    capit_maj          11 trades  pnl $+3,457
+    short_hold24       88 trades  pnl $+1,336
+

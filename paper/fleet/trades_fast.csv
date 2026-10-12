@@ -1,0 +1,2 @@
+ticker,t_sig,entry,stop,exit_t,kind,net,pnl,notional,equity_after
+ALGO,1791452700000,0.13775,0.14355,1791459900000,time,0.026259,46.77,1781.25,10046.77

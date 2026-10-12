@@ -1,0 +1,15 @@
+FADE_PUMP TEST — 2026-10-11 22:18 UTC
+short biggest non-top10 1h winner >= +6% | hold 3h | stop +1.8% | tp -4.5% | gate30 dial + BTC-bull block | fleet sizing (stop-dist risk, conc 4)
+
+TRACK 2023-24 bear: 2,613 candidate signals (top10 excluded: BNB BTC DOGE ETH PEPE SOL SUI WLD XRP kPEPE)
+  arm                    $10k ->    ret%   maxdd trades  win%     avg  exits
+  spec               $     9,772   -2.3%   -3.6%     54   31%  -0.21%  sl:37 time:7 tp:10
+  no TP              $     9,929   -0.7%   -2.9%     52   29%  -0.06%  sl:37 time:15
+  ungated            $     5,039  -49.6%  -50.7%   1340   31%  -0.25%  sl:903 time:166 tp:271
+
+TRACK 2025-26 main: 4,988 candidate signals (top10 excluded: BNB BTC DOGE ETH HYPE PEPE SOL SUI XRP kPEPE)
+  arm                    $10k ->    ret%   maxdd trades  win%     avg  exits
+  spec               $     7,002  -30.0%  -33.0%    752   29%  -0.23%  sl:526 time:48 tp:178
+  no TP              $     6,467  -35.3%  -35.4%    638   23%  -0.33%  sl:480 time:158
+  ungated            $     3,401  -66.0%  -67.2%   2307   30%  -0.23%  sl:1595 time:184 tp:528
+

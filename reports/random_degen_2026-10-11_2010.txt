@@ -1,0 +1,43 @@
+RANDOM DEGEN UNIVERSE TEST — 2026-10-11 20:08 UTC
+2025-26 main window | 3 draws of 60 random crypto perps (TradFi excluded) vs the Invo 60
+
+  [INVO 60 (control)] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      13,777   -2.5%    87   108    340    0
+  Super Eddie (20%/1x both, flat)                      $      44,962  -11.6%    87   108    340    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $     307,714  -21.8%    87   108    340    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $   1,851,226  -37.2%    87   108    341    1
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $   8,826,361  -52.1%    87   108    341    1
+
+random pool: 622 crypto perps (of 798 wide, 176 TradFi excluded)
+
+  draw 1: 1000000MOG 1000WHY ACU AEVO AGPU AI AIN ATA BEAT BIRB BLUAI BSB BSW CELO DUSK EDGE FF FLM FLOW FOGO FUN FXS GALA GOAT HIFI ICP JASMY KAIA KGEN LA LSK MBOX MIRA OCEAN OGN OP OPN PONS PRL QNTX RARE REEF RESOLV RSR SENT SKR SNXX SPK STABLE STAR STO STPT TEAM TRUST US USTC VTHO XVG YALA YFI
+  pump events: 1,221
+  [RANDOM DEGEN 60 — draw 1] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $       9,192  -22.7%   301   189    624    0
+  Super Eddie (20%/1x both, flat)                      $       4,983  -77.0%   301   189    624    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $         244  -99.5%   301   189    624    1
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $          15 -100.0%   243   168    456    5
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $           8 -100.0%   190   135    417    3
+
+  draw 2: AERGO AGLD AIO ARK BANK BCH CETUS CTR CVC CYS DATAIP DEGO DF DGB DOLO FIGHT FXS GHST GUA GWEI ID IOTA LINA LUMIA MAGMA MON MORPHO MVLL MYRO MYX NEIRO NMR OG OPN PATH POLYX PROM Q RED REEF RLS RVV SAND SOMI SSV STAR STEEM STRC STXX SWARMS SWELL TAIKO TAKE TLM TST VANRY XCN ZAMA ZRO ZRX
+  pump events: 1,300
+  [RANDOM DEGEN 60 — draw 2] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $       8,004  -30.5%   310   219    850    0
+  Super Eddie (20%/1x both, flat)                      $       2,476  -86.7%   310   219    850    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $          45  -99.8%   310   219    850    1
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $           4 -100.0%   246   192    634   10
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $          11  -99.9%   188   150    485    8
+
+  draw 3: 1MBABYDOGE 4 AI AIO ALL ATH AUCTION BICO CAT CELO CETUS COMMON COMP CTSI EGLD FLNC G GAS GIGGLE HIVE HOLO IDEX KOMA MELANIA MON NEO NIGHT ON ONE OP ORCA ORDI PIEVERSE POWR PUFFER RAD RED SCR SCRT SFP SHAZ SIGN SPELL STPT TAC TOSHI TRU TST UAI UMA WCT WIF XAN XNY XPIN YFI YGG ZEN ZORA ZRO
+  pump events: 1,215
+  [RANDOM DEGEN 60 — draw 3] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $       9,885  -14.9%   293   189    647    0
+  Super Eddie (20%/1x both, flat)                      $       7,939  -57.0%   293   189    647    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $       3,931  -89.2%   293   189    647    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $         223  -99.7%   293   189    648    2
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $          10 -100.0%   251   179    557    2
+

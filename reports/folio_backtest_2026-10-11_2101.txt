@@ -1,0 +1,16 @@
+FOLIO BACKTEST — 2026-10-11 20:59 UTC | Invo 60, 2025-26 main window
+folio books mirror paper_fleet.run_books; rivals at fleet sizing
+
+variant            $10k ->     ret%   maxdd trades  win%  avg net
+FOLIO          $    23,687  +136.9%   -8.7%    615   53%   +1.81%
+  loser3_maj        388 trades  pnl $+2,361
+  capit_invo        127 trades  pnl $+5,666
+  capit_maj          11 trades  pnl $+3,935
+  short_hold24       89 trades  pnl $+1,725
+
+base           $    12,870   +28.7%   -4.3%    164   51%   +2.03%
+hold24         $    14,562   +45.6%   -5.1%    164   42%   +2.55%
+capit          $    17,000   +70.0%   -9.4%    163   63%   +3.66%
+capit_maj      $    14,411   +44.1%   -1.2%     28   79%  +11.82%
+loser3         $    12,206   +22.1%  -69.3%   1582   45%   +0.42%
+loser3_maj     $    12,074   +20.7%  -12.4%    361   52%   +0.48%

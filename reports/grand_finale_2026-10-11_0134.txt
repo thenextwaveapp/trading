@@ -1,0 +1,13 @@
+GRAND FINALE — 2026-10-11 01:34 UTC
+tuned winner (24h hold, 3x, 35% x (runup/12%)^2 cap 75%) | gate30 dial (trailing 30d mean 24h fwd return of pump events, short iff < 0.0)
+
+track                  mode            $10k ->    maxdd  trades  skipped  liqs
+2023-24 bear track     ungated  $        1,304   -89.2%      81        0     0
+2023-24 bear track     GATED    $        6,413   -35.9%       6       76     0
+
+2025-26 main track     ungated  $    2,477,035   -67.7%     163        0     0
+2025-26 main track     GATED    $      519,658   -42.7%      89       76     0
+
+CHAINED $10k THROUGH ALL FOUR YEARS (2023 -> Oct 2026):
+  ungated  $323,049
+  GATED    $333,270

@@ -1,0 +1,94 @@
+{
+ "equity": 10135.12559497522,
+ "kill_until": 0,
+ "last_sig_t": 1791759600000,
+ "positions": [
+  {
+   "ticker": "WLD",
+   "symbol": "WLDUSDT",
+   "t_sig": 1791689400000,
+   "entry": 0.5466,
+   "stop": 0.0,
+   "notional": 833.3333333333334,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "STRK",
+   "symbol": "STRKUSDT",
+   "t_sig": 1791693000000,
+   "entry": 0.10397,
+   "stop": 0.0,
+   "notional": 833.3333333333334,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "WLD",
+   "symbol": "WLDUSDT",
+   "t_sig": 1791699300000,
+   "entry": 0.5498,
+   "stop": 0.0,
+   "notional": 833.3333333333334,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "STRK",
+   "symbol": "STRKUSDT",
+   "t_sig": 1791743400000,
+   "entry": 0.11515,
+   "stop": 0.0,
+   "notional": 833.3333333333334,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "VVV",
+   "symbol": "VVVUSDT",
+   "t_sig": 1791747000000,
+   "entry": 24.235,
+   "stop": 0.0,
+   "notional": 833.3333333333334,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "STRK",
+   "symbol": "STRKUSDT",
+   "t_sig": 1791752400000,
+   "entry": 0.11597,
+   "stop": 0.0,
+   "notional": 833.3333333333334,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "PUMP",
+   "symbol": "PUMPUSDT",
+   "t_sig": 1791756000000,
+   "entry": 0.00552,
+   "stop": 0.0,
+   "notional": 844.5937995812683,
+   "hold": 96,
+   "side": 1
+  },
+  {
+   "ticker": "FIL",
+   "symbol": "FILUSDT",
+   "t_sig": 1791759600000,
+   "entry": 1.2132,
+   "stop": 0.0,
+   "notional": 844.5937995812683,
+   "hold": 96,
+   "side": 1
+  }
+ ],
+ "eq_hist": [
+  [
+   1791754200000,
+   10135.12559497522
+  ]
+ ],
+ "orders": []
+}

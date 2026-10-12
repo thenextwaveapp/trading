@@ -1,0 +1,123 @@
+REGIME-SWITCHED PUMP TRADER — 2026-10-05 09:12 UTC | full span 2023-01 -> 2026-10
+dial = trailing mean 24h fwd return of completed pump events (causal)
+
+universe: 60 tickers with continuous data
+pump events (runup>=12%/4h, 24h cooldown): 1,762 from 2023-01-02 to 2026-10-02
+
+DIAL STATE BY MONTH (window=60d thr=0.0%) [-1 short / 0 flat / +1 long], n events, mean fwd 24h
+  2023-03: LONG  (n= 56, m=+2.14%)
+  2023-04: LONG  (n= 44, m=+1.69%)
+  2023-05: LONG  (n= 25, m=+1.88%)
+  2023-06: SHORT (n= 18, m=-2.72%)
+  2023-07: SHORT (n= 28, m=-1.23%)
+  2023-08: LONG  (n= 30, m=+4.27%)
+  2023-09: LONG  (n= 37, m=+2.74%)
+  2023-10: LONG  (n= 25, m=+0.64%)
+  2023-11: SHORT (n= 17, m=-0.51%)
+  2023-12: LONG  (n= 36, m=+0.92%)
+  2024-01: LONG  (n= 70, m=+1.97%)
+  2024-02: LONG  (n= 75, m=+2.40%)
+  2024-03: LONG  (n= 54, m=+6.35%)
+  2024-04: LONG  (n=119, m=+3.96%)
+  2024-05: LONG  (n=134, m=+3.29%)
+  2024-06: LONG  (n= 70, m=+6.10%)
+  2024-07: LONG  (n= 29, m=+2.22%)
+  2024-08: LONG  (n= 26, m=+4.05%)
+  2024-09: LONG  (n= 68, m=+5.52%)
+  2024-10: LONG  (n= 69, m=+4.01%)
+  2024-11: LONG  (n= 25, m=+1.09%)
+  2024-12: LONG  (n=112, m=+2.54%)
+  2025-01: LONG  (n=200, m=+2.54%)
+  2025-02: LONG  (n=160, m=+0.79%)
+  2025-03: SHORT (n=158, m=-0.29%)
+  2025-04: SHORT (n=143, m=-0.95%)
+  2025-05: SHORT (n=121, m=-1.13%)
+  2025-06: LONG  (n=106, m=+0.06%)
+  2025-07: SHORT (n= 58, m=-0.11%)
+  2025-08: SHORT (n= 49, m=-0.12%)
+  2025-09: LONG  (n= 75, m=+0.58%)
+  2025-10: LONG  (n= 78, m=+5.06%)
+  2025-11: LONG  (n=133, m=+3.26%)
+  2025-12: LONG  (n=171, m=+0.52%)
+  2026-01: SHORT (n=106, m=-0.47%)
+  2026-02: SHORT (n= 41, m=-4.05%)
+  2026-03: SHORT (n= 57, m=-1.74%)
+  2026-04: SHORT (n= 53, m=-0.66%)
+  2026-05: SHORT (n= 44, m=-2.97%)
+  2026-06: SHORT (n= 83, m=-0.19%)
+  2026-07: LONG  (n= 91, m=+1.34%)
+  2026-08: LONG  (n= 53, m=+0.83%)
+  2026-09: LONG  (n= 58, m=+0.21%)
+
+PER-QUARTER — same signal, three direction policies
+win     arm         trades  skip  net/trade  win%       eq      dd
+2023Q1  short-only       6     0    -2.395%   17%   -1.74%  -2.45%
+2023Q1  long-only        6     0    +0.660%   50%   +0.32%  -0.44%
+2023Q1  switched         6     0    +0.660%   50%   +0.32%  -0.44%
+2023Q2  short-only       0     0    +0.000%    0%   +0.00%   0.00%
+2023Q2  long-only        0     0    +0.000%    0%   +0.00%   0.00%
+2023Q2  switched         0     0    +0.000%    0%   +0.00%   0.00%
+2023Q3  short-only       5     0    -3.878%    0%   -1.83%  -1.83%
+2023Q3  long-only        5     0   +17.079%   60%   +4.19%  -0.14%
+2023Q3  switched         5     0    -1.393%   20%   -0.83%  -1.15%
+2023Q4  short-only      15     0    -0.160%   47%   +0.73%  -2.76%
+2023Q4  long-only       15     0    -2.764%   40%   -2.26%  -2.36%
+2023Q4  switched        13     2    -3.756%   31%   -3.53%  -3.53%
+2024Q1  short-only      18     0    +0.387%   44%   +0.24%  -5.34%
+2024Q1  long-only       17     0    +0.259%   41%   +0.78%  -1.64%
+2024Q1  switched        17     0    +0.259%   41%   +0.78%  -1.64%
+2024Q2  short-only       8     0    -1.437%   25%   -2.14%  -2.69%
+2024Q2  long-only        8     0    +4.432%   50%   +2.03%  -0.36%
+2024Q2  switched         8     0    +4.432%   50%   +2.03%  -0.36%
+2024Q3  short-only       1     0    -4.949%    0%   -0.77%  -0.77%
+2024Q3  long-only        1     0    -5.488%    0%   -0.22%  -0.22%
+2024Q3  switched         1     0    -5.488%    0%   -0.22%  -0.22%
+2024Q4  short-only      32     0    -0.877%   28%   -4.47%  -4.97%
+2024Q4  long-only       31     0    +0.249%   45%   +0.49%  -1.58%
+2024Q4  switched        32     0    -0.033%   41%   -0.66%  -2.05%
+2025Q1  short-only      19     0    +1.294%   47%   +3.35%  -4.29%
+2025Q1  long-only       19     0    -0.576%   47%   -0.48%  -1.73%
+2025Q1  switched        19     0    +0.372%   37%   +0.38%  -4.97%
+2025Q2  short-only      19     0    +0.301%   47%   +0.92%  -2.39%
+2025Q2  long-only       14     0    +0.451%   43%   +0.37%  -0.60%
+2025Q2  switched        17     0    -2.117%   29%   -3.83%  -4.20%
+2025Q3  short-only      24     0    -0.388%   38%   +0.70%  -1.66%
+2025Q3  long-only       22     0    -0.260%   50%   -0.65%  -1.52%
+2025Q3  switched        23     0    -1.136%   39%   -2.29%  -2.32%
+2025Q4  short-only      26     0    +1.032%   62%   +0.54%  -2.13%
+2025Q4  long-only       25     0    +0.070%   28%   +0.48%  -1.17%
+2025Q4  switched        25     0    +1.242%   32%   +1.04%  -0.93%
+2026Q1  short-only      16     0    +1.628%   50%   +3.26%  -2.42%
+2026Q1  long-only       15     0    -1.356%   27%   -0.75%  -2.14%
+2026Q1  switched        16     0    +0.832%   44%   +1.57%  -2.42%
+2026Q2  short-only      24     0    +5.531%   58%   +9.76%  -1.66%
+2026Q2  long-only       22     0    -4.915%   32%   -4.33%  -4.71%
+2026Q2  switched        22     0    +2.325%   59%   +6.81%  -1.26%
+2026Q3  short-only      34     0    +3.961%   53%   +8.64%  -1.81%
+2026Q3  long-only       33     0    -3.782%   36%   -4.16%  -4.36%
+2026Q3  switched        33     0    +0.847%   45%   +3.12%  -3.92%
+
+====================================================================================================
+FULL-SPAN SUMMARY 2023-01 -> 2026-10
+arm         trades  net/trade  win% windows+ compounded worst dd
+short-only     247    +1.083%   45%      64%    +17.47%    -5.3%
+long-only      233    -0.738%   40%      50%     -4.43%    -4.7%
+switched       237    +0.210%   41%      57%     +4.31%    -5.0%
+
+BY YEAR x ARM (net/trade % | trades)
+  short-only  2023: -1.39%/26 | 2024: -0.64%/59 | 2025: +0.54%/88 | 2026: +3.97%/74
+  long-only   2023: +1.84%/26 | 2024: +0.74%/57 | 2025: -0.11%/80 | 2026: -3.62%/70
+  switched    2023: -2.16%/24 | 2024: +0.57%/58 | 2025: -0.29%/84 | 2026: +1.30%/71
+
+DIAL GRID SENSITIVITY (switched arm, pooled full span)
+ window    thr trades  net/trade compounded worst dd
+    30d  0.0%    236    +1.183%    +20.13%    -3.0%
+    60d  0.0%    237    +0.210%     +4.31%    -5.0%
+    90d  0.0%    242    +0.215%     +9.39%    -4.5%
+    60d  0.5%    194    +0.328%     +6.89%    -3.7%
+    60d  1.0%    162    -0.065%     +1.96%    -3.7%
+
+CAVEATS: dial window/threshold chosen in 2026 with both regimes known —
+the grid above is the honesty check. Long arm is a mirror, never
+pre-registered. 2023-24 universe is survivor-thin (47 tickers, majors-
+heavy). Any live use requires pre-registration round two.

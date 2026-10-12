@@ -1,0 +1,23 @@
+RULES WALK-FORWARD — 2026-10-05 08:02 UTC | universe 60 tickers | rules frozen per reports/rules_preregistration.md
+W1-2025Q1 rule P: signals     6 trades    6 | net/trade +3.427% | eq +2.66% dd -1.96%
+W1-2025Q1 rule D: signals 43,187 trades   99 | net/trade -0.554% | eq -7.17% dd -10.09% | beta baseline -0.833%
+W2-2025Q2 rule P: signals     2 trades    2 | net/trade +1.109% | eq +0.61% dd -0.28%
+W2-2025Q2 rule D: signals 80,156 trades  139 | net/trade +0.981% | eq +25.39% dd -10.97% | beta baseline +0.113%
+W3-2025Q3 rule P: signals    13 trades   13 | net/trade -0.787% | eq +0.35% dd -1.25%
+W3-2025Q3 rule D: signals 91,573 trades  125 | net/trade +0.806% | eq +17.29% dd -7.12% | beta baseline -0.243%
+W4-2025Q4 rule P: signals     9 trades    9 | net/trade +3.648% | eq +3.57% dd -0.91%
+W4-2025Q4 rule D: signals 95,933 trades   93 | net/trade -0.720% | eq -11.07% dd -15.85% | beta baseline +0.121%
+W5-2026Q1 rule P: signals     5 trades    5 | net/trade +5.011% | eq +0.83% dd -0.99%
+W5-2026Q1 rule D: signals 89,854 trades  126 | net/trade -0.547% | eq -12.06% dd -18.23% | beta baseline +0.139%
+W6-2026Q2 rule P: signals    11 trades   11 | net/trade +4.282% | eq +4.71% dd -1.13%
+W6-2026Q2 rule D: signals 51,214 trades   59 | net/trade -1.054% | eq -10.02% dd -11.06% | beta baseline +0.232%
+W7-orig rule P: signals    30 trades   28 | net/trade +4.808% | eq +9.85% dd -1.39%
+W7-orig rule D: signals 106,620 trades  160 | net/trade +1.256% | eq +40.40% dd -5.61% | beta baseline +0.958%
+
+==============================================================================
+GATE CHECK (pre-registered)
+rule P: trades 74 | pooled net/trade +3.407% | windows+ 100% | compounded +24.50% | worst window dd -2.0% | top ticker 17% of +PnL
+  -> PASS (4/4 criteria)
+rule D: trades 801 | pooled net/trade +0.231% | windows+ 43% | compounded +34.90% | worst window dd -18.2% | top ticker 18% of +PnL
+  rule D edge over beta baseline: +0.161%/trade (needs >= +0.10%)
+  -> FAIL (4/5 criteria)

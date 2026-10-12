@@ -1,0 +1,67 @@
+UNIVERSE MAP — 2026-10-11 22:42 UTC | every perp, 2025-26 window, no gates
+
+coins: 60 Invo-60 | 622 outside (crypto perps, TradFi excluded)
+
+POSITIVE-EXPECTANCY SHARE (coins with >= 3 trades)
+  pump-short   Invo60: 12/21 positive ( 57%)   outside: 240/426 positive ( 56%)
+  capit-long   Invo60: 49/54 positive ( 91%)   outside: 375/535 positive ( 70%)
+
+OUTSIDE COINS BY LIQUIDITY DECILE (median 15m $vol) — capit-long
+  Q1 ($64k+): 85/107 pos, mean avg +6.95%
+  Q2 ($38k+): 74/107 pos, mean avg +4.23%
+  Q3 ($23k+): 76/107 pos, mean avg +5.02%
+  Q4 ($13k+): 78/107 pos, mean avg +5.77%
+  Q5 ($0k+): 62/107 pos, mean avg +3.23%
+
+BEST OUTSIDERS — pump-short (n>=5)
+  TANSSI         n=  7  avg +21.98%  $0k/15m
+  MLN            n=  9  avg +11.75%  $9k/15m
+  1000WHY        n=  7  avg +10.41%  $6k/15m
+  USTC           n=  6  avg +10.30%  $21k/15m
+  EDU            n=  7  avg +10.19%  $32k/15m
+  MMT            n=  7  avg  +9.98%  $46k/15m
+  BASED          n=  6  avg  +9.58%  $101k/15m
+  MAV            n=  7  avg  +9.56%  $20k/15m
+  ARK            n= 12  avg  +9.44%  $18k/15m
+  AEVO           n=  7  avg  +9.14%  $36k/15m
+  MYRO           n=  6  avg  +8.77%  $5k/15m
+  LEVER          n= 10  avg  +8.60%  $0k/15m
+  ALT            n=  8  avg  +8.58%  $48k/15m
+  NKN            n=  5  avg  +8.52%  $10k/15m
+  LAYER          n=  7  avg  +8.27%  $61k/15m
+WORST INSIDERS — pump-short (n>=5)
+  ZEC            n=  6  avg  -5.29%  $2,024k/15m
+  VVV            n=  6  avg  -0.26%  $97k/15m
+  FARTCOIN       n=  6  avg  -0.16%  $1,408k/15m
+  GRASS          n= 14  avg  +0.44%  $90k/15m
+  PENGU          n=  5  avg  +1.44%  $715k/15m
+  PUMP           n=  6  avg  +1.56%  $859k/15m
+  TRUMP          n=  5  avg  +2.35%  $1,150k/15m
+  VIRTUAL        n=  6  avg  +2.72%  $511k/15m
+
+BEST OUTSIDERS — capit-long (n>=5)
+  ALPACA         n=  8  avg +129.86%  $0k/15m
+  TNSR           n= 10  avg +67.59%  $34k/15m
+  HIFI           n= 13  avg +43.37%  $0k/15m
+  QUICK          n=  5  avg +37.12%  $4k/15m
+  BTW            n= 16  avg +32.09%  $385k/15m
+  SNX            n=  5  avg +29.59%  $79k/15m
+  OGN            n=  5  avg +29.57%  $20k/15m
+  IOTX           n=  5  avg +27.32%  $21k/15m
+  UMA            n=  5  avg +26.28%  $26k/15m
+  SUSHI          n=  6  avg +21.97%  $84k/15m
+  MANA           n=  5  avg +21.54%  $87k/15m
+  FORTH          n=  5  avg +21.30%  $3k/15m
+  IMX            n=  5  avg +20.71%  $80k/15m
+  FIDA           n=  9  avg +20.25%  $40k/15m
+  ZK             n=  6  avg +19.85%  $91k/15m
+WORST INSIDERS — capit-long (n>=5)
+  NIL            n= 13  avg  -7.20%  $45k/15m
+  HMSTR          n= 11  avg  -7.06%  $39k/15m
+  RUNE           n=  7  avg  -3.21%  $88k/15m
+  SAGA           n= 15  avg  -2.81%  $75k/15m
+  XPL            n=  9  avg  -0.16%  $482k/15m
+  FARTCOIN       n= 30  avg  +0.41%  $1,408k/15m
+  BIO            n= 14  avg  +1.68%  $142k/15m
+  TRUMP          n=  9  avg  +2.92%  $1,150k/15m
+

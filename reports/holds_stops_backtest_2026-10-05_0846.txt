@@ -1,0 +1,93 @@
+HOLDS & STOPS WALK-FORWARD — 2026-10-05 08:45 UTC | universe 60 | signal fixed at runup>=12% vol>=2x | exploratory
+W1-2025Q1 base_4h   : trades   6 | net/trade +3.427% | eq +2.66% dd -1.96%
+W1-2025Q1 hold_12h  : trades   6 | net/trade +2.202% | eq +1.52% dd -1.96%
+W1-2025Q1 hold_24h  : trades   6 | net/trade +2.130% | eq +1.52% dd -1.96%
+W1-2025Q1 hold_48h  : trades   6 | net/trade -3.753% | eq -2.96% dd -2.96%
+W1-2025Q1 buf1pct   : trades   6 | net/trade +3.953% | eq +2.91% dd -1.52%
+W1-2025Q1 buf2pct   : trades   6 | net/trade +3.754% | eq +2.16% dd -1.48%
+W1-2025Q1 natr1.5   : trades   6 | net/trade +4.201% | eq +3.34% dd -1.65%
+W1-2025Q1 natr3     : trades   6 | net/trade +3.420% | eq +1.01% dd -1.88%
+W1-2025Q1 trail1.5  : trades   6 | net/trade +3.657% | eq +2.65% dd -1.27%
+W1-2025Q1 trail3    : trades   6 | net/trade +4.101% | eq +3.15% dd -1.48%
+W1-2025Q1 24h_trail3: trades   6 | net/trade +3.333% | eq +2.31% dd -1.48%
+W2-2025Q2 base_4h   : trades   2 | net/trade +1.109% | eq +0.61% dd -0.28%
+W2-2025Q2 hold_12h  : trades   2 | net/trade -3.922% | eq -1.11% dd -1.11%
+W2-2025Q2 hold_24h  : trades   2 | net/trade -3.922% | eq -1.11% dd -1.11%
+W2-2025Q2 hold_48h  : trades   2 | net/trade -3.922% | eq -1.11% dd -1.11%
+W2-2025Q2 buf1pct   : trades   2 | net/trade +1.109% | eq +0.65% dd -0.24%
+W2-2025Q2 buf2pct   : trades   2 | net/trade +1.109% | eq +0.68% dd -0.20%
+W2-2025Q2 natr1.5   : trades   2 | net/trade +0.864% | eq +0.28% dd -0.54%
+W2-2025Q2 natr3     : trades   2 | net/trade +1.109% | eq +0.09% dd -0.32%
+W2-2025Q2 trail1.5  : trades   2 | net/trade +2.865% | eq +1.05% dd 0.00%
+W2-2025Q2 trail3    : trades   2 | net/trade +1.941% | eq +0.82% dd -0.07%
+W2-2025Q2 24h_trail3: trades   2 | net/trade -1.132% | eq -0.41% dd -0.41%
+W3-2025Q3 base_4h   : trades  13 | net/trade -0.787% | eq +0.35% dd -1.25%
+W3-2025Q3 hold_12h  : trades  13 | net/trade -0.227% | eq +1.55% dd -2.20%
+W3-2025Q3 hold_24h  : trades  13 | net/trade +0.289% | eq +4.11% dd -2.28%
+W3-2025Q3 hold_48h  : trades  13 | net/trade -2.968% | eq -1.36% dd -6.37%
+W3-2025Q3 buf1pct   : trades  13 | net/trade -1.364% | eq -0.73% dd -1.98%
+W3-2025Q3 buf2pct   : trades  13 | net/trade -1.228% | eq -0.21% dd -1.60%
+W3-2025Q3 natr1.5   : trades  13 | net/trade +1.211% | eq +1.78% dd -1.50%
+W3-2025Q3 natr3     : trades  12 | net/trade +0.179% | eq +0.36% dd -1.11%
+W3-2025Q3 trail1.5  : trades  13 | net/trade +0.016% | eq -0.15% dd -2.61%
+W3-2025Q3 trail3    : trades  13 | net/trade +0.301% | eq +1.16% dd -1.20%
+W3-2025Q3 24h_trail3: trades  13 | net/trade +0.522% | eq +1.81% dd -2.59%
+W4-2025Q4 base_4h   : trades   9 | net/trade +3.648% | eq +3.57% dd -0.91%
+W4-2025Q4 hold_12h  : trades   9 | net/trade +5.032% | eq +4.71% dd -0.80%
+W4-2025Q4 hold_24h  : trades   9 | net/trade +7.243% | eq +7.38% dd -0.58%
+W4-2025Q4 hold_48h  : trades   9 | net/trade +8.324% | eq +9.10% dd -1.10%
+W4-2025Q4 buf1pct   : trades   9 | net/trade +3.307% | eq +2.66% dd -1.35%
+W4-2025Q4 buf2pct   : trades   9 | net/trade +3.948% | eq +3.38% dd -0.66%
+W4-2025Q4 natr1.5   : trades   9 | net/trade +3.619% | eq +5.33% dd -0.61%
+W4-2025Q4 natr3     : trades   9 | net/trade +3.904% | eq +3.62% dd -0.77%
+W4-2025Q4 trail1.5  : trades   9 | net/trade +3.581% | eq +3.55% dd -0.43%
+W4-2025Q4 trail3    : trades   9 | net/trade +2.454% | eq +2.68% dd -1.25%
+W4-2025Q4 24h_trail3: trades   9 | net/trade +2.427% | eq +2.63% dd -1.25%
+W5-2026Q1 base_4h   : trades   5 | net/trade +5.011% | eq +0.83% dd -0.99%
+W5-2026Q1 hold_12h  : trades   5 | net/trade +6.063% | eq +1.16% dd -1.04%
+W5-2026Q1 hold_24h  : trades   5 | net/trade +3.949% | eq +0.42% dd -1.46%
+W5-2026Q1 hold_48h  : trades   5 | net/trade +3.416% | eq +0.25% dd -1.46%
+W5-2026Q1 buf1pct   : trades   5 | net/trade +4.601% | eq +0.39% dd -1.03%
+W5-2026Q1 buf2pct   : trades   5 | net/trade +4.753% | eq +0.46% dd -0.78%
+W5-2026Q1 natr1.5   : trades   5 | net/trade +4.864% | eq +2.29% dd -1.28%
+W5-2026Q1 natr3     : trades   5 | net/trade +3.748% | eq +0.31% dd -1.08%
+W5-2026Q1 trail1.5  : trades   5 | net/trade +4.429% | eq +0.78% dd -0.71%
+W5-2026Q1 trail3    : trades   5 | net/trade +3.583% | eq +0.36% dd -1.08%
+W5-2026Q1 24h_trail3: trades   5 | net/trade +2.802% | eq +0.11% dd -1.08%
+W6-2026Q2 base_4h   : trades  11 | net/trade +4.282% | eq +4.71% dd -1.13%
+W6-2026Q2 hold_12h  : trades  11 | net/trade +4.258% | eq +4.46% dd -1.13%
+W6-2026Q2 hold_24h  : trades  11 | net/trade +5.030% | eq +5.86% dd -1.13%
+W6-2026Q2 hold_48h  : trades  11 | net/trade +3.183% | eq +2.72% dd -3.13%
+W6-2026Q2 buf1pct   : trades  11 | net/trade +3.909% | eq +3.49% dd -1.33%
+W6-2026Q2 buf2pct   : trades  10 | net/trade +4.716% | eq +3.89% dd -1.53%
+W6-2026Q2 natr1.5   : trades  11 | net/trade +3.712% | eq +2.57% dd -1.32%
+W6-2026Q2 natr3     : trades  10 | net/trade +4.400% | eq +1.58% dd -1.05%
+W6-2026Q2 trail1.5  : trades  11 | net/trade +3.602% | eq +4.03% dd -1.13%
+W6-2026Q2 trail3    : trades  11 | net/trade +3.085% | eq +3.16% dd -1.69%
+W6-2026Q2 24h_trail3: trades  11 | net/trade +5.715% | eq +6.41% dd -1.69%
+W7-orig base_4h   : trades  28 | net/trade +4.808% | eq +9.85% dd -1.39%
+W7-orig hold_12h  : trades  28 | net/trade +4.536% | eq +9.89% dd -1.98%
+W7-orig hold_24h  : trades  28 | net/trade +4.146% | eq +7.67% dd -3.90%
+W7-orig hold_48h  : trades  28 | net/trade +4.108% | eq +9.63% dd -4.95%
+W7-orig buf1pct   : trades  28 | net/trade +4.649% | eq +9.13% dd -1.57%
+W7-orig buf2pct   : trades  28 | net/trade +4.719% | eq +8.57% dd -0.99%
+W7-orig natr1.5   : trades  28 | net/trade +2.436% | eq +9.86% dd -2.00%
+W7-orig natr3     : trades  28 | net/trade +3.595% | eq +5.21% dd -1.82%
+W7-orig trail1.5  : trades  28 | net/trade +1.693% | eq +8.47% dd -1.70%
+W7-orig trail3    : trades  28 | net/trade +4.613% | eq +10.53% dd -1.76%
+W7-orig 24h_trail3: trades  28 | net/trade +3.779% | eq +7.49% dd -2.75%
+
+====================================================================================================
+SUMMARY (same gate criteria for reference; none of these are pre-registered except base_4h)
+config     trades net/trade  win%  sl% windows+ compounded worst dd top-tkr  gate
+base_4h        74   +3.407%   53%  39%     100%    +24.50%    -2.0%     17%  pass (4/4)
+hold_12h       74   +3.403%   47%  49%      86%    +23.96%    -2.2%     15%  pass (4/4)
+hold_24h       74   +3.582%   43%  57%      86%    +28.47%    -3.9%     17%  pass (4/4)
+hold_48h       74   +2.339%   34%  66%      57%    +16.60%    -6.4%     14%  fail (3/4)
+buf1pct        74   +3.164%   54%  36%      86%    +19.68%    -2.0%     16%  pass (4/4)
+buf2pct        73   +3.389%   58%  27%      86%    +20.23%    -1.6%     20%  pass (4/4)
+natr1.5        74   +2.819%   53%  39%     100%    +28.04%    -2.0%     22%  pass (4/4)
+natr3          72   +3.103%   58%  26%     100%    +12.71%    -1.9%     24%  pass (4/4)
+trail1.5       74   +2.287%   49%  84%      86%    +21.97%    -2.6%     21%  pass (4/4)
+trail3         74   +3.183%   46%  61%     100%    +23.61%    -1.8%     16%  pass (4/4)
+24h_trail3     74   +3.095%   41%  85%      86%    +21.91%    -2.7%     20%  pass (4/4)

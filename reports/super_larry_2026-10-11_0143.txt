@@ -1,0 +1,31 @@
+SUPER LARRY — 2026-10-11 01:42 UTC | leg S: hold24 pump-short + gate30 | leg C: capit_slow+ds (-20%/24h, 48h hold, -15% disaster stop) + btc-bear gate
+sizing: frac = base x scale^pow (scale = runup/12% or drop/20%), capped; shared account
+
+========================================================================================================
+TRACK: 2023-24 bear
+  config                                                     $10k ->   maxdd    S    C  skip  liq
+  Super Monk  (4%/1x both, flat)                       $      12,454   -2.4%    5   52   287    0
+  Super Eddie (20%/1x both, flat)                      $      27,657  -11.7%    5   52   287    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $      33,366  -15.2%    5   52   287    0
+  SUPER LARRY (S 25%/3x quad c50, C 25%/2x lin c50)    $      93,263  -29.2%    5   52   287    0
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $     173,605  -39.5%    5   52   287    0
+    -> leg S alone (Larry sizing)                      $       7,361  -26.4%    6    0    76    0
+    -> leg C alone (Larry sizing)                      $     123,898  -29.2%    0   52   213    0
+
+========================================================================================================
+TRACK: 2025-26 main
+  config                                                     $10k ->   maxdd    S    C  skip  liq
+  Super Monk  (4%/1x both, flat)                       $      13,595   -5.8%   87  134   342    0
+  Super Eddie (20%/1x both, flat)                      $      41,165  -27.1%   87  134   342    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $     259,634  -40.5%   87  134   342    0
+  SUPER LARRY (S 25%/3x quad c50, C 25%/2x lin c50)    $   1,160,904  -66.0%   87  134   342    0
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $   3,732,086  -81.5%   87  134   342    0
+    -> leg S alone (Larry sizing)                      $     208,913  -31.3%   89    0    76    0
+    -> leg C alone (Larry sizing)                      $      56,096  -63.9%    0  138   280    0
+
+CHAINED $10k, 2023 -> Oct 2026:
+  Super Monk  (4%/1x both, flat)                       $16,931
+  Super Eddie (20%/1x both, flat)                      $113,849
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $866,289
+  SUPER LARRY (S 25%/3x quad c50, C 25%/2x lin c50)    $10,826,923
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $64,790,981

@@ -1,0 +1,2 @@
+ticker,t_sig,entry,stop,exit_t,kind,net,pnl,notional,equity_after
+GRASS,1791684900000,0.6793,0.0,1791754200000,manual,0.162151,135.13,833.33,10135.13

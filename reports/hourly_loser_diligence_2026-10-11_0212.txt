@@ -1,0 +1,37 @@
+HOURLY LONG-LOSER DILIGENCE — 2026-10-11 02:12 UTC
+
+A. RE-ENTRY POLICY + NEIGHBORHOOD (net of 0.14% costs)
+BASE thr2% h24 (re-entry allowed)            11,377 ( 253/mo)  +0.694% med -0.467% win  47%  2023: +1.079%/1692 | 2024: +1.191%/2834 | 2025: +0.574%/3980 | 2026: +0.145%/2871
+thr2% h24, one position per ticker            6,109 ( 136/mo)  +0.427% med -0.426% win  47%  2023: +0.755%/952 | 2024: +0.871%/1646 | 2025: +0.113%/1967 | 2026: +0.150%/1544
+thr1% h24 (re-entry)                         22,532 ( 501/mo)  +0.426% med -0.570% win  46%  2023: +0.654%/4386 | 2024: +0.553%/6003 | 2025: +0.350%/6773 | 2026: +0.193%/5370
+thr3% h24 (re-entry)                          5,437 ( 121/mo)  +1.041% med -0.328% win  48%  2023: +1.770%/722 | 2024: +2.031%/1272 | 2025: +0.872%/2074 | 2026: -0.009%/1369
+thr5% h24 (re-entry)                          1,520 (  34/mo)  +1.186% med +0.159% win  51%  2023: +3.709%/182 | 2024: +1.747%/311 | 2025: +1.298%/630 | 2026: -0.586%/397
+thr2% h12h (re-entry)                        11,382 ( 253/mo)  +0.341% med -0.298% win  48%  2023: +0.514%/1692 | 2024: +0.683%/2834 | 2025: +0.222%/3980 | 2026: +0.065%/2876
+thr2% h48h (re-entry)                        11,366 ( 253/mo)  +1.233% med -0.594% win  47%  2023: +2.238%/1692 | 2024: +2.153%/2834 | 2025: +1.151%/3980 | 2026: -0.159%/2860
+thr2% h24 costs x2                           11,377 ( 253/mo)  +0.554% med -0.607% win  47%  2023: +0.939%/1692 | 2024: +1.051%/2834 | 2025: +0.434%/3980 | 2026: +0.005%/2871
+
+B. CONCENTRATION / TAIL (base variant)
+  mean +0.694% | drop top-20 winners +0.558% | drop top-100 +0.216% | drop top-1% +0.171%
+  p5 -13.22% | p95 +18.75% | max loss -56.4% | max win +102.4%
+  top tickers by contribution (of total +7900%):
+    kBONK         +1115% over  390 trades (mean +2.86%)
+    ZEC            +999% over  362 trades (mean +2.76%)
+    FARTCOIN       +914% over  692 trades (mean +1.32%)
+    HEMI           +705% over  393 trades (mean +1.79%)
+    TIA            +520% over  226 trades (mean +2.30%)
+    PEPE           +466% over  380 trades (mean +1.23%)
+    VVV            +460% over  465 trades (mean +0.99%)
+    ONDO           +365% over  220 trades (mean +1.66%)
+  tickers with positive mean: 75% of 59
+  excl top-3 tickers entirely                 9,933 ( 221/mo)  +0.491% med -0.554% win  47%  2023: +0.696%/1582 | 2024: +1.105%/2521 | 2025: +0.189%/3162 | 2026: +0.146%/2668
+
+C. MOVE-DEPTH DOSE-RESPONSE (base, re-entry allowed)
+  picked move in (-3%,-2%]                    5,940 ( 132/mo)  +0.377% med -0.531% win  46%  2023: +0.564%/970 | 2024: +0.506%/1562 | 2025: +0.249%/1906 | 2026: +0.286%/1502
+  picked move in (-5%,-3%]                    3,917 (  87/mo)  +0.984% med -0.468% win  48%  2023: +1.116%/540 | 2024: +2.124%/961 | 2025: +0.686%/1444 | 2026: +0.227%/972
+  picked move in (-8%,-5%]                    1,181 (  27/mo)  +1.309% med +0.239% win  51%  2023: +3.365%/145 | 2024: +1.815%/263 | 2025: +1.460%/476 | 2026: -0.384%/297
+  picked move in (-100%,-8%]                    339 (   8/mo)  +0.760% med -0.443% win  48%  2023: +5.056%/37 | 2024: +1.375%/48 | 2025: +0.800%/154 | 2026: -1.186%/100
+
+D. SAME-EPISODE STACKING — how many of the base entries are repeat buys of the same falling coin (<24h apart)?
+  11,377 trades in 4,831 episodes | mean trades/episode 2.4 | max 164
+  per-episode mean net +0.301% | episodes positive 49%
+  first-entry-of-episode only                 4,831 ( 107/mo)  +0.293% med -0.379% win  47%  2023: +0.440%/767 | 2024: +0.832%/1344 | 2025: -0.133%/1472 | 2026: +0.124%/1248

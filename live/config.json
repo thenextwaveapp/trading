@@ -1,0 +1,64 @@
+{
+  "_spec": [
+    "GO-LIVE SPEC — frozen 2026-10-11 (short book slow->hold24 same day,",
+    "pre-arming). One Hyperliquid account, two books:",
+    "SHORT 'hold24': runup>=12%/4h + first red close + vol>=2x -> short at",
+    "  close; stop = 4h high (resting reduce-only stop-market on exchange);",
+    "  time exit 24h. Rule P entries with the 24h hold.",
+    "LONG 'capit_slow': 24h return <= -20% fresh crossing, BTC 4h",
+    "  EMA20<=EMA50 bear gate -> long at close; NO stop; time exit 48h;",
+    "  sized on 2*NATR24.",
+    "SHORT book is dial_gate'd: trades only while the trailing 30d mean",
+    "24h fwd return of pump events is < 0 with >= 10 events (gate30 — the",
+    "dial that kept the short leg out of 2023-24). max_gross_frac caps",
+    "TOTAL open notional vs sizing equity. size_pow scales notional by",
+    "(runup/12%)^pow resp (drop/20%)^pow — 0 = flat (Monk); raising it is",
+    "the Eddie->Harry->Larry dial-up path from super_larry.py.",
+    "live:false = dry mode (simulated fills, no keys needed). Going live",
+    "takes all three: (1) live/keys.env with HL_PRIVATE_KEY + HL_ACCOUNT,",
+    "(2) this file live:true, (3) live/ARMED containing YES.",
+    "The bot fingerprints the books section: changes are logged + alerted."
+  ],
+  "live": false,
+  "caps": {
+    "equity_cap_usd": 1000,
+    "max_notional_usd": 250,
+    "min_order_usd": 12,
+    "start_equity_dry": 10000
+  },
+  "risk": {
+    "risk_frac": 0.0075,
+    "notional_cap_frac": 0.2,
+    "max_gross_frac": 1.0,
+    "max_concurrent": 6,
+    "kill_dd": -0.05,
+    "kill_lookback_days": 7,
+    "kill_pause_days": 3,
+    "day_dd": -0.05,
+    "week_dd": -0.12
+  },
+  "books": {
+    "hold24": {
+      "side": -1,
+      "runup": 0.12,
+      "vol": 2.0,
+      "hold": 96,
+      "stop": "4h_high",
+      "dial_gate": true,
+      "size_pow": 0.0
+    },
+    "capit_slow": {
+      "side": 1,
+      "depth": 0.2,
+      "hold": 192,
+      "stop": "none",
+      "btc_bear_gate": true,
+      "size_pow": 0.0
+    }
+  },
+  "ops": {
+    "dashboard_port": 8788,
+    "cost_roundtrip": 0.0009,
+    "stale_minutes": 25
+  }
+}

@@ -1,0 +1,44 @@
+LEDGER ANALYSIS — 2026-10-05 07:35 UTC  (source: backtest/ledger_run2.csv.gz)
+orders: 1,562 | filled: 386 | blocked: 1041
+
+==============================================================================
+1. BRACKET GRID (net %/trade, repriced on identical fills)
+   rows=TP x cols=SL, hold=8:
+          SL0.5    SL0.75   SL1.0    SL1.5  
+  TP1.0   -0.005  +0.002  +0.030  +0.071
+  TP1.25  -0.036  -0.038  +0.001  +0.044
+  TP1.5   -0.054  -0.062  -0.032  -0.009
+  TP2.0   -0.098  -0.122  -0.111  -0.073
+  TP2.5   -0.113  -0.131  -0.111  -0.089
+  TP3.0   -0.103  -0.115  -0.092  -0.064
+
+  best combos across full grid (incl. hold):
+    TP 1.0 / SL 1.5 / hold 8: +0.071%/trade
+    TP 1.25 / SL 1.5 / hold 8: +0.044%/trade
+    TP 1.0 / SL 1.5 / hold 12: +0.033%/trade
+    TP 1.0 / SL 1.5 / hold 4: +0.032%/trade
+    TP 1.0 / SL 1.5 / hold 16: +0.031%/trade
+    TP 1.0 / SL 1.0 / hold 8: +0.030%/trade
+    TP 1.0 / SL 1.5 / hold 24: +0.029%/trade
+    TP 1.0 / SL 1.0 / hold 4: +0.023%/trade
+
+  CHOSEN: TP 1.0 / SL 1.5 / hold 8 -> +0.071%/trade (neighbor mean +0.036% -> stable)
+  run #2 bracket (1.5/1.0/8) on same fills: -0.032%/trade
+
+==============================================================================
+2. ADVERSE SELECTION (post-signal 2h return from signal price, direction-adjusted)
+  filled   (n=386): mean -0.101%
+  unfilled (n=1,176): mean +0.050%
+  unfilled >> filled would mean the limit only fills on the worse trades.
+
+==============================================================================
+3. SCORE AUTOPSY (does the model score rank outcomes among fills?)
+  score Q1: n=  79  net -0.004%  (score 0.500-0.512)
+  score Q2: n=  76  net -0.024%  (score 0.512-0.525)
+  score Q3: n=  77  net -0.258%  (score 0.525-0.543)
+  score Q4: n=  77  net -0.008%  (score 0.543-0.580)
+  score Q5: n=  77  net +0.135%  (score 0.581-0.757)
+
+==============================================================================
+4. BLOCK BOOTSTRAP (by week) — chosen bracket net/trade
+  mean +0.071%  95% CI [-0.159%, +0.291%]  (INCLUDES zero)

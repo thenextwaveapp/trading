@@ -1,0 +1,87 @@
+OUT-OF-SAMPLE VARIANTS — 2026-10-05 08:59 UTC | 2023-01 -> 2024-12 | 45 tickers with data | fresh period, zero prior contact
+2023Q1 base    : trades   6 | net/trade -2.395% | eq -1.74% dd -2.45%
+2023Q1 fast    : trades   6 | net/trade -2.563% | eq -1.98% dd -2.04%
+2023Q1 slow    : trades   6 | net/trade -2.287% | eq -1.61% dd -2.45%
+2023Q1 hold24  : trades   6 | net/trade -2.756% | eq -2.16% dd -2.45%
+2023Q1 buf2    : trades   6 | net/trade -2.481% | eq -1.17% dd -1.53%
+2023Q1 trail3  : trades   6 | net/trade -2.111% | eq -1.59% dd -2.45%
+2023Q1 loose   : trades  24 | net/trade -1.129% | eq -3.39% dd -4.09%
+2023Q1 strict  : trades   4 | net/trade -2.017% | eq -0.57% dd -1.29%
+2023Q1 vol3    : trades   1 | net/trade -4.432% | eq -0.77% dd -0.77%
+2023Q2 base    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 fast    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 slow    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 hold24  : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 buf2    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 trail3  : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 loose   : trades   5 | net/trade +3.641% | eq +3.69% dd -0.28%
+2023Q2 strict  : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q2 vol3    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2023Q3 base    : trades   5 | net/trade -3.878% | eq -1.83% dd -1.83%
+2023Q3 fast    : trades   5 | net/trade -3.098% | eq -1.34% dd -1.34%
+2023Q3 slow    : trades   5 | net/trade -1.856% | eq -1.19% dd -1.35%
+2023Q3 hold24  : trades   5 | net/trade +0.396% | eq -0.15% dd -1.01%
+2023Q3 buf2    : trades   5 | net/trade -3.850% | eq -1.35% dd -1.44%
+2023Q3 trail3  : trades   5 | net/trade -2.451% | eq -0.77% dd -0.77%
+2023Q3 loose   : trades  13 | net/trade -1.978% | eq -3.00% dd -3.00%
+2023Q3 strict  : trades   1 | net/trade -9.331% | eq -0.76% dd -0.76%
+2023Q3 vol3    : trades   2 | net/trade -5.760% | eq -1.20% dd -1.20%
+2023Q4 base    : trades  15 | net/trade -0.160% | eq +0.73% dd -2.76%
+2023Q4 fast    : trades  15 | net/trade +0.765% | eq +2.35% dd -2.27%
+2023Q4 slow    : trades  15 | net/trade +0.832% | eq +2.26% dd -2.76%
+2023Q4 hold24  : trades  15 | net/trade -2.230% | eq -3.82% dd -6.26%
+2023Q4 buf2    : trades  15 | net/trade +1.570% | eq +4.07% dd -0.77%
+2023Q4 trail3  : trades  15 | net/trade +0.206% | eq +1.26% dd -2.25%
+2023Q4 loose   : trades  45 | net/trade -1.071% | eq -4.24% dd -5.57%
+2023Q4 strict  : trades   9 | net/trade -2.899% | eq -2.16% dd -3.02%
+2023Q4 vol3    : trades   3 | net/trade -3.336% | eq -1.15% dd -1.53%
+2024Q1 base    : trades  18 | net/trade +0.387% | eq +0.24% dd -5.34%
+2024Q1 fast    : trades  18 | net/trade -0.186% | eq -1.27% dd -4.91%
+2024Q1 slow    : trades  18 | net/trade -0.707% | eq -2.11% dd -6.07%
+2024Q1 hold24  : trades  17 | net/trade +1.746% | eq +3.28% dd -6.79%
+2024Q1 buf2    : trades  18 | net/trade +0.603% | eq +0.84% dd -4.94%
+2024Q1 trail3  : trades  18 | net/trade -0.140% | eq -0.58% dd -5.34%
+2024Q1 loose   : trades  37 | net/trade -1.050% | eq -6.37% dd -7.81%
+2024Q1 strict  : trades   7 | net/trade -0.384% | eq -1.27% dd -2.44%
+2024Q1 vol3    : trades   5 | net/trade +1.824% | eq +1.44% dd -1.53%
+2024Q2 base    : trades   8 | net/trade -1.437% | eq -2.14% dd -2.69%
+2024Q2 fast    : trades   8 | net/trade -1.066% | eq -1.57% dd -2.67%
+2024Q2 slow    : trades   8 | net/trade -1.064% | eq -1.57% dd -2.81%
+2024Q2 hold24  : trades   8 | net/trade -1.975% | eq -2.98% dd -2.98%
+2024Q2 buf2    : trades   8 | net/trade -1.132% | eq -1.47% dd -2.51%
+2024Q2 trail3  : trades   8 | net/trade -1.437% | eq -2.14% dd -2.69%
+2024Q2 loose   : trades  26 | net/trade -0.440% | eq -1.70% dd -4.23%
+2024Q2 strict  : trades   1 | net/trade -3.096% | eq -0.62% dd -0.62%
+2024Q2 vol3    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2024Q3 base    : trades   1 | net/trade -4.949% | eq -0.77% dd -0.77%
+2024Q3 fast    : trades   1 | net/trade -4.949% | eq -0.77% dd -0.77%
+2024Q3 slow    : trades   1 | net/trade -4.949% | eq -0.77% dd -0.77%
+2024Q3 hold24  : trades   1 | net/trade -4.949% | eq -0.77% dd -0.77%
+2024Q3 buf2    : trades   1 | net/trade +5.208% | eq +0.57% dd 0.00%
+2024Q3 trail3  : trades   1 | net/trade +1.220% | eq +0.19% dd 0.00%
+2024Q3 loose   : trades  16 | net/trade -1.461% | eq -4.38% dd -4.91%
+2024Q3 strict  : trades   1 | net/trade -4.949% | eq -0.77% dd -0.77%
+2024Q3 vol3    : trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+2024Q4 base    : trades  30 | net/trade -0.681% | eq -3.48% dd -3.99%
+2024Q4 fast    : trades  30 | net/trade -0.197% | eq -2.47% dd -3.33%
+2024Q4 slow    : trades  30 | net/trade -1.043% | eq -5.74% dd -5.74%
+2024Q4 hold24  : trades  30 | net/trade -0.395% | eq -4.41% dd -6.98%
+2024Q4 buf2    : trades  30 | net/trade -1.323% | eq -4.91% dd -5.28%
+2024Q4 trail3  : trades  30 | net/trade -0.261% | eq -2.33% dd -3.59%
+2024Q4 loose   : trades  93 | net/trade -0.309% | eq -5.15% dd -6.99%
+2024Q4 strict  : trades   8 | net/trade +0.901% | eq +1.22% dd -1.92%
+2024Q4 vol3    : trades   5 | net/trade +2.073% | eq +0.77% dd -0.61%
+
+====================================================================================================
+SUMMARY 2023-2024 (gate criteria for reference; low-trade windows (<10) excluded from windows+,
+per the pre-registered low-count amendment)
+variant  trades net/trade  win%  sl% windows+ compounded worst dd top-tkr  gate
+base         83   -0.796%   33%  54%      67%     -8.72%    -5.3%     32%  fail (3/4)
+loose       259   -0.715%   36%  54%       0%    -22.33%    -7.8%     24%  fail (2/4)
+strict       31   -1.516%   32%  55%    n<10     -4.86%    -3.0%     26%  fail (3/4)
+vol3         16   -0.405%   44%  50%    n<10     -0.93%    -1.5%     29%  fail (3/4)
+fast         83   -0.508%   39%  45%      33%     -6.91%    -4.9%     36%  fail (2/4)
+slow         83   -0.819%   33%  64%      33%    -10.41%    -6.1%     40%  fail (2/4)
+hold24       82   -0.621%   24%  76%      33%    -10.69%    -7.0%     21%  fail (2/4)
+buf2         83   -0.521%   45%  36%      67%     -3.60%    -5.3%     44%  fail (2/4)
+trail3       83   -0.512%   36%  61%      33%     -5.87%    -5.3%     32%  fail (2/4)

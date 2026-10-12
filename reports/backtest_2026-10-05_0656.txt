@@ -1,0 +1,46 @@
+STANDALONE BACKTEST — 2026-10-05 06:55 UTC
+universe: 22 tickers | scan points (both sides): cal 76,032, test 193,644
+model: trained on 9,448 trader entries < 2026-08-19 (market features only)
+threshold: score >= 0.679 (= top 1% of calibration scans, pre-test)
+hold: 4h | one position per ticker at a time | equal weight per trade
+
+==============================================================================
+RESULTS — TEST WINDOW 2026-08-19 .. 2026-10-03 (46 days)
+signals fired: 3,142 | trades after one-per-ticker cap: 1,064 (~23.6/day)
+
+gross per trade: mean -0.083%  median +0.032%  hit 50.4%
+
+scenario      cost/rt  net/trade    total    hit   maxDD
+optimistic      0.04%    -0.123%  -130.7%  49.7% -246.3%
+base            0.17%    -0.253%  -269.1%  47.1% -363.3%
+harsh           0.47%    -0.553%  -588.3%  41.7% -645.9%
+
+by side: short: n=775, gross -0.189% | long: n=289, gross +0.202%
+
+by ticker (gross):
+  FARTCOIN   n=  74  mean +0.477%  total +35.30%
+  WLD        n=  64  mean +0.285%  total +18.23%
+  ONDO       n=  44  mean +0.383%  total +16.84%
+  kPEPE      n=  49  mean +0.329%  total +16.10%
+  LINK       n=  36  mean +0.442%  total +15.90%
+  HYPE       n=  34  mean +0.390%  total +13.27%
+  AAVE       n=  47  mean +0.184%  total +8.65%
+  ADA        n=  27  mean +0.276%  total +7.45%
+  SOL        n=  24  mean +0.149%  total +3.58%
+  BTC        n=  11  mean +0.135%  total +1.49%
+  CRV        n=  61  mean -0.013%  total -0.80%
+  DOGE       n=  35  mean -0.100%  total -3.50%
+  NEAR       n=  66  mean -0.075%  total -4.98%
+  ETH        n=  16  mean -0.348%  total -5.56%
+  KAITO      n=  65  mean -0.170%  total -11.04%
+  PUMP       n=  82  mean -0.172%  total -14.12%
+  XRP        n=  33  mean -0.560%  total -18.48%
+  ZEC        n=  69  mean -0.281%  total -19.40%
+  UNI        n=  56  mean -0.363%  total -20.32%
+  SUI        n=  49  mean -0.540%  total -26.46%
+  ENA        n=  64  mean -0.479%  total -30.67%
+  ARB        n=  58  mean -1.201%  total -69.64%
+
+by week (gross sum): 2026-33:-82.6%  2026-34:+36.2%  2026-35:-10.8%  2026-36:+71.6%  2026-37:-130.3%  2026-38:-67.3%  2026-39:+95.1%
+
+context — ALL test scan points (both sides, no model): gross mean +0.0000% (should be ~0)

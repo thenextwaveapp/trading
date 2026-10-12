@@ -1,0 +1,24 @@
+# secrets — never commit
+*.env
+.env*
+live/ARMED
+
+# runtime state / logs
+logs/
+*.log
+*.lock
+live/state.json
+live/pump_events.json
+live/spec_fingerprint.txt
+
+# large datasets (over GitHub size limits)
+*.csv.gz
+Archive.zip
+
+# python
+__pycache__/
+*.pyc
+
+# macOS / local
+.DS_Store
+.claude/settings.local.json

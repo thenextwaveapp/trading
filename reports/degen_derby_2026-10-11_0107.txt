@@ -1,0 +1,45 @@
+THE DEGEN DERBY — 2026-10-11 01:07 UTC
+track: 2024-12-15 -> 2026-10-03 | 60 tickers | everyone starts $10,000
+compounding ON, liquidations ON, pre-registration left at the door
+
+==============================================================================================================
+FINAL STANDINGS
+==============================================================================================================
+🥇  1. Leverage Larry (25% at 4x)                 $     126,394  (  +1163.9%)  trades  163  win 50.3%  maxdd  -38.8% ⚡1liq
+🥈  2. Full Port Frank (100%, no lev)             $     112,555  (  +1025.5%)  trades  154  win 49.4%  maxdd  -29.6%
+🥉  3. Wide-Boy Wes (buf2 stop, 40% 2x)           $      76,335  (   +663.4%)  trades  161  win 56.5%  maxdd  -40.4%
+    4. Martingale Mike (10% base, doubles)        $      73,982  (   +639.8%)  trades  162  win 50.0%  maxdd  -29.0%
+    5. Kelly's Ghost (35% at 2x, strict)          $      49,601  (   +396.0%)  trades   76  win 59.2%  maxdd  -23.4%
+    6. Half-Port Harry                            $      43,770  (   +337.7%)  trades  163  win 50.3%  maxdd  -15.1%
+    7. Doomer Dan (capit longs, 50%)              $      36,789  (   +267.9%)  trades  215  win 52.1%  maxdd  -54.8%
+    8. Marathon Mary (24h hold, 30%)              $      35,829  (   +258.3%)  trades  163  win 42.3%  maxdd   -9.3%
+    9. Speedrun Steve (1h hold, 60% 2x)           $      23,476  (   +134.8%)  trades  163  win 35.0%  maxdd  -32.3%
+   10. No-Stop Nancy (30%, time exit only)        $      19,204  (    +92.0%)  trades  151  win 59.6%  maxdd  -17.1%
+   11. Steady Eddie (20% flat)                    $      18,745  (    +87.4%)  trades  163  win 50.3%  maxdd   -6.3%
+   12. Scattergun Sam (8% loose, 10% each)        $      12,060  (    +20.6%)  trades  477  win 37.7%  maxdd  -10.7%
+   13. The Monk (frozen rule, by the book)        $      11,388  (    +13.9%)  trades  163  win 50.3%  maxdd   -1.3%
+   14. Sniper Sue (20%+4x vol, 50% at 3x)         $      10,302  (     +3.0%)  trades    6  win 50.0%  maxdd  -12.6%
+   15. The Chaser (buys pumps, 50%)               $       1,711  (    -82.9%)  trades  684  win 16.8%  maxdd  -83.2%
+   16. Degen Dave (full port 5x)                  $          68  (    -99.3%)  trades   49  win 38.8%  maxdd  -99.6% 💀BUSTED
+   17. Absolute Unit (full port 10x, no stop)     $           5  (    -99.9%)  trades    5  win 20.0%  maxdd  -99.9% 💀BUSTED
+   18. Deep Doomer (-25% dip, 50% 2x)             $           0  (   -100.0%)  trades   66  win 42.4%  maxdd -110.6% 💀BUSTED
+
+equity sparklines (each scaled to its own range):
+  Leverage Larry (25% at 4x)                 ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▃▄▆█  $126,394
+  Full Port Frank (100%, no lev)             ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▃▃▃▃▄▆█  $112,555
+  Wide-Boy Wes (buf2 stop, 40% 2x)           ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▃▃▃▃▄▅█  $76,335
+  Martingale Mike (10% base, doubles)        ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▂▃▃▄█  $73,982
+  Kelly's Ghost (35% at 2x, strict)          ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▃▃▃▃▄▅█  $49,601
+  Half-Port Harry                            ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▃▃▃▃▃▄▅▆█  $43,770
+  Doomer Dan (capit longs, 50%)              ▁▁▁▁▁▁▂▂▂▂▂▂▂▂▃▃▄▄▅▆▆▆▆▆▆██▇▇▇▆▅▆▅▃▃▃▄▄▄  $36,789
+  Marathon Mary (24h hold, 30%)              ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▄▄▅▅▅▅▆▇█  $35,829
+  Speedrun Steve (1h hold, 60% 2x)           ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▃█▆  $23,476
+  No-Stop Nancy (30%, time exit only)        ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▁▂▂▂▃▃▄▄▄▅▅▆█  $19,204
+  Steady Eddie (20% flat)                    ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▃▃▄▄▄▄▅▇█  $18,745
+  Scattergun Sam (8% loose, 10% each)        ▂▂▃▃▂▃▃▂▂▃▃▃▂▂▂▁▁▁▁▁▁▁▂▂▂▃▂▃▃▄▄▅▅▅▅▄▄▆▇█  $12,060
+  The Monk (frozen rule, by the book)        ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▃▃▄▄▅▅▅▅▆▇█  $11,388
+  Sniper Sue (20%+4x vol, 50% at 3x)         ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂█████████████████████▅  $10,302
+  The Chaser (buys pumps, 50%)               █▆▅▄▅▅▅▄▄▄▄▄▄▃▄▄▅▅▄▄▄▄▃▃▃▃▃▃▃▃▂▂▁▁▁▁▁▁▁▁  $1,711
+  Degen Dave (full port 5x)                  ▃▃▃▂▃▄█▅▅▄▃▂▂▂▄▄▄▄▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▂▂▁  $68
+  Absolute Unit (full port 10x, no stop)     ▆▆▆▆▆████████████▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  $5
+  Deep Doomer (-25% dip, 50% 2x)             ▇▇██▅▃▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▃▃▁  $0

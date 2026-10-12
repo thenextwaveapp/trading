@@ -1,0 +1,24 @@
+ROBUSTNESS CHECKS (base rule) — 2026-10-05 08:58 UTC
+signals, full span: 169
+
+A. W0 window 2024-12-16 -> 2025-03-01 (never used by any prior run)
+   trades 16 | net/trade +0.094% | win 44% | eq +0.03% dd -2.92%
+
+B. Entry-delay ladder (all signals, per-trade, no portfolio layer)
+   delay  0 candles (  0m): n 169 | net/trade +2.028% | win 51%
+   delay  1 candles ( 15m): n 158 | net/trade +1.148% | win 49%
+   delay  2 candles ( 30m): n 152 | net/trade +1.074% | win 48%
+   delay  4 candles ( 60m): n 142 | net/trade +0.294% | win 47%
+
+C. Cost stress (delay 0, per-trade)
+   1x fees+slip (0.14%/trade): net/trade +2.028%
+   2x fees+slip (0.28%/trade): net/trade +1.888%
+   4x fees+slip (0.56%/trade): net/trade +1.608%
+
+D. Random-short control — same tickers, random alive candles, same exits
+   control shorts: n 5070 | net/trade -0.070% | win 38%
+   vs base signal shorts:        net/trade +2.028% -> condition edge +2.098%/trade
+
+E. Bootstrap & clustering (delay-0 per-trade nets)
+   mean +2.028% | 90% CI [+0.931%, +3.155%] | P(mean<=0) 0.1%
+   169 signals across 127 distinct days | max signals in one day: 5

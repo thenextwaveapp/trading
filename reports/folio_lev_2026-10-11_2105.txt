@@ -1,0 +1,9 @@
+FOLIO AT LEVERAGE — 2026-10-11 21:05 UTC | Invo 60, 2025-26 main window
+same books/rows as folio_backtest; isolated margin, loss floored at -margin, liq at 1/lev - 0.5%
+
+ lev      $10k ->      ret%   maxdd trades  win% liqs
+  1x $     23,687   +136.9%   -8.7%    615   53%    0
+  2x $     23,114   +131.1%  -21.4%    532   53%    4
+  3x $     35,436   +254.4%  -22.8%    488   52%    5
+  4x $     37,489   +274.9%  -41.4%    475   51%    9
+  6x $     20,730   +107.3%  -53.3%    412   51%   24

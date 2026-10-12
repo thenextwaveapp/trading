@@ -1,0 +1,12 @@
+DIAL PERSISTENCE — 2026-10-11 18:33 UTC | S leg, tuned sizing, gate requires dial<0 held P consecutive days
+
+loaded 2020-22 era20 (166tk): 166 tickers, 5,840 events
+loaded 2023-24 bear (45tk): 45 tickers, 707 events
+loaded 2025-26 main (60tk): 60 tickers, 1,053 events
+
+ P (days)           2020-22 era20            2023-24 bear            2025-26 main    chained $10k
+        0       $    3,622   -91%       $    7,361   -26%       $  208,913   -31%  $       55,704
+       15       $    8,446   -44%       $   10,000     0%       $   21,971   -31%  $       18,558
+       30       $    9,235   -23%       $   10,000     0%       $   11,120   -25%  $       10,269
+       60       $    9,392   -23%       $   10,000     0%       $   10,000     0%  $        9,392
+       90       $   10,000     0%       $   10,000     0%       $   10,000     0%  $       10,000

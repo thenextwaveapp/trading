@@ -1,0 +1,37 @@
+PLACEBO UNIVERSE TEST — 2026-10-11 20:03 UTC
+2025-26 main window | placebo = next 60 most liquid perps by median 15m dollar volume (wide cache, Invo-60 excluded)
+
+placebo 60 (median 15m $vol, $k):
+  XAU(5,568)  XAG(4,854)  CL(3,934)  SKHYNIX(3,640)  SOXL(3,223)  KORU(2,818)
+  SNDK(2,562)  SKHY(2,514)  SPCX(1,857)  MU(1,490)  BZ(1,442)  WIF(1,068)
+  PONS(971)  SNXX(960)  BCH(948)  MARSCOIN(932)  EOS(803)  TRX(646)
+  SOXS(610)  DRAM(601)  OP(528)  ETC(416)  WLFI(408)  SAMSUNG(393)
+  BTW(385)  CRCL(374)  BEAT(356)  MRVL(354)  SEI(332)  GALA(329)
+  RIVER(323)  QQQ(322)  ETHFI(299)  ATOM(271)  EIGEN(268)  ORDI(267)
+  MSTR(266)  PNUT(265)  EWY(265)  ICP(253)  NEIRO(249)  XMR(249)
+  RENDER(246)  MUU(242)  NVDA(235)  PENDLE(234)  XAUT(199)  INTC(198)
+  DYDX(195)  1000FLOKI(188)  TSLA(188)  OM(183)  ZRO(182)  RE(181)
+  JTO(179)  H(178)  BERA(176)  POL(174)  GIGGLE(170)  SAND(166)
+
+  pump events: 1,053
+  [INVO 60 (the real universe)] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      13,777   -2.5%    87   108    340    0
+  Super Eddie (20%/1x both, flat)                      $      44,962  -11.6%    87   108    340    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $     307,714  -21.8%    87   108    340    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $   1,851,226  -37.2%    87   108    341    1
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $   8,826,361  -52.1%    87   108    341    1
+    -> leg S alone (Larry sizing)                      $     208,913  -31.3%    89     0     76    0
+    -> leg C alone (Larry sizing)                      $      88,366  -32.9%     0   112    277    1
+
+  pump events: 829
+  [PLACEBO 60 (next-most-liquid, no Invo)] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $       9,910  -14.7%    74   141    450    0
+  Super Eddie (20%/1x both, flat)                      $       8,491  -57.0%    74   141    450    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $       3,476  -82.7%    74   141    450    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $       1,970  -93.8%    74   142    449    4
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $         384  -98.9%    74   142    449    4
+    -> leg S alone (Larry sizing)                      $       1,204  -88.6%    82     0    109    0
+    -> leg C alone (Larry sizing)                      $      11,253  -74.7%     0   145    360    4
+

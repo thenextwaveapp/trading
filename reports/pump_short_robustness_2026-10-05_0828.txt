@@ -1,0 +1,55 @@
+PUMP-SHORT ROBUSTNESS BATTERY — 2026-10-05 08:27 UTC | universe 60 tickers | frozen rule = runup>=12%/4h, weak close, vol>=2x, short, stop=4h-high, hold=16c
+
+------------------------------------------------------------------------------
+A. PARAMETER SENSITIVITY (one knob at a time from frozen point)
+BASELINE (frozen rule)             trades   74 | net/trade +3.407% | med +1.465% | win 52.7% | sl 39.2% | comp +24.50% | worst dd -1.96% | wins+ 100% of 7w
+runup >= 8%                        trades  232 | net/trade +0.860% | med -1.431% | win 37.9% | sl 53.9% | comp +8.80% | worst dd -5.93% | wins+ 43% of 7w
+runup >= 10%                       trades  120 | net/trade +2.125% | med -1.014% | win 48.3% | sl 46.7% | comp +25.14% | worst dd -2.88% | wins+ 100% of 7w
+runup >= 14%                       trades   52 | net/trade +3.461% | med -1.062% | win 48.1% | sl 42.3% | comp +6.73% | worst dd -3.38% | wins+ 71% of 7w
+runup >= 16%                       trades   32 | net/trade +6.457% | med +3.764% | win 65.6% | sl 28.1% | comp +12.22% | worst dd -2.20% | wins+ 71% of 7w
+runup >= 20%                       trades   18 | net/trade +8.491% | med +6.065% | win 61.1% | sl 33.3% | comp +6.25% | worst dd -2.20% | wins+ 60% of 5w
+vol >= 1.5x                        trades  149 | net/trade +1.540% | med -1.687% | win 43.0% | sl 48.3% | comp +18.56% | worst dd -4.27% | wins+ 57% of 7w
+vol >= 2.5x                        trades   34 | net/trade +5.209% | med +4.206% | win 55.9% | sl 29.4% | comp +14.47% | worst dd -1.61% | wins+ 86% of 7w
+vol >= 3x                          trades   17 | net/trade +8.037% | med +5.542% | win 58.8% | sl 29.4% | comp +7.05% | worst dd -0.91% | wins+ 80% of 5w
+vol >= 4x                          trades    6 | net/trade +4.762% | med +4.546% | win 66.7% | sl 16.7% | comp +2.59% | worst dd -0.81% | wins+ 67% of 3w
+no weakness filter                 trades  448 | net/trade +0.283% | med -0.866% | win 21.9% | sl 75.4% | comp +8.33% | worst dd -8.74% | wins+ 57% of 7w
+hold 8c (2h)                       trades   74 | net/trade +2.608% | med +1.266% | win 54.1% | sl 36.5% | comp +18.86% | worst dd -2.37% | wins+ 86% of 7w
+hold 24c (6h)                      trades   74 | net/trade +3.512% | med +0.432% | win 51.4% | sl 43.2% | comp +26.99% | worst dd -1.96% | wins+ 100% of 7w
+hold 32c (8h)                      trades   74 | net/trade +3.651% | med -0.912% | win 44.6% | sl 43.2% | comp +26.49% | worst dd -1.96% | wins+ 100% of 7w
+hold 96c (24h)                     trades   74 | net/trade +3.582% | med -1.747% | win 43.2% | sl 56.8% | comp +28.47% | worst dd -3.90% | wins+ 86% of 7w
+stop +1% buffer                    trades   74 | net/trade +3.164% | med +1.836% | win 54.1% | sl 36.5% | comp +20.56% | worst dd -2.05% | wins+ 86% of 7w
+no stop (time exit only)           trades   70 | net/trade +3.006% | med +2.761% | win 58.6% | sl  0.0% | comp +13.02% | worst dd -4.18% | wins+ 86% of 7w
+
+------------------------------------------------------------------------------
+B. EXECUTION / COST STRESS
+costs x1.5                         trades   74 | net/trade +3.337% | med +1.395% | win 52.7% | sl 39.2% | comp +23.55% | worst dd -1.99% | wins+ 100% of 7w
+costs x2                           trades   74 | net/trade +3.267% | med +1.325% | win 52.7% | sl 39.2% | comp +22.61% | worst dd -2.03% | wins+ 100% of 7w
+costs x3                           trades   74 | net/trade +3.127% | med +1.185% | win 52.7% | sl 39.2% | comp +20.75% | worst dd -2.10% | wins+ 86% of 7w
+entry at next open (delayed)       trades   74 | net/trade +3.420% | med +1.471% | win 52.7% | sl 39.2% | comp +24.72% | worst dd -1.96% | wins+ 100% of 7w
+delayed + costs x2                 trades   74 | net/trade +3.280% | med +1.331% | win 52.7% | sl 39.2% | comp +22.82% | worst dd -2.03% | wins+ 100% of 7w
+loose (10%/1.5x) + costs x2        trades  248 | net/trade +0.806% | med -1.796% | win 40.7% | sl 52.0% | comp +13.34% | worst dd -8.81% | wins+ 57% of 7w
+
+------------------------------------------------------------------------------
+C. BOOTSTRAP CI ON BASELINE (10,000 resamples of net/trade)
+pooled net/trade +3.407% | 95% CI [+1.234%, +5.891%] | P(mean<=0) = 0.04%
+
+D. LEAVE-ONE-OUT (trade-level, baseline)
+  drop W1-2025Q1 :  68 trades, net/trade +3.406%
+  drop W2-2025Q2 :  72 trades, net/trade +3.471%
+  drop W3-2025Q3 :  61 trades, net/trade +4.301%
+  drop W4-2025Q4 :  65 trades, net/trade +3.374%
+  drop W5-2026Q1 :  69 trades, net/trade +3.291%
+  drop W6-2026Q2 :  63 trades, net/trade +3.255%
+  drop W7-orig   :  46 trades, net/trade +2.555%
+  drop HMSTR     :  67 trades, net/trade +2.710%
+  drop HEMI      :  61 trades, net/trade +3.033%
+  drop FARTCOIN  :  73 trades, net/trade +3.247%
+  drop ZEC       :  70 trades, net/trade +3.815%
+  drop TIA       :  73 trades, net/trade +3.334%
+
+E. RANDOM-SHORT PLACEBO (matched counts/window, 200 reps)
+placebo net/trade: mean -0.193%, 95th pct +0.219% | actual +3.407% beats 100.0% of placebo runs
+
+F. REGIME SPLIT (BTC 4h EMA20 vs EMA50 at signal time, baseline)
+  bear:  29 trades, net/trade +2.614%, win 52%
+  bull:  45 trades, net/trade +3.919%, win 53%

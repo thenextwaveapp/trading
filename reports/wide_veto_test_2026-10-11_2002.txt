@@ -1,0 +1,23 @@
+WIDE VETO + UNIVERSE BOUNDARY — 2026-10-11 19:39 UTC
+building backtest/full25_15m.csv.gz ...
+  36,595,390 rows
+building backtest/full25_1h.csv.gz ...
+  9,149,020 rows
+loaded 858 tickers (2024-12-15..today)
+
+ARMS (full universe, 2025-01..today, fleet costs + 0.3% stop slip):
+  base  trades  4949 | avg +0.185% | win 42.0% | eq -28.94% | dd -81.5%
+  veto  trades  4814 | avg +0.148% | win 41.8% | eq -42.23% | dd -81.2%
+
+TRADE-LEVEL (no conc cap): 4997 trades, vetoed 139
+  vetoed avg +1.524% | kept avg +0.130%
+  placebo: random 139-subsets <= vetoed avg in 95.085% of 20,000 draws
+  veto fires by month: {'2025-01': np.int64(3), '2025-05': np.int64(108), '2025-07': np.int64(23), '2025-09': np.int64(5)}
+
+UNIVERSE BOUNDARY (base-style trades, 2025-01..today):
+  curated-60     :   161 trades | avg +1.952% | win 51%
+  exp-high       :  1652 trades | avg -0.177% | win 39% | median 15m $vol ~$61k
+  exp-mid        :  1599 trades | avg +0.099% | win 41% | median 15m $vol ~$31k
+  exp-low        :  1585 trades | avg +0.418% | win 45% | median 15m $vol ~$15k
+
+(exp tiers = expansion universe split by median 15m dollar volume terciles)

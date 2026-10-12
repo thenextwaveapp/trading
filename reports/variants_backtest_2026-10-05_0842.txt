@@ -1,0 +1,61 @@
+VARIANTS WALK-FORWARD — 2026-10-05 08:42 UTC | universe 60 tickers | 7 variants | only 'base' is pre-registered
+W1-2025Q1 base      : signals    6 trades   6 | net/trade +3.427% | eq +2.66% dd -1.96%
+W1-2025Q1 fast      : signals    6 trades   6 | net/trade +3.407% | eq +2.72% dd -1.39%
+W1-2025Q1 slow      : signals    6 trades   6 | net/trade +1.575% | eq +1.37% dd -1.96%
+W1-2025Q1 tightstop : signals    6 trades   6 | net/trade +3.427% | eq +2.66% dd -1.96%
+W1-2025Q1 loose     : signals   28 trades  28 | net/trade +0.306% | eq -2.16% dd -4.64%
+W1-2025Q1 strict    : signals    1 trades   1 | net/trade +5.113% | eq +0.39% dd 0.00%
+W1-2025Q1 vol3      : signals    2 trades   2 | net/trade +4.471% | eq +0.46% dd -0.78%
+W2-2025Q2 base      : signals    2 trades   2 | net/trade +1.109% | eq +0.61% dd -0.28%
+W2-2025Q2 fast      : signals    2 trades   2 | net/trade +1.617% | eq +0.53% dd 0.00%
+W2-2025Q2 slow      : signals    2 trades   2 | net/trade +2.042% | eq +0.50% dd -0.03%
+W2-2025Q2 tightstop : signals    2 trades   2 | net/trade +1.109% | eq +0.61% dd -0.28%
+W2-2025Q2 loose     : signals   17 trades  17 | net/trade -0.802% | eq -2.18% dd -4.63%
+W2-2025Q2 strict    : signals    1 trades   1 | net/trade -2.215% | eq -0.28% dd -0.28%
+W2-2025Q2 vol3      : signals    0 trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+W3-2025Q3 base      : signals   13 trades  13 | net/trade -0.787% | eq +0.35% dd -1.25%
+W3-2025Q3 fast      : signals   13 trades  13 | net/trade -1.860% | eq -1.69% dd -2.37%
+W3-2025Q3 slow      : signals   13 trades  13 | net/trade +0.170% | eq +2.58% dd -1.43%
+W3-2025Q3 tightstop : signals   13 trades  13 | net/trade -0.787% | eq +0.35% dd -1.25%
+W3-2025Q3 loose     : signals   41 trades  41 | net/trade -0.268% | eq -1.20% dd -3.83%
+W3-2025Q3 strict    : signals    6 trades   6 | net/trade -2.150% | eq -0.55% dd -2.20%
+W3-2025Q3 vol3      : signals    1 trades   1 | net/trade -0.838% | eq -0.17% dd -0.17%
+W4-2025Q4 base      : signals    9 trades   9 | net/trade +3.648% | eq +3.57% dd -0.91%
+W4-2025Q4 fast      : signals    9 trades   9 | net/trade +2.589% | eq +2.53% dd -0.90%
+W4-2025Q4 slow      : signals    9 trades   9 | net/trade +4.963% | eq +4.58% dd -0.77%
+W4-2025Q4 tightstop : signals    9 trades   9 | net/trade +3.648% | eq +3.57% dd -0.91%
+W4-2025Q4 loose     : signals   26 trades  26 | net/trade +1.148% | eq +3.08% dd -1.41%
+W4-2025Q4 strict    : signals    3 trades   3 | net/trade +7.525% | eq +1.50% dd 0.00%
+W4-2025Q4 vol3      : signals    3 trades   3 | net/trade +9.187% | eq +2.56% dd 0.00%
+W5-2026Q1 base      : signals    5 trades   5 | net/trade +5.011% | eq +0.83% dd -0.99%
+W5-2026Q1 fast      : signals    5 trades   5 | net/trade +4.640% | eq +0.69% dd -1.17%
+W5-2026Q1 slow      : signals    5 trades   5 | net/trade +4.816% | eq +0.75% dd -1.08%
+W5-2026Q1 tightstop : signals    5 trades   5 | net/trade +5.011% | eq +0.83% dd -0.99%
+W5-2026Q1 loose     : signals   13 trades  13 | net/trade +3.891% | eq +4.78% dd -0.99%
+W5-2026Q1 strict    : signals    2 trades   2 | net/trade +17.206% | eq +2.23% dd 0.00%
+W5-2026Q1 vol3      : signals    0 trades   0 | net/trade +0.000% | eq +0.00% dd 0.00%
+W6-2026Q2 base      : signals   11 trades  11 | net/trade +4.282% | eq +4.71% dd -1.13%
+W6-2026Q2 fast      : signals   11 trades  11 | net/trade +4.273% | eq +4.27% dd -1.44%
+W6-2026Q2 slow      : signals   11 trades  11 | net/trade +3.842% | eq +3.84% dd -1.13%
+W6-2026Q2 tightstop : signals   11 trades  11 | net/trade +4.282% | eq +4.71% dd -1.13%
+W6-2026Q2 loose     : signals   38 trades  35 | net/trade +0.095% | eq -1.83% dd -4.75%
+W6-2026Q2 strict    : signals    6 trades   6 | net/trade +7.276% | eq +3.53% dd -0.78%
+W6-2026Q2 vol3      : signals    3 trades   3 | net/trade +6.898% | eq +2.45% dd -0.78%
+W7-orig base      : signals   30 trades  28 | net/trade +4.808% | eq +9.85% dd -1.39%
+W7-orig fast      : signals   30 trades  28 | net/trade +3.572% | eq +8.77% dd -1.47%
+W7-orig slow      : signals   30 trades  28 | net/trade +5.123% | eq +10.61% dd -1.46%
+W7-orig tightstop : signals   30 trades  28 | net/trade +4.808% | eq +9.85% dd -1.39%
+W7-orig loose     : signals   76 trades  72 | net/trade +1.831% | eq +8.51% dd -5.93%
+W7-orig strict    : signals   14 trades  13 | net/trade +8.923% | eq +4.92% dd -1.31%
+W7-orig vol3      : signals    8 trades   8 | net/trade +10.033% | eq +1.57% dd -0.91%
+
+==============================================================================================
+SUMMARY (gate criteria shown for all; only 'base' was pre-registered)
+variant    trades net/trade  win% windows+ compounded worst dd top-tkr  gate
+base           74   +3.407%   53%     100%    +24.50%    -2.0%     17%  pass (4/4)
+loose         232   +0.860%   38%      43%     +8.80%    -5.9%     13%  fail (3/4)
+strict         32   +6.457%   66%      71%    +12.22%    -2.2%     35%  pass (4/4)
+vol3           17   +8.037%   59%      80%     +7.05%    -0.9%     47%  fail (3/4)
+fast           74   +2.608%   54%      86%    +18.86%    -2.4%     25%  pass (4/4)
+slow           74   +3.651%   45%     100%    +26.49%    -2.0%     17%  pass (4/4)
+tightstop      74   +3.407%   53%     100%    +24.50%    -2.0%     17%  pass (4/4)

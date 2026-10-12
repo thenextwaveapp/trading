@@ -1,0 +1,58 @@
+SUPER LARRY, FULL UNIVERSE — 2026-10-11 19:43 UTC
+wide cache = every USDT perp ever listed (delisted incl.), merged with curated 60; same ladder/machinery as super_larry.py
+
+========================================================================================================
+TRACK: 2023-24 bear  (2023-01-01 .. 2024-12-14)
+  curated pump events: 707
+  [2023-24 bear CURATED] 45 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      12,610   -0.9%     5    45    287    0
+  Super Eddie (20%/1x both, flat)                      $      29,816   -4.6%     5    45    287    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $      37,431   -8.1%     5    45    287    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $     117,823  -12.4%     5    45    287    0
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $     271,070  -17.4%     5    45    287    0
+    -> leg S alone (Larry sizing)                      $       7,361  -26.4%     6     0     76    0
+    -> leg C alone (Larry sizing)                      $     156,526  -12.4%     0    45    213    0
+
+  +319 expansion tickers | full-universe pump events: 4,953
+  [2023-24 bear FULL] 364 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      10,607   -8.2%   270   168   3255    0
+  Super Eddie (20%/1x both, flat)                      $      11,757  -35.5%   270   168   3255    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $       7,191  -69.6%   270   168   3255    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $       3,492  -86.3%   270   168   3255    0
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $         541  -96.8%   270   168   3255    0
+    -> leg S alone (Larry sizing)                      $       2,481  -83.7%   273     0    664    0
+    -> leg C alone (Larry sizing)                      $      14,075  -62.6%     0   170   2611    0
+
+========================================================================================================
+TRACK: 2025-26 main  (2024-12-15 .. 2026-10-03)
+  curated pump events: 1,053
+  [2025-26 main CURATED] 60 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      13,777   -2.5%    87   108    340    0
+  Super Eddie (20%/1x both, flat)                      $      44,962  -11.6%    87   108    340    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $     307,714  -21.8%    87   108    340    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $   1,851,226  -37.2%    87   108    341    1
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $   8,826,361  -52.1%    87   108    341    1
+    -> leg S alone (Larry sizing)                      $     208,913  -31.3%    89     0     76    0
+    -> leg C alone (Larry sizing)                      $      88,366  -32.9%     0   112    277    1
+
+  +798 expansion tickers | full-universe pump events: 14,467
+  [2025-26 main FULL] 858 tickers
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      15,659  -19.4%  1975   486   8817    0
+  Super Eddie (20%/1x both, flat)                      $      32,460  -71.5%  1975   486   8817    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $       2,657  -99.9%  1975   486   8817    4
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $          27 -100.0%  1643   450   7888   25
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $      10,537 -106.1%    83    44    668    2
+    -> leg S alone (Larry sizing)                      $          23 -100.0%  1992     0   2402   18
+    -> leg C alone (Larry sizing)                      $           6 -100.0%     0   474   5979   13
+
+CHAINED $10k, 2023 -> Oct 2026:
+  config                                                   CURATED 60  FULL UNIVERSE
+  Super Monk  (4%/1x both, flat)                       $       17,373 $       16,610
+  Super Eddie (20%/1x both, flat)                      $      134,058 $       38,163
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $    1,151,810 $        1,911
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $   21,811,784 $            9
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $  239,256,342 $          570

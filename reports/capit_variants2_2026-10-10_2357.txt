@@ -1,0 +1,61 @@
+CAPIT-LONG VARIANTS ROUND 2 — 2026-10-10 23:57 UTC | 60 tickers | full span 2023-01 -> 2026-10
+base = -20%/24h fresh + BTC bear -> long at close, no stop, hold 96c
+
+0. REFERENCE
+variant                            trades   net/tr  median win%      comp     dd  y+  by year
+BASE bear -20% h96                   214   +4.714%   +3.71%   67%   +416.35%  -16.2% 4/4  2023: +6.12%/23 | 2024: +8.03%/49 | 2025: +3.52%/108 | 2026: +2.78%/34
+
+1. ENTRY EXECUTION (bear-gated)
+variant                            trades   net/tr  median win%      comp     dd  y+  by year
+limit entry -2% (16c window)         179   +4.903%   +4.64%   65%   +338.62%  -12.0% 4/4  2023: +5.95%/17 | 2024: +8.68%/44 | 2025: +3.44%/90 | 2026: +3.03%/28
+limit entry -4% (16c window)         139   +6.381%   +6.11%   65%   +334.24%  -11.8% 4/4  2023: +8.79%/16 | 2024: +10.72%/35 | 2025: +3.66%/65 | 2026: +5.80%/23
+limit entry -6% (16c window)         113   +7.694%   +6.02%   65%   +290.68%   -8.4% 4/4  2023: +11.84%/12 | 2024: +13.58%/29 | 2025: +3.44%/53 | 2026: +7.97%/19
+wait first green close               215   +3.763%   +2.91%   62%   +248.87%  -14.3% 4/4  2023: +1.59%/23 | 2024: +6.51%/51 | 2025: +3.42%/107 | 2026: +2.18%/34
+
+2. EXIT STYLE (bear-gated)
+variant                            trades   net/tr  median win%      comp     dd  y+  by year
+trail 10% from peak                  282   +1.928%   -0.33%   50%   +151.88%  -15.1% 4/4  2023: +3.49%/29 | 2024: +2.18%/66 | 2025: +1.72%/151 | 2026: +1.08%/36
+trail 20% from peak                  226   +4.192%   +3.50%   66%   +363.67%  -20.9% 4/4  2023: +5.77%/24 | 2024: +6.58%/49 | 2025: +3.35%/118 | 2026: +2.60%/35
+breakeven lock after +10%            220   +4.120%   +3.13%   60%   +354.29%  -17.9% 4/4  2023: +4.19%/23 | 2024: +7.24%/51 | 2025: +3.12%/112 | 2026: +2.67%/34
+split: half 24h, half 48h            201   +5.916%   +4.29%   66%   +524.30%  -13.9% 4/4  2023: +10.60%/22 | 2024: +10.60%/48 | 2025: +3.66%/102 | 2026: +2.55%/29
+trail 20% + 192c window              220   +4.831%   +4.31%   60%   +392.86%  -26.8% 4/4  2023: +5.12%/24 | 2024: +11.32%/48 | 2025: +2.97%/117 | 2026: +1.61%/31
+
+3. RE-ENTRY POLICY (bear-gated)
+variant                            trades   net/tr  median win%      comp     dd  y+  by year
+re-enter every 24h in dump           205   +5.882%   +5.48%   71%   +592.94%  -10.9% 4/4  2023: +6.12%/23 | 2024: +10.30%/51 | 2025: +4.76%/97 | 2026: +2.31%/34
+re-enter every 48h in dump           192   +5.665%   +5.51%   72%   +497.13%  -11.3% 4/4  2023: +7.24%/22 | 2024: +9.47%/50 | 2025: +4.11%/88 | 2026: +2.93%/32
+
+4. UNIVERSE / CRASH TYPE (bear-gated)
+variant                            trades   net/tr  median win%      comp     dd  y+  by year
+majors only                           43  +12.354%  +12.74%   86%   +166.26%   -3.0% 4/4  2023: +12.79%/5 | 2024: +15.64%/15 | 2025: +8.88%/18 | 2026: +14.59%/5
+small caps only                      212   +4.615%   +3.57%   67%   +389.23%  -16.2% 4/4  2023: +5.01%/21 | 2024: +8.02%/49 | 2025: +3.57%/108 | 2026: +2.79%/34
+idio dump (BTC 24h > -5%)            156   +3.294%   +3.02%   63%   +102.28%  -16.2% 3/4  2023: +4.45%/20 | 2024: +5.65%/34 | 2025: +3.54%/82 | 2026: -2.88%/20
+market-wide (BTC 24h <= -5%)         108   +6.960%   +8.19%   74%   +286.00%   -8.9% 4/4  2023: +17.15%/6 | 2024: +10.57%/30 | 2025: +4.47%/52 | 2026: +4.97%/20
+
+5. BREADTH GATE (bear-gated; signals from any ticker in last 24h)
+variant                            trades   net/tr  median win%      comp     dd  y+  by year
+isolated: breadth < 3                140   +4.862%   +3.78%   67%   +218.74%   -8.4% 4/4  2023: +6.12%/23 | 2024: +7.58%/30 | 2025: +4.29%/67 | 2026: +1.27%/20
+clustered: breadth >= 3              147   +4.361%   +3.75%   66%   +167.22%  -17.1% 4/4  2023: +14.38%/8 | 2024: +7.55%/34 | 2025: +2.40%/87 | 2026: +3.36%/18
+panic: breadth >= 6                  117   +4.558%   +3.81%   64%   +140.30%  -12.7% 4/4  2023: +2.31%/6 | 2024: +8.08%/32 | 2025: +2.98%/65 | 2026: +4.79%/14
+
+====================================================================================================
+RANKED (by net/trade, min 40 trades; **** = positive all 4 years)
+  majors only                         +12.354%/tr x  43 | win  86% | comp   +166.26% | dd  -3.0% ****
+  limit entry -6% (16c window)         +7.694%/tr x 113 | win  65% | comp   +290.68% | dd  -8.4% ****
+  market-wide (BTC 24h <= -5%)         +6.960%/tr x 108 | win  74% | comp   +286.00% | dd  -8.9% ****
+  limit entry -4% (16c window)         +6.381%/tr x 139 | win  65% | comp   +334.24% | dd -11.8% ****
+  split: half 24h, half 48h            +5.916%/tr x 201 | win  66% | comp   +524.30% | dd -13.9% ****
+  re-enter every 24h in dump           +5.882%/tr x 205 | win  71% | comp   +592.94% | dd -10.9% ****
+  re-enter every 48h in dump           +5.665%/tr x 192 | win  72% | comp   +497.13% | dd -11.3% ****
+  limit entry -2% (16c window)         +4.903%/tr x 179 | win  65% | comp   +338.62% | dd -12.0% ****
+  isolated: breadth < 3                +4.862%/tr x 140 | win  67% | comp   +218.74% | dd  -8.4% ****
+  trail 20% + 192c window              +4.831%/tr x 220 | win  60% | comp   +392.86% | dd -26.8% ****
+  BASE bear -20% h96                   +4.714%/tr x 214 | win  67% | comp   +416.35% | dd -16.2% ****
+  small caps only                      +4.615%/tr x 212 | win  67% | comp   +389.23% | dd -16.2% ****
+  panic: breadth >= 6                  +4.558%/tr x 117 | win  64% | comp   +140.30% | dd -12.7% ****
+  clustered: breadth >= 3              +4.361%/tr x 147 | win  66% | comp   +167.22% | dd -17.1% ****
+  trail 20% from peak                  +4.192%/tr x 226 | win  66% | comp   +363.67% | dd -20.9% ****
+  breakeven lock after +10%            +4.120%/tr x 220 | win  60% | comp   +354.29% | dd -17.9% ****
+  wait first green close               +3.763%/tr x 215 | win  62% | comp   +248.87% | dd -14.3% ****
+  idio dump (BTC 24h > -5%)            +3.294%/tr x 156 | win  63% | comp   +102.28% | dd -16.2%
+  trail 10% from peak                  +1.928%/tr x 282 | win  50% | comp   +151.88% | dd -15.1% ****

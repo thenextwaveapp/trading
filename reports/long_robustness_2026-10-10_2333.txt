@@ -1,0 +1,64 @@
+DUMP-LONG ROBUSTNESS BATTERY — 2026-10-10 23:33 UTC | 60 tickers | full span 2023-01 -> 2026-10
+frozen candidate = dump<=-12%/4h, first GREEN close, vol>=2x, LONG, stop=4h-low, hold=16c (exact mirror of pre-registered short)
+
+------------------------------------------------------------------------------
+A. PARAMETER SENSITIVITY (one knob at a time from mirror point)
+BASELINE (mirror rule)             trades   88 | net/trade +2.151% | med +2.890% | win 64.8% | sl 17.0% | comp +18.37% | dd -2.27% | wins+ 79% of 14w
+dump <= -8%                        trades  269 | net/trade +0.270% | med -0.643% | win 43.9% | sl 36.8% | comp -1.08% | dd -8.90% | wins+ 67% of 15w
+dump <= -10%                       trades  134 | net/trade +1.163% | med +0.691% | win 54.5% | sl 26.1% | comp +12.08% | dd -3.61% | wins+ 60% of 15w
+dump <= -14%                       trades   56 | net/trade +2.486% | med +3.478% | win 73.2% | sl 16.1% | comp +13.38% | dd -2.27% | wins+ 85% of 13w
+dump <= -16%                       trades   34 | net/trade +3.384% | med +3.856% | win 79.4% | sl 14.7% | comp +9.62% | dd -1.52% | wins+ 80% of 10w
+dump <= -20%                       trades   12 | net/trade +0.987% | med +3.703% | win 66.7% | sl 33.3% | comp +0.24% | dd -1.52% | wins+ 57% of 7w
+vol >= 1.5x                        trades  145 | net/trade +1.296% | med +1.209% | win 58.6% | sl 26.9% | comp +12.15% | dd -4.60% | wins+ 50% of 14w
+vol >= 2.5x                        trades   55 | net/trade +2.992% | med +3.070% | win 72.7% | sl 12.7% | comp +13.83% | dd -1.53% | wins+ 71% of 14w
+vol >= 3x                          trades   30 | net/trade +3.438% | med +2.732% | win 76.7% | sl 13.3% | comp +8.60% | dd -1.53% | wins+ 100% of 10w
+vol >= 4x                          trades   11 | net/trade +1.688% | med +1.884% | win 63.6% | sl 18.2% | comp +2.09% | dd -0.77% | wins+ 80% of 5w
+no green filter                    trades  449 | net/trade +0.759% | med -0.855% | win 33.2% | sl 63.3% | comp +10.56% | dd -14.94% | wins+ 60% of 15w
+hold 8c (2h)                       trades   90 | net/trade +1.332% | med +1.516% | win 62.2% | sl 15.6% | comp +14.39% | dd -1.96% | wins+ 71% of 14w
+hold 24c (6h)                      trades   88 | net/trade +2.022% | med +2.191% | win 63.6% | sl 23.9% | comp +17.51% | dd -2.34% | wins+ 64% of 14w
+hold 32c (8h)                      trades   88 | net/trade +2.795% | med +2.654% | win 64.8% | sl 23.9% | comp +25.88% | dd -2.29% | wins+ 79% of 14w
+hold 96c (24h)                     trades   88 | net/trade +3.907% | med +2.300% | win 60.2% | sl 30.7% | comp +30.11% | dd -3.71% | wins+ 71% of 14w
+stop -1% buffer                    trades   88 | net/trade +2.180% | med +2.940% | win 67.0% | sl 13.6% | comp +19.17% | dd -2.54% | wins+ 79% of 14w
+no stop (time exit only)           trades   87 | net/trade +2.377% | med +3.070% | win 71.3% | sl  0.0% | comp +24.31% | dd -2.81% | wins+ 79% of 14w
+
+------------------------------------------------------------------------------
+B. EXECUTION / COST STRESS + PERISHABILITY LADDER
+costs x1.5                         trades   88 | net/trade +2.081% | med +2.820% | win 63.6% | sl 17.0% | comp +17.61% | dd -2.29% | wins+ 79% of 14w
+costs x2                           trades   88 | net/trade +2.011% | med +2.750% | win 63.6% | sl 17.0% | comp +16.86% | dd -2.31% | wins+ 79% of 14w
+costs x3                           trades   88 | net/trade +1.871% | med +2.610% | win 63.6% | sl 17.0% | comp +15.36% | dd -2.35% | wins+ 79% of 14w
+costs x4                           trades   88 | net/trade +1.731% | med +2.470% | win 63.6% | sl 17.0% | comp +13.89% | dd -2.39% | wins+ 71% of 14w
+entry at next open (+0-15m)        trades   88 | net/trade +2.427% | med +2.883% | win 65.9% | sl 15.9% | comp +22.86% | dd -2.28% | wins+ 71% of 14w
+entry +1 bar (15m late)            trades   88 | net/trade +2.073% | med +1.561% | win 63.6% | sl 15.9% | comp +16.01% | dd -2.25% | wins+ 57% of 14w
+entry +2 bars (30m late)           trades   87 | net/trade +1.814% | med +0.859% | win 59.8% | sl 14.9% | comp +13.97% | dd -2.41% | wins+ 57% of 14w
+entry +4 bars (1h late)            trades   87 | net/trade +1.064% | med +0.887% | win 59.8% | sl 18.4% | comp +8.39% | dd -2.52% | wins+ 57% of 14w
+entry +16 bars (4h late)           trades   87 | net/trade +1.135% | med +0.649% | win 54.0% | sl 17.2% | comp +10.34% | dd -1.78% | wins+ 86% of 14w
+next open + costs x2               trades   88 | net/trade +2.287% | med +2.743% | win 65.9% | sl 15.9% | comp +21.30% | dd -2.32% | wins+ 71% of 14w
+
+------------------------------------------------------------------------------
+C. BOOTSTRAP CI ON BASELINE (10,000 resamples of net/trade)
+pooled net/trade +2.151% | 95% CI [+0.826%, +3.559%] | P(mean<=0) = 0.12%
+
+D. LEAVE-ONE-OUT + CONCENTRATION (baseline)
+  drop 2023:  71 trades, net/trade +2.218% (year alone: +1.874%/17)
+  drop 2024:  52 trades, net/trade +1.877% (year alone: +2.548%/36)
+  drop 2025:  61 trades, net/trade +2.120% (year alone: +2.222%/27)
+  drop 2026:  80 trades, net/trade +2.295% (year alone: +0.718%/8)
+  drop PEPE      :  83 trades, net/trade +1.966%
+  drop kPEPE     :  85 trades, net/trade +2.040%
+  drop HMSTR     :  86 trades, net/trade +2.044%
+  drop PUMP      :  85 trades, net/trade +2.402%
+  drop BIO       :  87 trades, net/trade +2.023%
+  drop top-5 winners : net/trade +1.244%
+  drop top-10 winners: net/trade +0.763%
+  max single loss -12.91% | max single win +30.67%
+
+E. RANDOM-LONG PLACEBO (matched counts/window, 200 reps)
+placebo net/trade: mean -0.186%, 95th pct +0.294% | actual +2.151% beats 100.0% of placebo runs
+
+F. REGIME SPLIT (BTC 4h EMA20 vs EMA50 at signal time, baseline)
+  bear:  53 trades, net/trade +2.063%, win 62%
+  bull:  35 trades, net/trade +2.286%, win 69%
+
+G. EPISODE CLUSTERING (same ticker, trades < 24h apart = one episode)
+  88 trades -> 85 independent episodes (max 2 trades/episode)
+  per-episode mean net +2.214% | episodes positive 67% | top episode = 6% of gross |pnl|

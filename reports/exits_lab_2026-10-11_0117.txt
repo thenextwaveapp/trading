@@ -1,0 +1,23 @@
+EXITS LAB — 2026-10-11 01:17 UTC | same signals, same entry, same 4h-high stop,
+same Larry sizing (25% margin at 4x, max 4 concurrent) — only the exit changes
+
+MFE AUTOPSY (per-ticker-lock trades, no concurrency cap — how deep do collapses go?)
+  all 151 trades: deepest collapse (low) within 4h avg 7.6% | 8h 9.0% | 24h 11.5% | 48h 14.1%
+  survivors (n=83): 4h 10.6% | 8h 12.5% | 24h 15.1% | 48h 17.2%
+  4h time exit realizes +1.94%/trade = 17% of the avg 24h max collapse
+
+EXIT POLICY RACE (final $ at Larry sizing):
+   1. time exit 24h                                $     309,983  avg  +2.76%  med -1.78%  win 42.3%  dd  -39.3%  n=163 ⚡1liq
+   2. time exit 8h                                 $     238,128  avg  +2.42%  med -1.25%  win 42.9%  dd  -33.4%  n=163 ⚡1liq
+   3. time exit 48h                                $     164,009  avg  +2.51%  med -2.42%  win 35.0%  dd  -77.4%  n=163 ⚡1liq
+   4. take-profit -20% or 24h                      $     158,292  avg  +2.18%  med -1.78%  win 42.3%  dd  -40.5%  n=163 ⚡1liq
+   5. runner: exit 4h unless >+5%, then trail 3%   $     152,385  avg  +2.11%  med +0.34%  win 50.3%  dd  -36.8%  n=163 ⚡1liq
+   6. CONTROL: time exit 4h (Larry as raced)       $     126,394  avg  +1.95%  med +0.34%  win 50.3%  dd  -38.8%  n=163 ⚡1liq
+   7. trail 5% off min close, up to 48h            $      67,709  avg  +1.45%  med -1.68%  win 38.0%  dd  -26.7%  n=163
+   8. time exit 2h                                 $      55,419  avg  +1.31%  med -0.37%  win 48.5%  dd  -48.4%  n=163 ⚡1liq
+   9. breakeven stop once -2%, hold 24h            $      49,788  avg  +1.38%  med -0.14%  win 19.0%  dd  -46.1%  n=163
+  10. take-profit -10% or 24h                      $      46,410  avg  +1.22%  med -1.70%  win 43.9%  dd  -45.0%  n=164 ⚡1liq
+  11. first green candle (after 1h)                $      32,127  avg  +0.89%  med -0.18%  win 49.1%  dd  -30.0%  n=163
+  12. half at 4h + half trails 3% to 48h           $      26,028  avg  +0.72%  med -0.94%  win 42.9%  dd  -30.7%  n=163
+  13. trail 3% off min close, up to 48h            $      24,037  avg  +0.67%  med -0.94%  win 42.3%  dd  -31.9%  n=163
+  14. trail 2% off min close, up to 48h            $      23,196  avg  +0.62%  med -0.33%  win 45.4%  dd  -34.1%  n=163

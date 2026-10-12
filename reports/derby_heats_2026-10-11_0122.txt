@@ -1,0 +1,44 @@
+DERBY HEATS — 2026-10-11 01:22 UTC
+
+====================================================================================================
+HEAT A: SURVIVOR BRACKET — same racers, 2023-24 bear track (out-of-regime)
+====================================================================================================
+track: 2023-01-01 -> 2024-12-14 | 45 tickers
+   1. The Monk (by the book)                         $       9,747  (     -2.5%)  trades   82  win 32.9%  dd   -2.7%
+   2. Steady Eddie (20%)                             $       8,766  (    -12.3%)  trades   82  win 32.9%  dd  -13.1%
+   3. Half-Port Harry (50%)                          $       7,069  (    -29.3%)  trades   82  win 32.9%  dd  -30.7%
+   4. Wide-Boy Wes (buf2, 40% 2x)                    $       6,710  (    -32.9%)  trades   82  win 45.1%  dd  -34.9%
+   5. Full Port Frank (100%, no lev)                 $       5,977  (    -40.2%)  trades   76  win 34.2%  dd  -41.9%
+   6. Leverage Larry (25% at 4x)                     $       4,707  (    -52.9%)  trades   82  win 32.9%  dd  -54.5%
+   7. The Chaser (buys pumps, 50%) — redemption?     $       3,679  (    -63.2%)  trades  500  win 20.2%  dd  -65.8%
+
+====================================================================================================
+HEAT B: THE LEVERAGE CLIFF — frozen rule, 25% margin, lev 1x..8x, main track
+====================================================================================================
+    25% margin at 1x (notional 25% eq/trade)       $      21,756  (   +117.6%)  trades  163  win 50.3%  dd   -7.8%
+    25% margin at 2x (notional 50% eq/trade)       $      43,770  (   +337.7%)  trades  163  win 50.3%  dd  -15.1%
+    25% margin at 3x (notional 75% eq/trade)       $      81,979  (   +719.8%)  trades  163  win 50.3%  dd  -22.6%
+    25% margin at 4x (notional 100% eq/trade)      $     126,394  (  +1163.9%)  trades  163  win 50.3%  dd  -38.8% ⚡1liq
+    25% margin at 5x (notional 125% eq/trade)      $     185,769  (  +1757.7%)  trades  163  win 50.3%  dd  -51.5% ⚡3liq
+    25% margin at 6x (notional 150% eq/trade)      $     245,276  (  +2352.8%)  trades  163  win 49.7%  dd  -50.9% ⚡4liq
+    25% margin at 7x (notional 175% eq/trade)      $      99,851  (   +898.5%)  trades  163  win 49.1%  dd  -70.4% ⚡9liq
+    25% margin at 8x (notional 200% eq/trade)      $      95,557  (   +855.6%)  trades  163  win 48.5%  dd  -82.0% ⚡10liq
+
+====================================================================================================
+HEAT C: PARALLEL UNIVERSES — Larry's 163 trades, order shuffled 2000x
+====================================================================================================
+  actual order:   $146,492   (sequential approx of Larry's rig)
+  2000 universes: median $146,492 | p5 $146,492 | p95 $146,492
+  busted (<1% of start): 0.0% of universes
+  ended below $10k start: 0.0%
+  ended below the Monk ($11.4k): 0.0%
+  beat the actual-order result: 96.2%
+
+====================================================================================================
+HEAT D: GALAXY BRAIN SIZING — scale the bet to the pump, lev 4x, conc 4
+====================================================================================================
+  FLAT 25% (Larry control)                       $     126,394  (  +1163.9%)  trades  163  dd  -38.8%  liqs 1
+  scaled: frac = 25% x (runup/12%), cap 60%      $     260,895  (  +2509.0%)  trades  163  dd  -81.8%  liqs 1
+  scaled hard: frac = 25% x (runup/12%)^2, cap 75% $     380,229  (  +3702.3%)  trades  163  dd  -92.3%  liqs 1
+  anti-scaled: frac = 25% x (12%/runup), cap 60% $      49,942  (   +399.4%)  trades  163  dd  -23.3%  liqs 1
+  monsters only: 0 if runup<20%, else 50%        $      70,398  (   +604.0%)  trades  163  dd  -78.4%  liqs 1

@@ -1,0 +1,43 @@
+VETO_FH TEST — 2026-10-11 19:31 UTC
+costs: 0.14% RT + 0.3% extra on stop exits | sizing 0.75% risk cap 20% conc 6 | veto thr +2%
+
+loaded is: 45 tickers
+loaded oos: 60 tickers
+
+================================================================================================
+IS 2023-01..2024-12
+  arm      trades   avg net    win    eq ret   maxdd  dropped  drop avg(base)
+  base         82   -0.935%  32.9%   -10.31%  -10.9%        0                
+  veto         20   -1.953%  20.0%    -4.75%   -6.2%       62         -0.607%
+  fh           67   -0.807%  41.8%    -4.12%   -6.8%       15         -2.397%
+  veto_fh      15   -1.753%  20.0%    -2.59%   -4.6%       67         -0.815%
+
+================================================================================================
+2024 alone
+  arm      trades   avg net    win    eq ret   maxdd  dropped  drop avg(base)
+  base         57   -0.688%  33.3%    -7.63%   -8.8%        0                
+  veto          8   -2.664%  12.5%    -3.98%   -4.2%       49         -0.365%
+  fh           45   -0.879%  42.2%    -5.75%   -6.8%       12         -2.292%
+  veto_fh       5   -2.821%   0.0%    -2.43%   -2.4%       52         -0.539%
+
+================================================================================================
+OOS 2025-01..today  *VERDICT*
+  arm      trades   avg net    win    eq ret   maxdd  dropped  drop avg(base)
+  base        161   +1.952%  50.9%   +25.35%   -4.7%        0                
+  veto        138   +2.490%  53.6%   +30.37%   -4.7%       23         -1.274%
+  fh          136   +0.803%  50.0%    -0.80%   -4.4%       26         +0.456%
+  veto_fh     117   +1.247%  53.8%    +4.47%   -3.8%       45         -0.353%
+
+================================================================================================
+2026 alone
+  arm      trades   avg net    win    eq ret   maxdd  dropped  drop avg(base)
+  base         74   +3.844%  54.1%   +21.11%   -2.8%        0                
+  veto         69   +4.299%  56.5%   +24.12%   -2.8%        5         -2.440%
+  fh           62   +2.274%  51.6%    +2.09%   -3.6%       13         +1.372%
+  veto_fh      58   +2.598%  55.2%    +4.07%   -3.4%       17         +0.521%
+
+================================================================================================
+SLOT CRITERIA (OOS 2025-01..today):
+  veto     -> FAIL  avg net > base: Y | maxdd no worse than base: N | >= 50 trades: Y | dropped avg worse than kept: Y
+  fh       -> FAIL  avg net > base: N | maxdd no worse than base: Y | >= 50 trades: Y | dropped avg worse than kept: Y
+  veto_fh  -> FAIL  avg net > base: N | maxdd no worse than base: Y | >= 50 trades: Y | dropped avg worse than kept: Y

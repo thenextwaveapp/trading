@@ -1,0 +1,59 @@
+POINT-IN-TIME UNIVERSE TEST — 2026-10-11 19:58 UTC
+universe at month M = top-65 Invo tickers by trade count in [M-180d, M), >= 3 trades; window 2024-06 .. today
+
+universe size by month:
+  2024-04:   0
+  2024-05:   3
+  2024-06:   3
+  2024-07:  19
+  2024-08:  27
+  2024-09:  49
+  2024-10:  51
+  2024-11:  56
+  2024-12:  65
+  2025-01:  65
+  2025-02:  65
+  2025-03:  65
+  2025-04:  65
+  2025-05:  65
+  2025-06:  65
+  2025-07:  65
+  2025-08:  65
+  2025-09:  65
+  2025-10:  65
+  2025-11:  65
+  2025-12:  65
+  2026-01:  65
+  2026-02:  65
+  2026-03:  65
+  2026-04:  65
+  2026-05:  65
+  2026-06:  65
+  2026-07:  65
+  2026-08:  65
+  2026-09:  65
+  2026-10:  65
+
+224 distinct trade tickers ever in a PIT universe
+188 candle tickers loaded, 188 matched to trades
+PIT dial events: 1,082
+  [POINT-IN-TIME universe (no lookahead)]
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      10,860   -7.3%   141   100    434    0
+  Super Eddie (20%/1x both, flat)                      $      14,635  -32.2%   141   100    434    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $      14,857  -71.1%   141   100    434    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $       4,485  -96.7%   141   100    434    1
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $           0 -102.2%    87    86    353    1
+    -> leg S alone (Larry sizing)                      $       3,527  -92.3%   144     0     83    1
+    -> leg C alone (Larry sizing)                      $      22,970  -41.7%     0   103    360    0
+
+static-60 dial events: 1,523
+  [STATIC 60 (the lookahead universe), same window]
+  config                                                     $10k ->   maxdd     S     C   skip  liq
+  Super Monk  (4%/1x both, flat)                       $      15,262   -2.5%    89   122    456    0
+  Super Eddie (20%/1x both, flat)                      $      73,496  -11.6%    89   122    456    0
+  Super Harry (S 25%/2x quad c50, C 25%/1x)            $     555,552  -21.8%    89   122    456    0
+  SUPER LARRY — FINAL SPEC (S 25%/3x quad c50, C 25%/2x lin c30) $   5,706,353  -37.2%    89   122    457    1
+  Super Larry MAX (S 35%/3x quad c75, C 35%/2x lin c75) $  40,590,522  -52.1%    89   122    457    1
+    -> leg S alone (Larry sizing)                      $     183,802  -31.3%    91     0    105    0
+    -> leg C alone (Larry sizing)                      $     309,596  -32.9%     0   126    365    1

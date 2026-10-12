@@ -1,0 +1,16 @@
+SOFT GATE — 2026-10-11 01:37 UTC | tuned winner, margin budget scaled by dial strength
+dial m: <-2% full (35/75) | -2..0 half (17.5/40) | 0..+2% monk (4/8) | >+2% flat
+
+track                  policy           $10k ->    maxdd  trades (full/small)  skipped
+2023-24 bear track     ungated   $        1,304   -89.2%      81         81/0        0
+2023-24 bear track     hard      $        6,413   -35.9%       6          6/0       76
+2023-24 bear track     soft      $        7,813   -23.5%      20         0/20       62
+
+2025-26 main track     ungated   $    2,477,035   -67.7%     163        163/0        0
+2025-26 main track     hard      $      519,658   -42.7%      89         89/0       76
+2025-26 main track     soft      $      302,758   -40.8%     139       36/103       24
+
+CHAINED $10k, 2023 -> Oct 2026:
+  ungated   $323,049
+  hard      $333,270
+  soft      $236,545

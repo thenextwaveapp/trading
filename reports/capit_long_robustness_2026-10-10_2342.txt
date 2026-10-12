@@ -1,0 +1,59 @@
+CAPITULATION-LONG ROBUSTNESS — 2026-10-10 23:42 UTC | 60 tickers | full span 2023-01 -> 2026-10
+candidate = 24h ret <= -20% fresh crossing -> LONG at close, NO stop, time exit 96c (24h)
+
+------------------------------------------------------------------------------
+A. NEIGHBORHOOD (depth x hold) — ridge or lucky point?
+variant                            trades   net/tr   median win%      comp     dd  by year
+BASELINE -20% h96                    347   +3.420%   +2.692%   60%   +624.63%  -21.9%  2023: +4.18%/34 | 2024: +7.21%/101 | 2025: +2.31%/143 | 2026: -0.21%/69
+depth -15%                           775   +1.228%   +0.664%   53%   +237.34%  -38.5%  2023: +2.49%/87 | 2024: +3.73%/213 | 2025: -0.13%/308 | 2026: -0.13%/167
+depth -18%                           486   +2.390%   +1.527%   56%   +514.91%  -26.9%  2023: +4.17%/47 | 2024: +5.78%/124 | 2025: +1.46%/210 | 2026: -0.56%/105
+depth -22%                           247   +3.525%   +3.009%   60%   +274.40%  -19.4%  2023: +4.69%/25 | 2024: +7.95%/76 | 2025: +1.39%/95 | 2026: +0.34%/51
+depth -25%                           157   +3.390%   +1.707%   57%   +102.67%  -17.9%  2023: +7.89%/22 | 2024: +12.48%/42 | 2025: -2.36%/60 | 2026: -0.72%/33
+depth -30%                            60   +7.353%   +4.678%   60%    +73.81%   -6.1%  2023: +9.16%/8 | 2024: +18.53%/10 | 2025: +6.92%/30 | 2026: -2.10%/12
+hold 32c (8h)                        453   +2.017%   +1.702%   63%   +308.69%  -12.6%  2023: +2.18%/48 | 2024: +4.01%/143 | 2025: +1.35%/179 | 2026: -0.07%/83
+hold 64c (16h)                       374   +1.892%   +1.361%   56%   +241.59%  -22.3%  2023: +2.39%/38 | 2024: +5.11%/113 | 2025: +0.60%/151 | 2026: -0.71%/72
+hold 144c (36h)                      328   +3.054%   +1.750%   58%   +426.78%  -32.9%  2023: +5.39%/32 | 2024: +8.03%/93 | 2025: +1.35%/140 | 2026: -1.68%/63
+hold 192c (48h)                      317   +4.865%   +3.542%   61%  +1193.79%  -13.2%  2023: +10.43%/30 | 2024: +8.25%/89 | 2025: +4.39%/137 | 2026: -1.75%/61
+
+------------------------------------------------------------------------------
+B. PERISHABILITY + COST STRESS
+variant                            trades   net/tr   median win%      comp     dd  by year
+entry next open                      347   +3.412%   +2.283%   60%   +609.76%  -19.9%  2023: +3.96%/34 | 2024: +7.16%/101 | 2025: +2.24%/143 | 2026: +0.08%/69
+entry +2 bars (30m)                  352   +2.738%   +1.834%   59%   +395.98%  -12.9%  2023: +2.00%/34 | 2024: +4.68%/101 | 2025: +2.84%/148 | 2026: +0.03%/69
+entry +4 bars (1h)                   343   +2.421%   +1.922%   59%   +290.27%  -12.7%  2023: +1.36%/34 | 2024: +4.23%/93 | 2025: +2.92%/147 | 2026: -0.55%/69
+entry +16 bars (4h)                  337   +1.767%   +0.408%   51%   +147.36%  -22.7%  2023: +2.61%/34 | 2024: +4.02%/93 | 2025: +0.94%/143 | 2026: -0.03%/67
+costs x2                             347   +3.280%   +2.552%   59%   +569.59%  -22.5%  2023: +4.04%/34 | 2024: +7.07%/101 | 2025: +2.17%/143 | 2026: -0.35%/69
+costs x4                             347   +3.000%   +2.272%   59%   +471.62%  -23.6%  2023: +3.76%/34 | 2024: +6.79%/101 | 2025: +1.89%/143 | 2026: -0.63%/69
+
+------------------------------------------------------------------------------
+C. BOOTSTRAP CI (10,000 resamples)
+pooled +3.420% | 95% CI [+2.126%, +4.708%] | P(mean<=0) = 0.00%
+
+D. LEAVE-ONE-OUT + TAILS
+  drop 2023:  313 trades net +3.337% (year alone +4.184%/34)
+  drop 2024:  246 trades net +1.862% (year alone +7.214%/101)
+  drop 2025:  204 trades net +4.198% (year alone +2.310%/143)
+  drop 2026:  278 trades net +4.321% (year alone -0.212%/69)
+  drop FARTCOIN  : net +3.296%
+  drop kBONK     : net +3.108%
+  drop SPX       : net +3.297%
+  drop kPEPE     : net +3.360%
+  drop PEPE      : net +3.380%
+  drop top-5 winners +2.826% | top-10 +2.402% | top-20 +1.703%
+  max single loss -35.04% | p5 -14.27% | p95 +22.99% | max win +61.06%
+
+E. RANDOM-LONG PLACEBO (matched counts/window, 200 reps, 16c hold proxy for beta)
+placebo mean -0.134%, 95th pct +0.091% | actual +3.420% beats 100.0% of runs
+
+F. BTC REGIME SPLIT
+  bear:  187 trades, net +5.642%, win 71%
+  bull:  160 trades, net +0.822%, win 47%
+
+G. CRASH-DAY CLUSTERING (calendar-day UTC, across tickers)
+  347 trades on 194 distinct days | max same-day entries 6 | days with >=5 entries: 20
+  per-day mean net +2.683% | days positive 55%
+  top-5 days = 17% of gross |pnl| (2025-10-10, 2024-04-13, 2024-01-03, 2024-08-05, 2024-06-18)
+  excluding those 5 days entirely: net/trade +3.137% (317 trades)
+
+H. CONTEXT — mirror rule (prior candidate) on same machinery: +2.15%/88tr, dd -2.3%, positive all 4 years incl 2026.
+   Capitulation long is the data-mined, higher-frequency, higher-expectancy book; its cost is crash-day concurrency, deeper dd, and a weak 2026.
