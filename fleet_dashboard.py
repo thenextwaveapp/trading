@@ -1000,7 +1000,8 @@ function chart(d,shown,legendVs){
     SERIES.push(s);});
   if(!DREW){setRange(RANGE);DREW=true;}
   else if(vis)LW.timeScale().setVisibleRange(vis);   // keep the user's zoom
-  document.getElementById("legend").innerHTML=lvs.map(v=>
+  document.getElementById("legend").innerHTML=lvs.slice()
+    .sort((a,b)=>b.equity-a.equity).map(v=>
     `<span style="cursor:pointer${LSEL.size&&!LSEL.has(v.name)?";opacity:.35":""}" title="click: show only this · more clicks: add to view" onclick="legSel('${v.name}')">`+
     `<i class="sw" style="background:${vcolor(v.name)}"></i>${LSEL.has(v.name)?"<b>"+v.name+"</b>":v.name} ${v.equity.toFixed(0)}</span>`).join("")
     +(LSEL.size?` <button onclick="legClear()" style="padding:1px 10px;font-size:11px">✕ clear (${LSEL.size})</button>`:"");
