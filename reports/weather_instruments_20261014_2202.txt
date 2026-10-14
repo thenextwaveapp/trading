@@ -1,0 +1,113 @@
+WEATHER INSTRUMENT DIAGNOSTICS — 2026-10-14 22:02 UTC
+32,926 hourly rows, 39 instruments
+
+A. COVERAGE (% non-NaN) + PERCENTILES
+  btc_r1                       100.0%   p5   -0.0068  med   +0.0000  p95   +0.0069
+  btc_r4                       100.0%   p5   -0.0143  med   +0.0002  p95   +0.0148
+  btc_r24                       99.9%   p5   -0.0353  med   +0.0008  p95   +0.0418
+  btc_r72                       99.8%   p5   -0.0602  med   +0.0023  p95   +0.0759
+  btc_r168                      99.5%   p5   -0.0883  med   +0.0047  p95   +0.1244
+  btc_vol24                     99.9%   p5   +0.0072  med   +0.0188  p95   +0.0435
+  btc_vol168                    99.5%   p5   +0.0127  med   +0.0209  p95   +0.0397
+  btc_vol720                    97.8%   p5   +0.0153  med   +0.0226  p95   +0.0348
+  btc_z24                       97.7%   p5   -1.6034  med   +0.0328  p95   +1.8273
+  btc_natr24                    99.9%   p5   +0.0019  med   +0.0045  p95   +0.0093
+  btc_rsi14_1h                 100.0%   p5  +30.3983  med  +50.6780  p95  +71.8456
+  btc_rsi14_4h                 100.0%   p5  +30.5937  med  +51.0436  p95  +74.0008
+  btc_macd_hist                100.0%   p5   -0.0025  med   -0.0000  p95   +0.0027
+  btc_bb_width                  99.9%   p5   +0.0065  med   +0.0223  p95   +0.0724
+  btc_bb_pos                    99.9%   p5   -1.0369  med   +0.0441  p95   +1.0672
+  btc_ema20_4h_dist            100.0%   p5   -0.0315  med   +0.0011  p95   +0.0368
+  btc_ema50_4h_dist            100.0%   p5   -0.0483  med   +0.0030  p95   +0.0644
+  btc_ema_bull_4h              100.0%   p5   +0.0000  med   +1.0000  p95   +1.0000
+  btc_dd30d                     97.8%   p5   -0.1961  med   -0.0583  p95   -0.0047
+  btc_dd90d                     93.4%   p5   -0.2946  med   -0.1035  p95   -0.0084
+  btc_days_since_90d_high       92.7%   p5   +0.5000  med  +36.1250  p95 +187.4292
+  btc_days_since_flush3         98.7%   p5   +0.0000  med   +3.3333  p95  +20.5000
+  btc_days_since_flush5         95.6%   p5   +0.4583  med  +16.5833  p95  +87.5000
+  btc_days_since_flush8         95.1%   p5   +3.8333  med  +56.5833  p95 +180.5042
+  btc_volu_ratio                97.8%   p5   +0.3450  med   +0.9101  p95   +1.8851
+  uni_n                        100.0%   p5  +28.0000  med  +45.0000  p95  +60.0000
+  uni_breadth24                100.0%   p5   +0.0167  med   +0.3667  p95   +0.9167
+  uni_breadth1                 100.0%   p5   +0.0167  med   +0.3500  p95   +0.9000
+  uni_tail_dn                  100.0%   p5   +0.0000  med   +0.0167  p95   +0.5167
+  uni_tail_up                  100.0%   p5   +0.0000  med   +0.0333  p95   +0.4333
+  uni_med24                     99.9%   p5   -0.0605  med   -0.0012  p95   +0.0545
+  uni_mean24                    99.9%   p5   -0.0599  med   +0.0021  p95   +0.0638
+  uni_disp24                    99.9%   p5   +0.0169  med   +0.0320  p95   +0.0704
+  uni_iqr24                     99.9%   p5   +0.0138  med   +0.0266  p95   +0.0538
+  uni_med_rpos                  99.9%   p5   +0.1212  med   +0.4947  p95   +0.8722
+  uni_med_natr                  99.9%   p5   +0.0038  med   +0.0065  p95   +0.0113
+  btc_funding                  100.0%   p5   -0.0000  med   +0.0001  p95   +0.0002
+  btc_funding_3d               100.0%   p5   -0.0000  med   +0.0001  p95   +0.0002
+  alt_spread24                  99.9%   p5   -0.0402  med   -0.0032  p95   +0.0303
+
+B. REDUNDANCY — |spearman| >= 0.8 pairs
+  btc_r24                      ~ btc_z24                      +0.99
+  btc_r24                      ~ btc_rsi14_1h                 +0.84
+  btc_r24                      ~ uni_med24                    +0.81
+  btc_r72                      ~ btc_rsi14_4h                 +0.86
+  btc_r72                      ~ btc_ema20_4h_dist            +0.86
+  btc_r72                      ~ btc_ema50_4h_dist            +0.82
+  btc_r168                     ~ btc_ema50_4h_dist            +0.87
+  btc_vol24                    ~ btc_natr24                   +0.95
+  btc_z24                      ~ btc_rsi14_1h                 +0.85
+  btc_z24                      ~ uni_med24                    +0.80
+  btc_rsi14_1h                 ~ btc_bb_pos                   +0.89
+  btc_rsi14_1h                 ~ btc_ema20_4h_dist            +0.82
+  btc_rsi14_4h                 ~ btc_ema20_4h_dist            +0.93
+  btc_rsi14_4h                 ~ btc_ema50_4h_dist            +0.92
+  btc_ema20_4h_dist            ~ btc_ema50_4h_dist            +0.89
+  uni_breadth24                ~ uni_med24                    -0.91
+  uni_breadth24                ~ uni_mean24                   -0.91
+  uni_tail_up                  ~ uni_mean24                   +0.84
+  uni_med24                    ~ uni_mean24                   +0.98
+  btc_funding                  ~ btc_funding_3d               +0.93
+  (17 of 39 instruments in a redundant pair)
+
+C. TIMESCALE — autocorr half-life (hours); weather vs climate
+  btc_r1                       1
+  btc_r4                       2
+  btc_r24                      16
+  btc_r72                      64
+  btc_r168                     128
+  btc_vol24                    32
+  btc_vol168                   256
+  btc_vol720                   1024
+  btc_z24                      16
+  btc_natr24                   32
+  btc_rsi14_1h                 16
+  btc_rsi14_4h                 64
+  btc_macd_hist                8
+  btc_bb_width                 16
+  btc_bb_pos                   8
+  btc_ema20_4h_dist            32
+  btc_ema50_4h_dist            128
+  btc_ema_bull_4h              128
+  btc_dd30d                    512
+  btc_dd90d                    1024
+  btc_days_since_90d_high      1024
+  btc_days_since_flush3        256
+  btc_days_since_flush5        512
+  btc_days_since_flush8        1024
+  btc_volu_ratio               32
+  uni_n                        >1024
+  uni_breadth24                16
+  uni_breadth1                 1
+  uni_tail_dn                  16
+  uni_tail_up                  16
+  uni_med24                    16
+  uni_mean24                   16
+  uni_disp24                   32
+  uni_iqr24                    32
+  uni_med_rpos                 8
+  uni_med_natr                 64
+  btc_funding                  256
+  btc_funding_3d               256
+  alt_spread24                 16
+
+D. SANITY — top-5 extreme hours per selected gauge (should be the known events)
+  btc_z24            2023-10-24 2026-08-20 2023-10-23 2026-08-19 2026-02-07
+  uni_tail_dn        2025-12-01 2025-10-11 2026-02-06 2026-01-30 2026-02-05
+  btc_funding_3d     2026-02-07 2026-02-06 2025-05-02 2026-04-19 2026-03-11
+  btc_vol24          2024-08-05 2024-08-06 2026-02-06 2024-04-14 2023-03-15

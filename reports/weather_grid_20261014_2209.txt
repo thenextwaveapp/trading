@@ -1,0 +1,93 @@
+WEATHER GRID DIAGNOSTICS — 2026-10-14 22:09 UTC
+32,926 hourly rows, 117 instruments
+
+A. EFFECTIVE DIALS — connected components of |rho|>=thr graph
+  thr 0.95: 104 components
+  thr 0.9: 82 components
+  thr 0.8: 45 components
+
+  components at 0.8 (the dial map):
+    [50] btc_bbp10, btc_bbp100, btc_bbp20, btc_bbp50, btc_dd14d, btc_dd180d, btc_dd30d, btc_dd60d, btc_dd7d, btc_dd90d, btc_ema100_dist, btc_ema200_dist, btc_ema20_dist, btc_ema400_dist, btc_ema50_dist, btc_ema800_dist, btc_r120, btc_r16, btc_r168, btc_r2, btc_r24, btc_r336, btc_r4, btc_r48, btc_r72, btc_r720, btc_r8, btc_rsi14_1h, btc_rsi14_4h, btc_rsi2_1h, btc_rsi2_4h, btc_rsi30_1h, btc_rsi30_4h, btc_rsi50_1h, btc_rsi5_1h, btc_rsi5_4h, btc_rsi9_1h, btc_rsi9_4h, uni_breadth168, uni_breadth24, uni_breadth72, uni_med168, uni_med24, uni_med72, uni_tail_dn3, uni_tail_dn5, uni_tail_up10, uni_tail_up3, uni_tail_up5, uni_tail_up8
+    [15] btc_bbw10, btc_bbw20, btc_natr24, btc_natr336, btc_natr8, btc_natr96, btc_vol1440, btc_vol16, btc_vol168, btc_vol24, btc_vol336, btc_vol48, btc_vol720, btc_vol8, btc_vol96
+    [ 5] btc_fund1, btc_fund21, btc_fund3, btc_fund9, btc_fund90
+    [ 2] btc_ru60d, btc_ru90d
+    [ 2] btc_volu24_168, btc_volu24_720
+    [ 2] uni_breadth1, uni_med1
+    [ 2] uni_breadth4, uni_med4
+    [ 2] uni_tail_dn10, uni_tail_dn8
+    [ 1] btc_r1
+    [ 1] btc_bbw50
+    [ 1] btc_bbw100
+    [ 1] btc_macd12_26
+    [ 1] btc_macd24_52
+    [ 1] btc_macd48_104
+    [ 1] btc_ema_bull_4h
+    [ 1] btc_ru7d
+    [ 1] btc_ru14d
+    [ 1] btc_ru30d
+    [ 1] btc_ru180d
+    [ 1] btc_days_hi30
+    [ 1] btc_days_hi90
+    [ 1] btc_days_hi180
+    [ 1] btc_days_flush2
+    [ 1] btc_days_flush3
+    [ 1] btc_days_flush5
+    [ 1] btc_days_flush8
+    [ 1] btc_days_flush10
+    [ 1] uni_n
+    [ 1] uni_disp1
+    [ 1] uni_iqr1
+    [ 1] uni_disp4
+    [ 1] uni_iqr4
+    [ 1] uni_disp24
+    [ 1] uni_iqr24
+    [ 1] uni_disp72
+    [ 1] uni_iqr72
+    [ 1] uni_disp168
+    [ 1] uni_iqr168
+    [ 1] uni_med_rpos
+    [ 1] uni_med_natr
+    [ 1] alt_spread1
+    [ 1] alt_spread4
+    [ 1] alt_spread24
+    [ 1] alt_spread72
+    [ 1] alt_spread168
+  thr 0.7: 19 components
+
+B. PCA — components to explain variance (rank-standardized, complete rows)
+  80% variance: 13 components
+  90% variance: 26 components
+  95% variance: 43 components
+  99% variance: 77 components
+
+C. HALF-LIFE LADDER (hours to autocorr<0.5), per family
+  alt_sprea      spread1:1 spread4:2 spread24:16 spread72:64 spread168:128
+  btc            dd7d:128 dd14d:256 dd30d:512 dd60d:512 dd90d:1024 dd180d:>1k
+  btc_bbp        bbp10:4 bbp20:8 bbp50:16 bbp100:32
+  btc_bbw        bbw10:8 bbw20:16 bbw50:32 bbw100:64
+  btc_days_flus  days_flush2:64 days_flush3:256 days_flush5:512 days_flush8:1024 days_flush10:1024
+  btc_days_hi    days_hi30:512 days_hi90:1024 days_hi180:>1k
+  btc_ema100_dist ema100_dist:64
+  btc_ema200_dist ema200_dist:128
+  btc_ema20_dist ema20_dist:8
+  btc_ema400_dist ema400_dist:256
+  btc_ema50_dist ema50_dist:32
+  btc_ema800_dist ema800_dist:512
+  btc_ema_bull   ema_bull_4h:128
+  btc_fun        fund1:256 fund3:256 fund9:256 fund21:512 fund90:512
+  btc_mac        macd12_26:8 macd24_52:16 macd48_104:32
+  btc_natr       natr8:8 natr24:32 natr96:256 natr336:512
+  btc_r          r1:1 r2:1 r4:2 r8:8 r16:16 r24:16 r48:32 r72:64 r120:64 r168:128 r336:256 r720:512
+  btc_rsi        rsi2_1h:2 rsi5_1h:4 rsi9_1h:8 rsi14_1h:16 rsi30_1h:32 rsi50_1h:64 rsi2_4h:8 rsi5_4h:16 rsi9_4h:32 rsi14_4h:64 rsi30_4h:128
+  btc_ru         ru7d:128 ru14d:256 ru30d:512 ru60d:1024 ru90d:1024 ru180d:>1k
+  btc_vol        vol8:8 vol16:16 vol24:32 vol48:64 vol96:128 vol168:256 vol336:512 vol720:1024 vol1440:>1k
+  btc_volu       volu24_168:32 volu24_720:32
+  uni_breadt     breadth1:1 breadth4:2 breadth24:16 breadth72:64 breadth168:128
+  uni_disp       disp1:1 disp4:4 disp24:32 disp72:64 disp168:128
+  uni_iqr        iqr1:2 iqr4:4 iqr24:32 iqr72:64 iqr168:128
+  uni_me         med1:1 med4:2 med24:16 med72:64 med168:128
+  uni_med_natr   med_natr:64
+  uni_med_rpos   med_rpos:8
+  uni_n          n:>1k
+  uni_tail_dn    tail_dn3:16 tail_dn5:16 tail_dn8:16 tail_dn10:16
+  uni_tail_up    tail_up3:16 tail_up5:16 tail_up8:16 tail_up10:16
