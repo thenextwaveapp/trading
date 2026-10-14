@@ -5,7 +5,7 @@ Serves a self-contained HTML page (no internet needed to render) showing:
 health banner, P&L headline, open positions marked to live prices, equity
 curves, per-variant table, trades, log tail. Control buttons
 (loopback-only): start/stop/restart the fleet (launchd), pause/resume
-trading (PAUSED flag file), keep-awake toggle (pmset), ntfy phone alerts
+trading (PAUSED flag file), ntfy phone alerts
 (topic config + test). A watchdog thread pushes a phone alert if the fleet
 process dies.
 
@@ -129,16 +129,6 @@ def fleet_loaded():
             capture_output=True).returncode == 0
     return subprocess.run(["/bin/launchctl", "print", FLEET_SVC],
                           capture_output=True).returncode == 0
-
-
-def sleep_disabled():
-    if LINUX:                     # servers don't sleep
-        return True
-    ok, out = run_cmd(["/usr/bin/pmset", "-g"])
-    for ln in out.splitlines():
-        if "SleepDisabled" in ln:
-            return ln.split()[-1] == "1"
-    return False
 
 
 _px_cache = {}
@@ -376,17 +366,13 @@ def payload():
                 strats=DIRS,
                 positions=open_all, trades=all_trades[:100],
                 log=tail, running=running, loaded=fleet_loaded(),
-                awake=sleep_disabled(), paused=paused,
+                paused=paused,
                 health=health(running, age, paused),
                 ntfy=ntfy_topic() or "", state_age_s=age, cmds=load_cmds(),
                 symbols=UNI)
 
 
 # ---------------------------------------------------------------- controls
-
-AWAKE_HELP = ("keep-awake needs a one-time setup — run in a terminal:  "
-              "sudo bash launchd/allow_pmset.sh")
-
 
 def set_pause(on):
     if on:
@@ -429,8 +415,6 @@ if LINUX:
             ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", FLEET_UNIT]),
         "fleet_restart": lambda b: run_cmd(
             ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "restart", FLEET_UNIT]),
-        "awake_on": lambda b: (True, "server is always on"),
-        "awake_off": lambda b: (True, "server is always on"),
     }
 else:
     _FLEET_CTL = {
@@ -440,10 +424,6 @@ else:
             ["/bin/launchctl", "bootstrap", f"gui/{os.getuid()}", FLEET_PLIST]),
         "fleet_restart": lambda b: run_cmd(
             ["/bin/launchctl", "kickstart", "-k", FLEET_SVC]),
-        "awake_on": lambda b: run_cmd(
-            ["/usr/bin/sudo", "-n", "/usr/bin/pmset", "-a", "disablesleep", "1"]),
-        "awake_off": lambda b: run_cmd(
-            ["/usr/bin/sudo", "-n", "/usr/bin/pmset", "-a", "disablesleep", "0"]),
     }
 
 ACTIONS = {
@@ -749,7 +729,6 @@ function render(d){
   const btc=g.bear==null?'<b class="warn">?</b>':g.bear?'<b class="bad">BEAR</b> (capit gate open)':'<b class="ok">BULL</b> (capit gate closed)';
   document.getElementById("pills").innerHTML=
     `<span class="pill">BTC 4h: ${btc}</span>`+
-    `<span class="pill">lid-shut awake: <b class="${d.awake?"ok":"warn"}">${d.awake?"ON":"OFF"}</b></span>`+
     (d.paused?'<span class="pill"><b class="warn">TRADING PAUSED</b></span>':"")+
     `<span class="pill dim">updated ${new Date(d.now).toLocaleTimeString()}</span>`;
 
@@ -759,10 +738,7 @@ function render(d){
     :`<button class="go" onclick="ctl('fleet_start')">&#9654; start fleet</button>`)
     +(d.paused
     ?`<button class="go" onclick="ctl('pause_off')">&#9654; resume trading</button>`
-    :`<button onclick="ctl('pause_on')">&#10074;&#10074; pause trading (keeps managing open positions)</button>`)
-    +(d.awake
-    ?`<button onclick="ctl('awake_off')">&#127769; allow sleep</button>`
-    :`<button class="go" onclick="ctl('awake_on')">&#9728; keep awake (lid shut ok)</button>`);
+    :`<button onclick="ctl('pause_on')">&#10074;&#10074; pause trading (keeps managing open positions)</button>`);
 
   // open positions, marked to live price
   CMDQ=d.cmds||[];LOCAL=!!d.local;
@@ -1251,8 +1227,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(400)
             return
         ok, msg = ACTIONS[action](body)
-        if not ok and action.startswith("awake") and "sudo" in msg.lower():
-            msg = AWAKE_HELP
         out = json.dumps(dict(ok=ok, msg=msg)).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
