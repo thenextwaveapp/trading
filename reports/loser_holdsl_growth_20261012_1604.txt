@@ -1,0 +1,8 @@
+LOSER HOLD+SL GROWTH — 2026-10-12 16:04 UTC  (close-fill, 12 slots)
+hold24 (baseline)  cagr  +178.2%  maxDD  -66.9%  mar  2.66  2026   -0.4% dd  -54.5%
+hold48 nosl        cagr  +213.8%  maxDD  -74.1%  mar  2.89  2026  -19.9% dd  -64.0%
+hold72 nosl        cagr  +159.4%  maxDD  -77.9%  mar  2.05  2026  -21.9% dd  -54.1%
+hold24 sl-8        cagr   +91.4%  maxDD  -63.8%  mar  1.43  2026   -3.4% dd  -54.9%
+hold48 sl-8        cagr   +97.6%  maxDD  -71.4%  mar  1.37  2026   -9.5% dd  -68.0%
+hold72 sl-8        cagr   +59.9%  maxDD  -76.1%  mar  0.79  2026  +34.6% dd  -44.4%
+hold72 sl-10       cagr   +63.6%  maxDD  -74.1%  mar  0.86  2026  +29.5% dd  -44.3%

@@ -1,0 +1,6 @@
+LOSER EXIT DISTRIBUTIONS — 2026-10-12 17:13 UTC (monthly/weekly, no means)
+tp10 no trail          worst-mo  -27.6%  p10  -12.5%  med-mo  +3.6%  mo>0  58%  worst-wk  -32.1%  underwater<=  352d  2026 mo>0  50% med  +0.6%
+tp10 trail 3%          worst-mo  -25.4%  p10  -14.2%  med-mo  +0.8%  mo>0  51%  worst-wk  -21.2%  underwater<=  342d  2026 mo>0  40% med  -0.1%
+tp10 trail 8%          worst-mo  -36.3%  p10  -16.5%  med-mo  +1.6%  mo>0  53%  worst-wk  -32.1%  underwater<=  362d  2026 mo>0  60% med  +1.4%
+hold24 no trail        worst-mo  -25.8%  p10  -19.9%  med-mo  +4.1%  mo>0  60%  worst-wk  -37.6%  underwater<=  317d  2026 mo>0  60% med  +3.8%
+hold24 trail 5%        worst-mo  -38.0%  p10  -13.2%  med-mo  +2.3%  mo>0  53%  worst-wk  -27.5%  underwater<=  330d  2026 mo>0  50% med  +0.0%

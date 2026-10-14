@@ -1,8 +1,13 @@
 {
- "equity": 10000.0,
+ "equity": 9804.59354659249,
  "kill_until": 0,
- "last_sig_t": 0,
+ "last_sig_t": 1791839700000,
  "positions": [],
- "eq_hist": [],
+ "eq_hist": [
+  [
+   1791990900000,
+   9804.59354659249
+  ]
+ ],
  "orders": []
 }

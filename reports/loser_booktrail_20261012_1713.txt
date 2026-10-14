@@ -1,0 +1,8 @@
+LOSER BOOK-TRAIL — 2026-10-12 17:13 UTC (marked hourly, flatten-all on x% off high-water)
+tp10, no trail (ref)     cagr  +167.4%  maxDD  -58.3%  mar  2.87  2026  +55.2% dd  -34.7%
+tp10 + book-trail 2%     cagr   +26.8%  maxDD  -59.0%  mar  0.45  2026   -3.2% dd  -34.3%
+tp10 + book-trail 3%     cagr   +51.2%  maxDD  -55.1%  mar  0.93  2026  +20.5% dd  -40.6%
+tp10 + book-trail 5%     cagr   +55.8%  maxDD  -60.7%  mar  0.92  2026  +29.2% dd  -38.9%
+tp10 + book-trail 8%     cagr   +81.5%  maxDD  -69.1%  mar  1.18  2026  +39.7% dd  -43.9%
+hold24 + book-trail 3%   cagr   +54.0%  maxDD  -57.6%  mar  0.94  2026   +9.5% dd  -42.1%
+hold24 + book-trail 5%   cagr  +108.2%  maxDD  -59.8%  mar  1.81  2026   +0.8% dd  -54.8%

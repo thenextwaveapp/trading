@@ -3,7 +3,7 @@
 
 Serves a self-contained HTML page (no internet needed to render) showing:
 health banner, P&L headline, open positions marked to live prices, equity
-curves, per-variant table, trades, pump events, log tail. Control buttons
+curves, per-variant table, trades, log tail. Control buttons
 (loopback-only): start/stop/restart the fleet (launchd), pause/resume
 trading (PAUSED flag file), keep-awake toggle (pmset), ntfy phone alerts
 (topic config + test). A watchdog thread pushes a phone alert if the fleet
@@ -29,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from paper_fleet import (VARIANTS, BT, STRATS, OPS, DIR, LOG, START_EQUITY,
                          M15, PAUSE, NTFY_CFG, notify, ntfy_topic, load_state,
-                         load_events, gate_state, tpath, pstr, btc_bear,
+                         tpath, pstr, btc_bear,
                          load_cmds, save_cmds, CFG)
 from paper_trader import klines
 
@@ -138,7 +138,7 @@ _px_cache = {}
 
 def live_px(symbol):
     c = _px_cache.get(symbol)
-    if c and time.time() - c[0] < 30:
+    if c and time.time() - c[0] < 10:
         return c[1]
     try:
         with urllib.request.urlopen(f"{PX_API}?symbol={symbol}",
@@ -148,6 +148,64 @@ def live_px(symbol):
         return px
     except Exception:
         return None
+
+
+MARKS = os.path.join(DIR, "marks.csv")     # 5-min marked-equity samples
+MARKS_MEM = []                             # [t_ms, variant, marked_equity]
+MARKS_LOCK = threading.Lock()
+MARK_KEEP_MS = 14 * 86_400_000             # chart older than this is steps
+MARK_EVERY_S = 300
+
+
+def _marked_equities():
+    """Marked-to-market equity per variant, right now."""
+    out = {}
+    for name in VARIANTS:
+        st = load_state(name)
+        unreal = 0.0
+        for p in st["positions"]:
+            px = live_px(p["symbol"])
+            if px:
+                unreal += p["notional"] * p.get("side", -1) \
+                    * (px / p["entry"] - 1)
+        out[name] = round(st["equity"] + unreal, 2)
+    return out
+
+
+def load_marks():
+    cut = int(time.time() * 1000) - MARK_KEEP_MS
+    rows = []
+    if os.path.exists(MARKS):
+        with open(MARKS) as f:
+            for r in csv.reader(f):
+                try:
+                    t, name, eq = int(r[0]), r[1], float(r[2])
+                except (ValueError, IndexError):
+                    continue
+                if t >= cut and name in VARIANTS:
+                    rows.append([t, name, eq])
+    with MARKS_LOCK:
+        MARKS_MEM[:] = rows
+    with open(MARKS, "w", newline="") as f:
+        csv.writer(f).writerows(rows)
+
+
+def mark_sampler():
+    """Every 5 min: sample marked equity per variant for the chart."""
+    while True:
+        try:
+            t = int(time.time() * 1000)
+            eqs = _marked_equities()
+            rows = [[t, n, eq] for n, eq in eqs.items()]
+            cut = t - MARK_KEEP_MS
+            with MARKS_LOCK:
+                MARKS_MEM.extend(rows)
+                MARKS_MEM[:] = [r for r in MARKS_MEM if r[0] >= cut]
+            with open(MARKS, "a", newline="") as f:
+                csv.writer(f).writerows(rows)
+        except Exception:
+            pass
+        time.sleep(MARK_EVERY_S)
 
 
 def read_trades(name):
@@ -225,9 +283,7 @@ def health(running, state_age, paused):
 
 def payload():
     now = int(time.time() * 1000)
-    store = load_events()
-    g = gate_state(store)
-    g["bear"] = btc_bear()
+    g = dict(bear=btc_bear())
     start = fleet_start_ms()
     variants, all_trades, open_all = [], [], []
     for name, cfg in VARIANTS.items():
@@ -252,11 +308,17 @@ def payload():
                 tp=p.get("tp"),
                 exits_at=p["t_sig"] + p["hold"] * M15))
         open_all += opens
-        # curve ends marked-to-market: realized equity + open unrealized
+        # curve: realized steps + 5-min marked-to-market samples (last 14d),
+        # ending at the live mark — shows intra-trade swings, not just closes
         unreal = sum(p["upnl"] for p in opens if p["upnl"] is not None)
-        curve = [[start, START_EQUITY]] + \
-                [[t["exit_t"], t["equity_after"]] for t in trades] + \
-                [[now, round(st["equity"] + unreal, 2)]]
+        with MARKS_LOCK:
+            marks = [[t, eq] for t, n, eq in MARKS_MEM if n == name]
+        stride = max(1, len(marks) // 400)
+        curve = sorted(
+            [[start, START_EQUITY]] +
+            [[t["exit_t"], t["equity_after"]] for t in trades] +
+            marks[::stride] +
+            [[now, round(st["equity"] + unreal, 2)]])
         variants.append(dict(
             name=name, params=pstr(cfg),
             equity=round(st["equity"], 2),
@@ -295,10 +357,9 @@ def payload():
     age = round(time.time() - state_mtime) if state_mtime else None
     running = fleet_running()
     paused = os.path.exists(PAUSE)
-    events = sorted(store["events"], key=lambda e: e["t"], reverse=True)[:40]
     return dict(now=now, start=start, gate=g, hero=hero, variants=variants,
                 strats=DIRS,
-                positions=open_all, trades=all_trades[:100], events=events,
+                positions=open_all, trades=all_trades[:100],
                 log=tail, running=running, loaded=fleet_loaded(),
                 awake=sleep_disabled(), paused=paused,
                 health=health(running, age, paused),
@@ -361,7 +422,10 @@ ACTIONS = {
     "set_ntfy": lambda b: set_ntfy(str(b.get("topic", "")).strip()),
     "ntfy_test": lambda b: ntfy_test(),
     "close": lambda b: queue_close(b),
+    "close_multi": lambda b: queue_close_multi(b),
+    "close_all": lambda b: queue_close_all(),
     "tp": lambda b: queue_tp(b),
+    "hold": lambda b: queue_hold(b),
 }
 
 
@@ -386,7 +450,58 @@ def queue_close(b):
         return True, "already queued"
     cmds.append(cmd)
     save_cmds(cmds)
-    return True, "queued — fills on the fleet's next cycle (<= 15 min)"
+    return True, "close sent — fills at live price within seconds"
+
+
+def queue_close_multi(b):
+    """Queue manual closes for a selection of positions."""
+    refs = b.get("refs")
+    if not isinstance(refs, list) or not refs:
+        return False, "no trades selected"
+    cmds = load_cmds()
+    n = 0
+    for r in refs:
+        ref, err = _pos_ref(r)
+        if err:
+            return err
+        cmd = dict(scope="trade", **ref)
+        if cmd not in cmds:
+            cmds.append(cmd)
+            n += 1
+    save_cmds(cmds)
+    return True, f"{n} close{'s' if n != 1 else ''} sent — fill at live price within seconds"
+
+
+def queue_close_all():
+    """Queue a fleet-wide flatten: every open position, every variant."""
+    cmds = [c for c in load_cmds() if c.get("scope") != "all"]
+    cmds.append(dict(scope="all"))
+    save_cmds(cmds)
+    return True, "EXIT ALL sent — every position, every variant, fills within seconds"
+
+
+def queue_hold(b):
+    """Queue a time-exit change: exit `hours` from now. Converted to bars
+    since entry (the fleet's hold unit)."""
+    ref, err = _pos_ref(b)
+    if err:
+        return err
+    try:
+        hours = float(b.get("hours"))
+    except (TypeError, ValueError):
+        return False, "bad hours"
+    if not 0.25 <= hours <= 72:
+        return False, "hours must be 0.25-72"
+    elapsed = (int(time.time() * 1000) - ref["t_sig"]) // M15
+    bars = int(elapsed + hours * 4) + 1
+    cmd = dict(type="hold", hold=bars, **ref)
+    cmds = [c for c in load_cmds()
+            if not (c.get("type") == "hold" and c.get("v") == ref["v"]
+                    and c.get("tk") == ref["tk"]
+                    and c.get("t_sig") == ref["t_sig"])]
+    cmds.append(cmd)
+    save_cmds(cmds)
+    return True, f"time exit moved to ~{hours:g}h from now"
 
 
 def queue_tp(b):
@@ -411,7 +526,7 @@ def queue_tp(b):
                     and c.get("t_sig") == ref["t_sig"])]
     cmds.append(cmd)
     save_cmds(cmds)
-    return True, ("TP queued — active from the fleet's next cycle"
+    return True, ("TP set — active within seconds"
                   if tp else "TP clear queued")
 
 
@@ -464,6 +579,8 @@ h2{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13px}
 th,td{padding:5px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase}
+th.ck,td.ck{padding:5px 2px;width:1%}
+.ck input{margin:0;width:auto}
 td:first-child,th:first-child{text-align:left}
 tr:last-child td{border-bottom:none}
 .scroll{overflow-x:auto;border-radius:8px}
@@ -503,14 +620,14 @@ input{background:#0d1117;border:1px solid var(--line);color:var(--fg);border-rad
 <div class="pills" id="pills"></div>
 <div class="pills" id="controls"></div>
 <div class="muted" id="ctlmsg"></div>
-<h2>Open positions (live)</h2><div class="scroll"><table id="positions"></table></div>
+<h2>Open positions (live) <span id="posbtns"></span></h2><div class="scroll"><table id="positions"></table></div>
 <h2>Variants &amp; equity</h2>
 <div class="pills" id="tabs"></div>
 <div class="pills" id="range"></div>
 <div id="chart"></div><div class="legend" id="legend"></div>
 <div class="scroll" style="margin-top:8px"><table id="variants"></table></div>
+<div id="vdetail"></div>
 <h2>Closed trades</h2><div class="scroll"><table id="trades"></table></div>
-<h2>Pump events (regime dial inputs)</h2><div class="scroll"><table id="events"></table></div>
 <h2>Phone alerts (ntfy)</h2>
 <div class="pills" id="ntfy"></div>
 <p class="muted">Get pushed: trade entries/exits (one alert per signal, not
@@ -569,11 +686,8 @@ function render(d){
       <div class="v ${cls(hero.week_pnl)}">${usd(hero.week_pnl)}</div>
       <div class="s">closed P&amp;L, all variants</div></div>`;
 
-  const book=g.short?'<b class="bad">SHORT book open</b>':g.long?'<b class="ok">LONG book open</b>':'<b class="warn">all books FLAT</b>';
   const btc=g.bear==null?'<b class="warn">?</b>':g.bear?'<b class="bad">BEAR</b> (capit gate open)':'<b class="ok">BULL</b> (capit gate closed)';
   document.getElementById("pills").innerHTML=
-    `<span class="pill">regime: ${book}</span>`+
-    `<span class="pill">dial: n=${g.n}, mean 24h fwd <b class="${cls(g.m)}">${g.m==null?"n/a":pct(g.m*100)}</b></span>`+
     `<span class="pill">BTC 4h: ${btc}</span>`+
     `<span class="pill">lid-shut awake: <b class="${d.awake?"ok":"warn"}">${d.awake?"ON":"OFF"}</b></span>`+
     (d.paused?'<span class="pill"><b class="warn">TRADING PAUSED</b></span>':"")+
@@ -591,26 +705,46 @@ function render(d){
     :`<button class="go" onclick="ctl('awake_on')">&#9728; keep awake (lid shut ok)</button>`);
 
   // open positions, marked to live price
-  POS=d.positions;CMDQ=d.cmds||[];LOCAL=!!d.local;
-  const closing=p=>CMDQ.some(c=>!c.type&&c.v===p.variant&&c.tk===p.ticker&&c.t_sig===p.t_sig);
+  CMDQ=d.cmds||[];LOCAL=!!d.local;
+  const pkey=p=>p.variant+"|"+p.ticker+"|"+p.t_sig;
+  SEL=new Set([...SEL].filter(k=>d.positions.some(p=>pkey(p)===k)));
+  const closing=p=>CMDQ.some(c=>!c.type&&(c.scope==="all"||(c.v===p.variant&&c.tk===p.ticker&&c.t_sig===p.t_sig)));
   const tpq=p=>CMDQ.find(c=>c.type==="tp"&&c.v===p.variant&&c.tk===p.ticker&&c.t_sig===p.t_sig);
-  let h2="<tr>"+(LOCAL?"<th></th>":"")+"<th>variant</th><th>ticker</th><th>side</th><th>entry</th><th>now</th><th>uP&amp;L</th><th>net</th><th>stop</th><th>tp</th><th>room to stop</th><th>time exit in</th><th>notional</th><th>since</th></tr>";
-  if(!d.positions.length)h2+='<tr><td colspan="14" class="dim">none — scanning</td></tr>';
-  d.positions.forEach((p,i)=>{
+  const holdq=p=>CMDQ.find(c=>c.type==="hold"&&c.v===p.variant&&c.tk===p.ticker&&c.t_sig===p.t_sig);
+  POS=sortBy(VSEL?d.positions.filter(p=>p.variant===VSEL):d.positions,
+             PSORT,(p,k)=>p[k]);
+  document.getElementById("posbtns").innerHTML=(!LOCAL||!d.positions.length?"":
+    `<button class="danger" onclick="mCloseAll()">exit ALL (${d.positions.length})</button>`+
+    (SEL.size?`<button class="danger" onclick="mCloseSel()">exit selected (${SEL.size})</button>`:""))+
+    (VSEL?` <span class="pill">filtered: <b>${esc(VSEL)}</b> <span style="cursor:pointer" onclick="selVariant(null)">✕</span></span>`:"");
+  const tpfmt=(p,tp)=>{const s=p.side==="long"?1:-1;
+    return tp+` <span class="dim">(${pct(s*(tp/p.entry-1)*100)})</span>`;};
+  const TP=sortTH(PSORT,"setPSort");
+  let h2="<tr>"+(LOCAL?"<th class=ck><input type=checkbox "+(SEL.size&&POS.length&&SEL.size===POS.length?"checked":"")+" onclick=selAll(this.checked)></th><th></th>":"")
+    +TP("variant","variant")+TP("ticker","ticker")+TP("side","side")+TP("entry","entry")+TP("px","now")
+    +TP("upnl","uP&amp;L")+TP("upct","net")+TP("stop","stop")+TP("tp","tp")+TP("room","room to stop")
+    +TP("exits_at","time exit in")+TP("notional","notional")+TP("t_sig","since")+"</tr>";
+  if(!POS.length)h2+=`<tr><td colspan="15" class="dim">${VSEL?"none for "+esc(VSEL):"none — scanning"}</td></tr>`;
+  POS.forEach((p,i)=>{
+    const sel=!LOCAL?"":`<td class=ck><input type=checkbox ${SEL.has(pkey(p))?"checked":""} onclick="selOne(${i},this.checked)"></td>`;
     const xc=!LOCAL?"":closing(p)
       ?'<td class="dim">closing…</td>'
       :`<td><span class="xwrap"><button class="sq" title="close now" onclick="mClose(${i})">&#9632;</button><button class="sq" title="exit method" onclick="xMenu(event,${i})">&#9662;</button></span></td>`;
     const q=tpq(p);
     const tpc=q?`<span class="dim">${q.tp==null?"clearing…":q.tp+"…"}</span>`
-      :(p.tp!=null?p.tp:'<span class="dim">–</span>');
-    h2+=`<tr>${xc}<td style="cursor:pointer" title="variant details" onclick="vModal('${p.variant}')">${p.variant}</td><td style="cursor:pointer" title="open chart" onclick="posChart(${i})"><b>${esc(p.ticker)}</b> <span class="dim">📈</span></td>
+      :(p.tp!=null?tpfmt(p,p.tp):'<span class="dim">–</span>');
+    const hq=holdq(p);
+    const tcell=hq?'<span class="dim">changing…</span>'
+      :(!LOCAL?left(p.exits_at)
+        :`<span style="cursor:pointer" title="change time exit" onclick="hMenu(event,${i})">${left(p.exits_at)} <span class="dim">&#9662;</span></span>`);
+    h2+=`<tr>${sel}${xc}<td style="cursor:pointer" title="variant details" onclick="vModal('${p.variant}')">${p.variant}</td><td style="cursor:pointer" title="open chart" onclick="posChart(${i})"><b>${esc(p.ticker)}</b> <span class="dim">📈</span></td>
     <td class="${p.side==="short"?"bad":"ok"}">${p.side}</td>
     <td>${p.entry}</td><td>${p.px==null?"–":p.px}</td>
     <td class="${cls(p.upnl)}"><b>${usd(p.upnl)}</b></td>
     <td class="${cls(p.upct)}">${p.upct==null?"–":pct(p.upct*100)}</td>
     <td>${p.stop.toPrecision(6)}</td><td>${tpc}</td>
     <td class="${p.room!=null&&p.room<0.01?"bad":"dim"}">${p.room==null?"–":pct(p.room*100)}</td>
-    <td>${left(p.exits_at)}</td><td>${p.notional.toFixed(0)}</td><td>${fmt(p.t_sig)}</td></tr>`;});
+    <td>${tcell}</td><td>${p.notional.toFixed(0)}</td><td>${fmt(p.t_sig)}</td></tr>`;});
   document.getElementById("positions").innerHTML=h2;
 
   // strategy tabs filter both the variants table and the equity chart
@@ -623,8 +757,9 @@ function render(d){
     tabs+=`<button class="${TAB===k?"go":""}" onclick="setTab('${k}')">${esc(short)} · ${s.variants.length} (${usd(tabPnl(k))})</button>`;});
   document.getElementById("tabs").innerHTML=tabs;
 
-  let shown=(TAB==="all"?d.variants
+  const tabShown=(TAB==="all"?d.variants
     :(d.strats[TAB]?d.strats[TAB].variants.map(n=>vmap[n]).filter(Boolean):d.variants)).slice();
+  let shown=VSEL?tabShown.filter(v=>v.name===VSEL):tabShown;
   if(SORT.col){
     const k=SORT.col,dir=SORT.dir;
     const val=v=>k==="open"?v.open.length:k==="variant"?v.name:v[k];
@@ -646,38 +781,61 @@ function render(d){
     `<td>${v.win==null?"–":v.win+"%"}</td><td class="${cls(v.avg)}">${pct(v.avg,3)}</td>`+
     `<td class="dim">${pct(v.bt)}</td><td style="text-align:left" class="dim">${esc(v.params)}</td></tr>`;});
   document.getElementById("variants").innerHTML=h3;
+  document.getElementById("vdetail").innerHTML=VSEL&&vmap[VSEL]
+    ?`<h2 style="margin:10px 0 6px">${esc(VSEL)} <span class="dim" style="font-weight:400">· ${esc(vmap[VSEL].group||"")}</span></h2>`+vBody(VSEL):"";
 
   // trades
-  let h4="<tr><th>exit</th><th>variant</th><th>ticker</th><th>kind</th><th>net</th><th>pnl</th><th>notional</th><th>equity after</th></tr>";
-  if(!d.trades.length)h4+='<tr><td colspan="8" class="dim">none yet</td></tr>';
-  d.trades.forEach((t,i)=>{h4+=`<tr><td>${fmt(t.exit_t)}</td><td style="cursor:pointer" title="variant details" onclick="vModal('${t.variant}')">${t.variant}</td><td style="cursor:pointer" title="open chart" onclick="tradeChart(${i})"><b>${esc(t.ticker)}</b> <span class="dim">📈</span></td><td>${t.kind}</td><td class="${cls(t.net)}">${pct(t.net*100)}</td><td class="${cls(t.pnl)}">${t.pnl.toFixed(2)}</td><td>${t.notional.toFixed(0)}</td><td>${t.equity_after.toFixed(2)}</td></tr>`;});
+  TRL=sortBy(VSEL?d.trades.filter(t=>t.variant===VSEL):d.trades,
+             TSORT,(t,k)=>t[k]);
+  const TT=sortTH(TSORT,"setTSort");
+  let h4="<tr>"+TT("exit_t","exit")+TT("variant","variant")+TT("ticker","ticker")+TT("kind","kind")
+    +TT("net","net")+TT("pnl","pnl")+TT("notional","notional")+TT("equity_after","equity after")+"</tr>";
+  if(!TRL.length)h4+='<tr><td colspan="8" class="dim">none yet</td></tr>';
+  TRL.forEach((t,i)=>{h4+=`<tr><td>${fmt(t.exit_t)}</td><td style="cursor:pointer" title="variant details" onclick="vModal('${t.variant}')">${t.variant}</td><td style="cursor:pointer" title="open chart" onclick="tradeChart(${i})"><b>${esc(t.ticker)}</b> <span class="dim">📈</span></td><td>${t.kind}</td><td class="${cls(t.net)}">${pct(t.net*100)}</td><td class="${cls(t.pnl)}">${t.pnl.toFixed(2)}</td><td>${t.notional.toFixed(0)}</td><td>${t.equity_after.toFixed(2)}</td></tr>`;});
   document.getElementById("trades").innerHTML=h4;
 
-  // events
-  let h5="<tr><th>time</th><th>ticker</th><th>price</th><th>24h fwd</th></tr>";
-  d.events.forEach((e,i)=>{const f=e.dead?'<span class="dim">excluded</span>':e.fwd==null?'<span class="dim">pending</span>':`<span class="${cls(e.fwd)}">${pct(e.fwd*100)}</span>`;
-    h5+=`<tr><td>${fmt(e.t)}</td><td style="cursor:pointer" title="open chart" onclick="eventChart(${i})"><b>${esc(e.tk)}</b> <span class="dim">📈</span></td><td>${e.px}</td><td>${f}</td></tr>`;});
-  document.getElementById("events").innerHTML=h5;
-
+  const keepTopic=(document.getElementById("topicin")||{}).value||"";
   document.getElementById("ntfy").innerHTML=
     `<span class="pill">topic: <b>${esc(d.ntfy)||'<span class="warn">off</span>'}</b></span>`+
     `<button onclick="ctl('ntfy_test')">send test</button>`+
-    `<input id="topicin" placeholder="new topic (blank = off)">`+
+    `<input id="topicin" placeholder="new topic (blank = off)" value="${esc(keepTopic)}">`+
     `<button onclick="ctl('set_ntfy',{topic:document.getElementById('topicin').value})">save</button>`;
 
   document.getElementById("log").textContent=d.log.join("\\n")||"(empty)";
   document.getElementById("foot").textContent=
-    `fleet since ${fmt(d.start)} · times in ${TZ} · auto-refresh 60s · controls work from this Mac only`;
-  chart(d,shown);
+    `fleet since ${fmt(d.start)} · times in ${TZ} · auto-refresh 10s · controls work from this Mac only`;
+  chart(d,shown,tabShown);
 }
 
 let TAB="all",LAST=null,SORT={col:null,dir:-1};
+let VSEL=null,PSORT={col:null,dir:-1},TSORT={col:null,dir:-1};
+let TRL=[];
 function setTab(t){TAB=t;if(LAST)render(LAST);}
+function selVariant(n){VSEL=VSEL===n?null:n;if(LAST)render(LAST);}
+function flipSort(S,c,alpha){
+  if(S.col===c)S.dir=-S.dir;else{S.col=c;S.dir=alpha?1:-1;}
+  if(LAST)render(LAST);}
+function setPSort(c){flipSort(PSORT,c,["variant","ticker","side"].includes(c));}
+function setTSort(c){flipSort(TSORT,c,["variant","ticker","kind"].includes(c));}
+function sortBy(arr,S,val){
+  if(!S.col)return arr;
+  const k=S.col,dir=S.dir;
+  return arr.slice().sort((a,b)=>{const x=val(a,k),y=val(b,k);
+    if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+    return (x<y?-1:x>y?1:0)*dir;});}
+const sortTH=(S,fn)=>(k,lab,left)=>
+  `<th onclick="${fn}('${k}')" style="cursor:pointer${left?";text-align:left":""}" title="click to sort">${lab}${S.col===k?(S.dir>0?" ▲":" ▼"):""}</th>`;
 function vModal(name){
   const v=LAST&&LAST.variants.find(x=>x.name===name);
   if(!v)return;
   document.getElementById("vtitle").innerHTML=
     `${esc(name)} <span class="dim" style="font-weight:400">· ${esc(v.group||"")}</span>`;
+  document.getElementById("vbody").innerHTML=vBody(name);
+  document.getElementById("vovl").style.display="flex";
+}
+function vBody(name){
+  const v=LAST&&LAST.variants.find(x=>x.name===name);
+  if(!v)return"";
   const stat=(l,val,c)=>`<div class="stat"><div class="l">${l}</div>`+
     `<div class="v${c?" "+c:""}" style="font-size:17px">${val}</div></div>`;
   let h=`<div class="hero" style="margin-bottom:8px">`
@@ -712,8 +870,7 @@ function vModal(name){
       `<td class="${cls(t.net)}">${pct(t.net*100)}</td>`+
       `<td class="${cls(t.pnl)}">${t.pnl.toFixed(2)}</td><td>${t.equity_after.toFixed(2)}</td></tr>`;});
     h+=`</table>`;}
-  document.getElementById("vbody").innerHTML=h;
-  document.getElementById("vovl").style.display="flex";
+  return h;
 }
 document.getElementById("vovl").onclick=e=>{
   if(e.target.id==="vovl")e.target.style.display="none";};
@@ -743,13 +900,20 @@ function renderRange(){
     [["1D",1],["1W",7],["1M",30],["ALL",null]].map(([lab,d])=>
       `<button class="${RANGE===d?"go":""}" onclick="setRange(${d})">${lab}</button>`).join("");
 }
-function chart(d,shown){
+let DREW=false;
+function vcolor(name){
+  const i=LAST?LAST.variants.findIndex(v=>v.name===name):0;
+  return COLORS[(i<0?0:i)%COLORS.length];
+}
+function chart(d,shown,legendVs){
   const el=document.getElementById("chart");
   if(!LW){LW=LightweightCharts.createChart(el,LWOPTS);renderRange();}
+  const vis=DREW?LW.timeScale().getVisibleRange():null;
   SERIES.forEach(s=>LW.removeSeries(s));SERIES=[];
   const vs=shown&&shown.length?shown:d.variants;
-  vs.forEach((v,i)=>{
-    const s=LW.addLineSeries({color:COLORS[i%COLORS.length],lineWidth:2,
+  const lvs=legendVs&&legendVs.length?legendVs:vs;
+  vs.forEach(v=>{
+    const s=LW.addLineSeries({color:vcolor(v.name),lineWidth:2,
       priceLineVisible:false,lastValueVisible:false,
       crosshairMarkerVisible:true,title:v.name});
     let last=0;
@@ -757,9 +921,11 @@ function chart(d,shown){
       if(t<=last)return false;last=t;return true;})
       .map(c=>({time:lt(c[0]),value:c[1]})));
     SERIES.push(s);});
-  setRange(RANGE);
-  document.getElementById("legend").innerHTML=vs.map((v,i)=>
-    `<span><i class="sw" style="background:${COLORS[i%COLORS.length]}"></i>${v.name} ${v.equity.toFixed(0)}</span>`).join("");
+  if(!DREW){setRange(RANGE);DREW=true;}
+  else if(vis)LW.timeScale().setVisibleRange(vis);   // keep the user's zoom
+  document.getElementById("legend").innerHTML=lvs.map(v=>
+    `<span style="cursor:pointer${VSEL&&VSEL!==v.name?";opacity:.35":""}" title="filter page to this variant" onclick="selVariant('${v.name}')">`+
+    `<i class="sw" style="background:${vcolor(v.name)}"></i>${VSEL===v.name?"<b>"+v.name+"</b>":v.name} ${v.equity.toFixed(0)}</span>`).join("");
 }
 
 // ---- per-trade candle chart: entry/stop/tp lines, exit marker,
@@ -833,19 +999,11 @@ function posChart(i){
     {t_sig:p.t_sig,entry:p.entry,stop:p.stop>0?p.stop:null,tp:p.tp,side:p.side});
 }
 function tradeChart(i){
-  const t=LAST.trades[i];
+  const t=TRL[i];
   openChart(LAST.symbols[t.ticker],
     `${t.ticker} — ${t.variant} (closed ${t.kind}, ${pct(t.net*100)})`,
     {t_sig:t.t_sig,entry:t.entry,stop:t.stop>0?t.stop:null,
      exit_t:t.exit_t,kind:t.kind,side:null});
-}
-function eventChart(i){
-  const e=LAST.events[i];
-  const done=e.fwd!=null&&!e.dead;
-  openChart(LAST.symbols[e.tk],
-    `${e.tk} — pump event (dial input${done?", 24h fwd "+pct(e.fwd*100):e.dead?", excluded":", pending"})`,
-    {t_sig:e.t,entry:e.px,stop:null,
-     exit_t:done?e.t+86400000:null,kind:"24h",side:"short"});
 }
 document.getElementById("covl").addEventListener("click",e=>{
   if(e.target.id==="covl")e.target.style.display="none";});
@@ -870,7 +1028,7 @@ async function tick(){
     bn.textContent="⚠ dashboard server unreachable";}
 }
 // ---- exits: square = close now; caret = exit method (tp / time) ----
-let POS=[],CMDQ=[],LOCAL=false;
+let POS=[],CMDQ=[],LOCAL=false,SEL=new Set();
 const ovl=document.getElementById("ovl"),menu=document.getElementById("xmenu");
 function showModal(text,cb,input){
   document.getElementById("ovltext").innerHTML=text
@@ -894,34 +1052,62 @@ async function send(action,body){
   tick();
 }
 const ref=p=>({v:p.variant,tk:p.ticker,t_sig:p.t_sig});
+const pk=p=>p.variant+"|"+p.ticker+"|"+p.t_sig;
+function selOne(i,on){const k=pk(POS[i]);on?SEL.add(k):SEL.delete(k);tick();}
+function selAll(on){SEL=on?new Set(POS.map(pk)):new Set();tick();}
 function mClose(i){
   const p=POS[i];
-  showModal(`Close <b>${esc(p.ticker)} ${p.side}</b> (${p.variant}) now? Fills at the fleet's next cycle. Est. P&amp;L <b class="${cls(p.upnl)}">${usd(p.upnl)}</b>.`,
+  showModal(`Close <b>${esc(p.ticker)} ${p.side}</b> (${p.variant}) now? Fills at live price within seconds. Est. P&amp;L <b class="${cls(p.upnl)}">${usd(p.upnl)}</b>.`,
     ()=>send("close",ref(p)));
+}
+function mCloseAll(){
+  const tot=POS.reduce((a,p)=>a+(p.upnl||0),0);
+  showModal(`EXIT ALL — close <b>every open position</b> (${POS.length}, all variants) at live prices now? Est. total P&amp;L <b class="${cls(tot)}">${usd(tot)}</b>. Resting orders are cancelled too.`,
+    ()=>send("close_all",{}));
+}
+function mCloseSel(){
+  const ps=POS.filter(p=>SEL.has(pk(p)));
+  const tot=ps.reduce((a,p)=>a+(p.upnl||0),0);
+  showModal(`Close <b>${ps.length} selected</b> position${ps.length===1?"":"s"} (${ps.map(p=>esc(p.ticker)).join(", ")})? Est. P&amp;L <b class="${cls(tot)}">${usd(tot)}</b>.`,
+    ()=>{send("close_multi",{refs:ps.map(ref)});SEL=new Set();});
 }
 function mTp(i){
   const p=POS[i];
   const hint=p.side==="long"?"above":"below";
-  showModal(`Take-profit for <b>${esc(p.ticker)} ${p.side}</b> (${p.variant}): exits when price touches the level. Must be ${hint} entry ${p.entry}. Time exit stays as fallback.`,
-    v=>{const tp=parseFloat(v);
-      if(!(tp>0)){document.getElementById("ctlmsg").textContent="bad tp price";return;}
+  showModal(`Take-profit for <b>${esc(p.ticker)} ${p.side}</b> (${p.variant}): exits when price touches the level. Price (${hint} entry ${p.entry}) or percent like <b>8%</b>. Time exit stays as fallback.`,
+    v=>{let tp;
+      if(/%\\s*$/.test(v)){const pc=parseFloat(v);
+        if(!(pc>0)){document.getElementById("ctlmsg").textContent="bad tp %";return;}
+        tp=p.entry*(1+(p.side==="long"?1:-1)*pc/100);}
+      else tp=parseFloat(v);
+      if(!(tp>0)){document.getElementById("ctlmsg").textContent="bad tp";return;}
       send("tp",{...ref(p),tp});},
-    {ph:`price (${hint} ${p.entry})`,val:p.tp!=null?p.tp:""});
+    {ph:`price (${hint} ${p.entry}) or e.g. 8%`,val:p.tp!=null?p.tp:""});
+}
+function hMenu(ev,i){
+  ev.stopPropagation();
+  const p=POS[i];
+  menu.innerHTML=`<div class="dim" style="cursor:default">exit ${esc(p.ticker)} in…</div>`+
+    [0.5,1,2,4,6,12,24,48].map(h=>
+      `<div onclick="send('hold',{v:'${p.variant}',tk:'${p.ticker}',t_sig:${p.t_sig},hours:${h}})">${h<1?h*60+" min":h+"h"} from now</div>`).join("");
+  menu.style.display="block";
+  menu.style.left=Math.min(ev.pageX,window.innerWidth-230)+"px";
+  menu.style.top=ev.pageY+4+"px";
 }
 function xMenu(ev,i){
   ev.stopPropagation();
   const p=POS[i];
   menu.innerHTML=
     `<div onclick="mClose(${i})">Close now (market)</div>`+
-    `<div onclick="mTp(${i})">${p.tp!=null?"Change":"Set"} take-profit price…</div>`+
+    `<div onclick="mTp(${i})">${p.tp!=null?"Change":"Set"} take-profit…</div>`+
     (p.tp!=null?`<div onclick='showModal("Clear take-profit on <b>${esc(p.ticker)}</b>? Back to the default time exit.",()=>send("tp",{v:"${p.variant}",tk:"${p.ticker}",t_sig:${p.t_sig},tp:null}))'>Clear take-profit (${p.tp})</div>`:"")+
-    `<div class="dim" style="cursor:default">default: time exit ${left(p.exits_at)}</div>`;
+    `<div onclick="hMenu(event,${i})">Change time exit (now ${left(p.exits_at)})…</div>`;
   menu.style.display="block";
   menu.style.left=Math.min(ev.pageX,window.innerWidth-230)+"px";
   menu.style.top=ev.pageY+4+"px";
 }
 
-tick();setInterval(tick,60000);
+tick();setInterval(tick,10000);
 addEventListener("resize",()=>tick());
 </script></body></html>
 """
@@ -1004,7 +1190,9 @@ def main():
     if "--port" in sys.argv:
         port = int(sys.argv[sys.argv.index("--port") + 1])
     ensure_ntfy()
+    load_marks()
     threading.Thread(target=watchdog, daemon=True).start()
+    threading.Thread(target=mark_sampler, daemon=True).start()
     srv = ThreadingHTTPServer((host, port), Handler)
     print(f"fleet dashboard: http://{'localhost' if host != '0.0.0.0' else host}:{port}")
     srv.serve_forever()

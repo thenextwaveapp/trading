@@ -1,0 +1,7 @@
+LOSER TP GROWTH GRID — 2026-10-12 15:58 UTC
+tp 4%      cagr   +84.9%  maxDD  -59.4%  mar  1.43  2026  +14.1% dd  -38.2%
+tp 5%      cagr   +97.4%  maxDD  -56.4%  mar  1.73  2026  +21.5% dd  -39.0%
+tp 6%      cagr  +124.1%  maxDD  -57.9%  mar  2.14  2026  +41.4% dd  -35.4%
+tp 8%      cagr  +143.5%  maxDD  -56.7%  mar  2.53  2026  +60.1% dd  -38.4%
+tp 10%     cagr  +167.4%  maxDD  -58.3%  mar  2.87  2026  +56.3% dd  -35.8%
+hold       cagr  +178.2%  maxDD  -66.9%  mar  2.66  2026   -0.4% dd  -54.5%

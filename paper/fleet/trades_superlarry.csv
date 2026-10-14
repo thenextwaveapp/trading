@@ -1,0 +1,2 @@
+ticker,t_sig,entry,stop,exit_t,kind,net,pnl,notional,equity_after
+STRK,1791818100000,0.09266,0.0,1791826200000,manual,0.03961,206.34,5209.31,10206.34

@@ -1,8 +1,19 @@
 {
  "equity": 10000.0,
  "kill_until": 0,
- "last_sig_t": 0,
- "positions": [],
+ "last_sig_t": 1791845100000,
+ "positions": [
+  {
+   "ticker": "STRK",
+   "symbol": "STRKUSDT",
+   "t_sig": 1791845100000,
+   "entry": 0.0838,
+   "stop": 0.0,
+   "notional": 1247.3331679484004,
+   "hold": 192,
+   "side": 1
+  }
+ ],
  "eq_hist": [],
  "orders": []
 }

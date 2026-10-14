@@ -1,0 +1,13 @@
+[Unit]
+Description=paper fleet dashboard (localhost:8787, reach via ssh -L)
+After=trading-paperfleet.service
+
+[Service]
+User=trading
+WorkingDirectory=/opt/trading
+ExecStart=/usr/bin/python3 /opt/trading/fleet_dashboard.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

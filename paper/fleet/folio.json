@@ -1,13 +1,18 @@
 {
- "equity": 10000.0,
+ "equity": 9904.593868869846,
  "kill_until": 0,
  "last_sig_t": 0,
  "positions": [],
- "eq_hist": [],
+ "eq_hist": [
+  [
+   1791904500000,
+   9904.593868869846
+  ]
+ ],
  "orders": [],
  "books": {
   "capit_invo": {
-   "last_sig_t": 0
+   "last_sig_t": 1791839700000
   },
   "capit_maj": {
    "last_sig_t": 0

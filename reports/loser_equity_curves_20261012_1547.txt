@@ -1,0 +1,11 @@
+LOSER EQUITY CURVES — 2026-10-12 15:46 UTC
+12 slots, equity/12 per entry, compounded, thr 2%, cost 0.14%
+
+time 24h (baseline)          total  +4552.8%  cagr +178.2%  maxDD  -66.9%  mar  2.66  sharpe 1.67  worstday -22.9%  2026   -0.4% dd -54.5%
+time 6h                      total   +296.9%  cagr  +44.4%  maxDD  -43.6%  mar  1.02  sharpe 1.24  worstday -10.9%  2026  -21.0% dd -32.3%
+time 2h                      total     -4.3%  cagr   -1.2%  maxDD  -42.4%  mar -0.03  sharpe 0.01  worstday  -5.5%  2026  -34.0% dd -36.6%
+tp +5%                       total  +1183.6%  cagr  +97.4%  maxDD  -56.4%  mar  1.73  sharpe 1.57  worstday -22.3%  2026  +21.5% dd -39.0%
+partial half tp+4%           total  +1944.6%  cagr +123.4%  maxDD  -55.0%  mar  2.25  sharpe 1.65  worstday -20.3%  2026  +10.1% dd -44.2%
+trail arm+3% w3%             total   +268.8%  cagr  +41.6%  maxDD  -73.6%  mar  0.56  sharpe 0.92  worstday -23.4%  2026   -7.9% dd -48.8%
+stop -8%                     total  +1043.6%  cagr  +91.4%  maxDD  -63.8%  mar  1.43  sharpe 1.22  worstday -15.2%  2026   -3.4% dd -54.9%
+

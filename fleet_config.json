@@ -128,8 +128,8 @@
       0.0
      ],
      "bt": 2.478,
-     "gate": true,
-     "note": "regime-gated; bt is full-span 2023-26"
+     "note": "regime-gated; bt is full-span 2023-26 PARKED 2026-10-12: regime dial archived; without the dial this duplicates base.",
+     "enabled": false
     },
     "veto": {
      "runup": 0.12,
@@ -220,8 +220,7 @@
      ],
      "bt": null,
      "engine": "momo",
-     "gate": true,
-     "note": "ts30's long book standalone: strong close, wick<=15%, 12h hold; trades only when dial > +2% \u2014 expect it flat while the short regime holds"
+     "note": "ts30's long book standalone: strong close, wick<=15%, 12h hold; trades only when dial > +2% \u2014 expect it flat while the short regime holds 2026-10-12: dial removed, runs ungated."
     }
    }
   },
@@ -386,6 +385,20 @@
      "bt": 1.041,
      "engine": "loser",
      "note": "deeper cut: <=-3%, 8 slots"
+    },
+    "loser_tp10": {
+     "min_move": 0.02,
+     "hold": 96,
+     "every": 4,
+     "slots": 12,
+     "stop": [
+      "none",
+      0.0
+     ],
+     "tp": 0.1,
+     "bt": 0.542,
+     "engine": "loser",
+     "note": "loser entries + harvest exit: first 15m close >=+10% else 24h time exit. loser_tp_surface.py 2026-10-12: +0.542%/trade 4y, tp8-10 only exit positive in 2026 (hold24 +0.145 ~ costs); growth grid: mar 2.87 vs hold 2.66, 2026 +56% vs -0.4%. loser/loser3 stay as controls; 4-6wk race decides the slot."
     }
    }
   },
@@ -433,7 +446,6 @@
        "runup": 0.12,
        "vol": 2.0,
        "hold": 96,
-       "gate": true,
        "risk_w": 0.5,
        "conc": 4
       },

@@ -1,0 +1,14 @@
+[Unit]
+Description=paper fleet (strategy evidence collector)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=trading
+WorkingDirectory=/opt/trading
+ExecStart=/usr/bin/python3 /opt/trading/paper_fleet.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

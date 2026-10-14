@@ -65,12 +65,9 @@ for _sk, _s in CFG["strategies"].items():
         _names.append(_vn)
     STRATS[_sk] = dict(label=_s.get("label", _sk), variants=_names)
 
-# Regime gate (gate30): short only when the pump dial is negative; momentum
-# LONG book (ts30) only when it is > +2%. Spec, thresholds and the dial
-# machinery live in regime.py — these aliases keep the fleet's public names
-# (hl_bot imports them). Backtest evidence: gated shorts +2.48%/trade vs
-# +1.08% ungated (reports/regime_policy_*.txt); two-sided +1.75%/trade,
-# +48.7% compounded (reports/twosided_system_*.txt). Not pre-registered.
+# Regime dial ARCHIVED 2026-10-12 — books trade at all times. regime.py
+# stays for ema_bull (the capit family's btc_bear entry condition) and these
+# aliases, which hl_bot still imports. Dial research: research/_archive/.
 GATE_WINDOW = regime.WINDOW_MS
 GATE_MIN_EV = regime.MIN_EV
 GATE_FWD = regime.FWD_BARS_15M            # 24h in 15m bars
@@ -392,7 +389,14 @@ def check_exit(pos, candles):
         if (k["h"] > level) if side < 0 else (k["l"] < level):
             net = side * (level / entry - 1) - (2 * TAKER + SLIP)
             return net, k["t"] + M15, "sl"
-        if tp and ((k["l"] <= tp) if side < 0 else (k["h"] >= tp)):
+        if tp and pos.get("tp_close"):
+            # close-crossing fill (loser_tp variants): exit at the first
+            # CLOSE through the level, keeping the overshoot — mirrors
+            # loser_tp_surface.py, where overshoot is ~2/3 of the tp edge
+            if (k["c"] <= tp) if side < 0 else (k["c"] >= tp):
+                net = side * (k["c"] / entry - 1) - (2 * TAKER + SLIP)
+                return net, k["t"] + M15, "tp"
+        elif tp and ((k["l"] <= tp) if side < 0 else (k["h"] >= tp)):
             net = side * (tp / entry - 1) - (2 * TAKER + SLIP)
             return net, k["t"] + M15, "tp"
         if side < 0 and trail_k and natr:
@@ -541,12 +545,17 @@ def run_loser(name, st, universe, candles):
         return
     entry = k[i]["c"]
     notional = st["equity"] / slots
-    st["positions"].append(dict(ticker=tk, symbol=universe[tk], t_sig=t_sig,
-                                entry=entry, stop=0.0, notional=notional,
-                                hold=cfg["hold"], side=1))
+    pos = dict(ticker=tk, symbol=universe[tk], t_sig=t_sig,
+               entry=entry, stop=0.0, notional=notional,
+               hold=cfg["hold"], side=1)
+    if cfg.get("tp"):
+        pos["tp"] = entry * (1 + cfg["tp"])
+        pos["tp_close"] = True
+    st["positions"].append(pos)
     st["last_sig_t"] = t_sig
+    tp_s = f"tp +{cfg['tp']*100:g}%" if cfg.get("tp") else "no stop"
     log(f"[{name}] ENTER LONG {tk} @ {entry} (1h move {mv*100:+.1f}%) "
-        f"no stop, hold {cfg['hold']*15//60}h, notional {notional:.2f}")
+        f"{tp_s}, hold {cfg['hold']*15//60}h, notional {notional:.2f}")
     if not cfg.get("quiet"):
         NOTES.append(dict(kind="enter", v=name, tk=tk, side=1,
                           px=entry, runup=mv))
@@ -683,14 +692,6 @@ def run_signals(name, st, universe, candles, natr_cache, gate=None):
                    is None else "BTC not in bear regime")
             log(f"[{name}] SKIP {tk}: {why}")
             continue
-        if cfg.get("gate"):
-            book = "long" if side == 1 else "short"
-            if not (gate and gate[book]):
-                g = gate or dict(n=0, m=None)
-                m = f"{g['m']*100:+.2f}%" if g["m"] is not None else "n/a"
-                log(f"[{name}] SKIP {tk}: regime gate — {book} book closed "
-                    f"(n={g['n']}, m={m})")
-                continue
         if cfg.get("veto"):
             # regime VETO: skip only when the dial is decisively hostile
             # (> threshold); trade when negative, flat or unknown
@@ -842,14 +843,6 @@ def run_books(name, st, universe, candles, gate):
             if b.get("btc_bear") and not (gate and gate.get("bear") is True):
                 log(f"[{name}] SKIP {tk} ({bname}): BTC not in bear regime")
                 continue
-            if b.get("gate"):
-                book_dir = "long" if side == 1 else "short"
-                if not (gate and gate[book_dir]):
-                    g = gate or dict(n=0, m=None)
-                    m = f"{g['m']*100:+.2f}%" if g["m"] is not None else "n/a"
-                    log(f"[{name}] SKIP {tk} ({bname}): regime gate closed "
-                        f"(n={g['n']}, m={m})")
-                    continue
             blockers = {p["ticker"] for p in st["positions"]
                         if b["kind"] != "loser" or p.get("book") != bname}
             if tk in blockers:
@@ -942,6 +935,24 @@ def apply_cmd(cmd, states, candles):
                     log(f"[{cmd['v']}] TP REJECTED {pos['ticker']}: {tp:.6g} "
                         f"not on the profit side of entry {pos['entry']:.6g}")
         return True
+    if cmd.get("type") == "hold":
+        st = states.get(cmd.get("v"))
+        if st is not None:
+            for pos in st["positions"]:
+                if pos["ticker"] != cmd.get("tk") \
+                        or pos["t_sig"] != cmd.get("t_sig"):
+                    continue
+                bars = int(cmd.get("hold", 0))
+                elapsed = (int(time.time() * 1000) - pos["t_sig"]) // M15
+                if bars <= elapsed:
+                    log(f"[{cmd['v']}] HOLD REJECTED {pos['ticker']}: "
+                        f"{bars} bars already elapsed (use close)")
+                else:
+                    pos["hold"] = bars
+                    log(f"[{cmd['v']}] HOLD SET {pos['ticker']}: time exit "
+                        f"{bars*15//60}h after entry "
+                        f"({(bars - elapsed)*15} min from now)")
+        return True
     scope = cmd.get("scope")
     targets = [(n, st) for n, st in states.items()
                if scope == "all" or cmd.get("v") == n]
@@ -990,6 +1001,43 @@ def run_commands(states, candles):
     save_cmds(leftover)
 
 
+PX_API = "https://fapi.binance.com/fapi/v1/ticker/price"
+
+
+def live_price(symbol):
+    try:
+        with urllib.request.urlopen(f"{PX_API}?symbol={symbol}",
+                                    timeout=5) as r:
+            return float(json.loads(r.read())["price"])
+    except Exception:
+        return None
+
+
+def run_commands_fast(states, universe):
+    """Dashboard commands between cycles, applied within seconds. Manual
+    closes fill at the LIVE ticker price (a close button must not wait for
+    the 15-min cycle); tp/hold changes just mutate the position."""
+    cmds = load_cmds()
+    if not cmds:
+        return
+    tks = {c.get("tk") for c in cmds if c.get("scope") == "trade"}
+    if any(c.get("scope") == "all" for c in cmds):
+        for st in states.values():
+            tks |= {p["ticker"] for p in st["positions"]}
+    now = int(time.time() * 1000)
+    candles = {}
+    for tk in tks:
+        if not tk or tk not in universe:
+            continue
+        px = live_price(universe[tk])
+        if px:
+            candles[tk] = [dict(t=now - M15, o=px, h=px, l=px, c=px, v=0.0)]
+    leftover = [c for c in cmds if not apply_cmd(c, states, candles)]
+    for name, st in states.items():
+        save_state(name, st)
+    save_cmds(leftover)
+
+
 def cycle(universe, states):
     # 110 bars: capit needs a gapless 24h lookback (96) + fresh-cross margin
     with ThreadPoolExecutor(max_workers=6) as ex:
@@ -999,12 +1047,9 @@ def cycle(universe, states):
     if n_ok < len(universe) * 0.8:
         log(f"WARN: only {n_ok}/{len(universe)} tickers fetched, skipping cycle")
         return
-    store = load_events()
-    detect_events(store, candles)
-    resolve_events(store, universe)
-    save_events(store)
-    gate = gate_state(store)
-    gate["bear"] = btc_bear()
+    # regime dial archived 2026-10-12 — books trade at all times; only the
+    # capit family's btc-bear entry condition (part of its rule) remains
+    gate = dict(bear=btc_bear())
     paused = os.path.exists(PAUSE)
     if paused != _pause_state[0]:
         if _pause_state[0] is not None or paused:
@@ -1039,7 +1084,7 @@ def pstr(cfg):
         return "PORTFOLIO: " + " | ".join(
             f"{bn}({b['kind']}"
             + (f",{len(b['only'])}tk" if b.get("only") else "")
-            + (",gated" if b.get("gate") or b.get("btc_bear") else "")
+            + (",gated" if b.get("btc_bear") else "")
             + f",w{b.get('risk_w', 1.0):g})"
             for bn, b in cfg["books"].items())
     if cfg.get("engine") == "churn":
@@ -1049,13 +1094,15 @@ def pstr(cfg):
     if cfg.get("engine") == "super":
         s_, c_ = cfg["sizing"]["S"], cfg["sizing"]["C"]
         return (f"SUPER: S pump>={cfg['runup']*100:.0f}% hold={cfg['hold']*15//60}h "
-                f"{s_[1]:g}x quad-size c{s_[3]*100:.0f} +gate | "
+                f"{s_[1]:g}x quad-size c{s_[3]*100:.0f} | "
                 f"C capit-{cfg['depth']*100:.0f}% hold={cfg.get('c_hold', 192)*15//60}h "
                 f"{c_[1]:g}x c{c_[3]*100:.0f} +btc-bear | margin-floored")
     if cfg.get("engine") == "loser":
+        exit_s = (f"tp+{cfg['tp']*100:g}%/close" if cfg.get("tp")
+                  else "no-stop")
         return (f"long biggest 1h loser <=-{cfg.get('min_move', 0.02)*100:g}% "
                 f"every {cfg.get('every', 4)*15}m hold={cfg['hold']*15//60}h "
-                f"no-stop {cfg.get('slots', 12)}-slot")
+                f"{exit_s} {cfg.get('slots', 12)}-slot")
     if cfg.get("engine") == "capit":
         stop = "none" if mode == "none" else f"-{parm*100:.0f}% disaster"
         return (f"capit-long drop<=-{cfg['depth']*100:.0f}%/24h "
@@ -1069,7 +1116,6 @@ def pstr(cfg):
     return ((f"momo-long " if cfg.get("engine") == "momo" else "")
             + f"runup>={cfg['runup']*100:.0f}% vol>={cfg['vol']:g}x "
             f"hold={cfg['hold']*15//60}h stop={stop}"
-            + (" +regime-gate" if cfg.get("gate") else "")
             + (f" +veto>{cfg['veto']*100:g}%" if cfg.get("veto") else "")
             + (" two-sided" if cfg.get("twosided") else ""))
 
@@ -1079,12 +1125,6 @@ def dashboard():
     lines.append(f"{'variant':8s} {'equity':>10s} {'ret%':>7s} {'open':>4s} "
                  f"{'closed':>6s} {'win%':>5s} {'avg net':>8s} {'bt net':>7s}  params")
     bt = {k: v or 0 for k, v in BT.items()}   # from fleet_config.json
-    g = gate_state(load_events())
-    m = f"{g['m']*100:+.2f}%" if g["m"] is not None else "n/a"
-    books = ("SHORT book open" if g["short"] else
-             "LONG book open" if g["long"] else "all books FLAT")
-    lines.append(f"regime gate: {books} (30d events n={g['n']}, "
-                 f"mean 24h fwd {m}; short m<0, long m>+2%)")
     open_rows = []
     for name, cfg in VARIANTS.items():
         st = load_state(name)
@@ -1182,9 +1222,13 @@ def main():
                        tags="warning", cat="errors")
         if "--once" in sys.argv:
             break
-        now = time.time()
-        nxt = (now // 900 + 1) * 900 + 30
-        time.sleep(max(nxt - now, 1))
+        nxt = (time.time() // 900 + 1) * 900 + 30
+        while time.time() < nxt:              # poll dashboard commands
+            try:
+                run_commands_fast(states, universe)
+            except Exception as e:
+                log(f"ERROR fast-cmd: {e!r}")
+            time.sleep(min(3, max(nxt - time.time(), 0.1)))
 
 
 if __name__ == "__main__":
