@@ -7,9 +7,11 @@ step function of equity_after at each exit_t, unrealized is
 notional*side*(px/entry-1) summed over trades open at t — the same math
 as _marked_equities(), with 15m closes standing in for live prices.
 
-Usage: python3 research/backfill_marks.py [fleet_dir]     # default paper/fleet
-Fills only gaps > 15 min (and the span before the first mark, back to the
-earliest trade). Writes marks.csv in place, backup at marks.csv.bak.
+Usage: python3 research/backfill_marks.py [fleet_dir] [--rebuild]
+Default dir paper/fleet. Gap mode fills holes > 15 min between real marks;
+--rebuild regenerates the full 5-min grid from reconstruction (closed trades
++ open positions from the state JSONs), discarding old marks — use when the
+old record is polluted. Writes marks.csv in place, backup at marks.csv.bak.
 """
 import csv
 import json
@@ -27,7 +29,9 @@ STEP = 300_000                      # sampler cadence
 KEEP = 14 * 86_400_000
 START_EQUITY = 10_000.0
 COST = 0.0019                       # round-trip taker+slip, for side inference
-DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "paper", "fleet")
+REBUILD = "--rebuild" in sys.argv
+ARGS = [a for a in sys.argv[1:] if a != "--rebuild"]
+DIR = ARGS[0] if ARGS else os.path.join(ROOT, "paper", "fleet")
 UNI = json.load(open(os.path.join(ROOT, "paper", "universe60.json")))
 
 
@@ -84,6 +88,20 @@ def read_trades(name):
     return sorted(out, key=lambda x: x["exit_t"])
 
 
+def open_positions(name, now):
+    """Open positions from the state JSON as pseudo-trades (no exit yet)."""
+    p = os.path.join(DIR, f"{name}.json")
+    if not os.path.exists(p):
+        return []
+    out = []
+    for pos in json.load(open(p)).get("positions", []):
+        out.append(dict(tk=pos["ticker"], t_sig=int(pos["t_sig"]),
+                        entry=float(pos["entry"]), exit_t=now + 1,
+                        net=0.0, pnl=0.0, notional=float(pos["notional"]),
+                        eq_after=None, side=pos.get("side")))
+    return out
+
+
 def infer_side(tr, fixed):
     if fixed:
         return fixed
@@ -109,8 +127,37 @@ def main():
 
     added = dropped = 0
     for name, cfg in VARIANTS.items():
-        trades = read_trades(name)
+        trades = sorted(read_trades(name) + open_positions(name, now),
+                        key=lambda x: x["exit_t"])
         fixed = direction(cfg)
+        if REBUILD:
+            old = sorted(have.get(name, []))
+            lo = max(now - KEEP,
+                     min([t["t_sig"] for t in trades] + old[:1], default=now))
+            marks = [r for r in marks if r[1] != name]
+            for tr in trades:
+                closes(tr["tk"], max(tr["t_sig"], lo), min(tr["exit_t"] + M15, now))
+                if tr.get("side") is None:
+                    tr["side"] = infer_side(tr, fixed)
+            t = lo // STEP * STEP
+            while t < now:
+                realized = START_EQUITY
+                for tr in trades:
+                    if tr["exit_t"] <= t and tr["eq_after"] is not None:
+                        realized = tr["eq_after"]
+                unreal, priced = 0.0, True
+                for tr in trades:
+                    if tr["t_sig"] <= t < tr["exit_t"]:
+                        px = px_at(tr["tk"], t)
+                        if px is None:
+                            priced = False
+                            break
+                        unreal += tr["notional"] * tr["side"] * (px / tr["entry"] - 1)
+                if priced:
+                    marks.append([t, name, round(realized + unreal, 2)])
+                    added += 1
+                t += STEP
+            continue
         # scrub failed-fetch spikes: a mark at realized-only level while a
         # position was open and reconstruction says unrealized was material
         eq_of = {t: eq for t, n, eq in marks if n == name}
@@ -128,7 +175,8 @@ def main():
             unreal = 0.0
             for tr in opens:
                 closes(tr["tk"], tr["t_sig"], min(tr["exit_t"] + M15, now))
-                tr["side"] = infer_side(tr, fixed)
+                if tr.get("side") is None:
+                    tr["side"] = infer_side(tr, fixed)
                 px = px_at(tr["tk"], t)
                 if px:
                     unreal += tr["notional"] * tr["side"] * (px / tr["entry"] - 1)
@@ -156,7 +204,8 @@ def main():
         for tr in trades:
             if any(tr["t_sig"] < g1 and tr["exit_t"] > g0 for g0, g1 in gaps):
                 closes(tr["tk"], tr["t_sig"], min(tr["exit_t"] + M15, now))
-                tr.setdefault("side", infer_side(tr, fixed))
+                if tr.get("side") is None:
+                    tr["side"] = infer_side(tr, fixed)
         for g0, g1 in gaps:
             t = (g0 // STEP + 1) * STEP
             while t < g1:
