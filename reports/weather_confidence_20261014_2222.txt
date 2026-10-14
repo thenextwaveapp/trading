@@ -1,0 +1,37 @@
+WEATHER CONFIDENCE CHECKS — 2026-10-14 22:21 UTC
+
+1. CALENDAR OVERLAP of favorable cells (jaccard; days)
+   loser  x capit   jaccard 0.02  (503d, 9d, shared 9d)
+   loser  x pump    jaccard 0.04  (503d, 44d, shared 20d)
+   capit  x pump    jaccard 0.00  (9d, 44d, shared 0d)
+   loser  x btc-flush days: 99 of 503 favorable days are flush days
+   capit  x btc-flush days: 8 of 9 favorable days are flush days
+   pump   x btc-flush days: 2 of 44 favorable days are flush days
+
+2. FAVORABLE-CELL SPREAD BY YEAR (fav vs rest)
+   loser (uni_med24 q1):
+     2023  fav  +2.473%/ 281   rest  +0.562%/ 1411
+     2024  fav  +1.448%/ 608   rest  +0.693%/ 2226
+     2025  fav  +2.198%/ 991   rest  +0.433%/ 2989
+     2026  fav  +0.547%/ 396   rest  -0.069%/ 2475
+   capit (btc_rsi14_1h q1):
+     2023  fav    +nan%/   0   rest +10.435%/   45
+     2024  fav  +8.749%/  26   rest  +5.291%/  199
+     2025  fav +22.360%/  70   rest  +3.807%/  231
+     2026  fav  +4.901%/  43   rest  -0.542%/   67
+   pump (uni_med_rpos q1):
+     2023  fav  -0.947%/   6   rest  -0.505%/   19
+     2024  fav  +4.477%/   6   rest  -1.145%/   46
+     2025  fav  +2.023%/  15   rest  +0.796%/   63
+     2026  fav  +7.425%/  18   rest  +2.342%/   49
+
+3. EPISODE-LEVEL SAMPLE (favorable cells, 3-day gap clustering)
+   loser  2,276 trades -> 111 episodes | per-episode spread mean +1.38% med +1.15% | episodes>0: 69%
+   capit    139 trades ->   9 episodes | per-episode spread mean +6.34% med +7.75% | episodes>0: 89%
+   pump      45 trades ->  38 episodes | per-episode spread mean +4.33% med +3.73% | episodes>0: 68%
+
+4. loser x btc_fund9, HIGHEST-funding quintile, by year
+     2023  fund-q5  +2.968%/ 288   rest  +0.451%/ 1404
+     2024  fund-q5  +1.689%/ 923   rest  +0.451%/ 1911
+     2025  fund-q5    +nan%/   0   rest  +0.873%/ 3980
+     2026  fund-q5    +nan%/   0   rest  +0.016%/ 2871
