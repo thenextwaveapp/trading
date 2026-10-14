@@ -325,9 +325,13 @@ def payload():
         with MARKS_LOCK:
             marks = [[t, eq] for t, n, eq in MARKS_MEM if n == name]
         stride = max(1, len(marks) // 400)
+        # exit steps are realized-only (blind to other open positions) —
+        # use them only before the marked era; marks carry the curve after
+        first_mark = marks[0][0] if marks else now
         curve = sorted(
             [[start, START_EQUITY]] +
-            [[t["exit_t"], t["equity_after"]] for t in trades] +
+            [[t["exit_t"], t["equity_after"]] for t in trades
+             if t["exit_t"] < first_mark] +
             marks[::stride] +
             [[now, round(st["equity"] + unreal, 2)]])
         variants.append(dict(
