@@ -21,7 +21,9 @@ if [ "${2:-}" = pull ]; then
 fi
 
 ssh "$HOST" "id trading >/dev/null 2>&1 || useradd -r -m -d $DEST -s /usr/sbin/nologin trading
-             mkdir -p $DEST/paper/fleet"
+             mkdir -p $DEST/paper/fleet
+             printf 'trading ALL=(root) NOPASSWD: /usr/bin/systemctl stop trading-paperfleet, /usr/bin/systemctl start trading-paperfleet, /usr/bin/systemctl restart trading-paperfleet\n' > /etc/sudoers.d/trading-fleet
+             chmod 440 /etc/sudoers.d/trading-fleet"
 
 rsync -az paper_fleet.py paper_trader.py regime.py fleet_dashboard.py \
           fleet_config.json "$HOST:$DEST/"

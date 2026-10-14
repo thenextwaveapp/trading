@@ -90,9 +90,11 @@ for _n, _c in VARIANTS.items():
     DIRS.setdefault(_d, dict(label=_DLBL[_d], variants=[]))["variants"].append(_n)
 DIRS = {k: DIRS[k] for k in ("short", "long", "both") if k in DIRS}
 
+LINUX = sys.platform.startswith("linux")
 FLEET_SVC = f"gui/{os.getuid()}/com.trading.paperfleet"
 FLEET_PLIST = os.path.expanduser(
     "~/Library/LaunchAgents/com.trading.paperfleet.plist")
+FLEET_UNIT = "trading-paperfleet"
 PX_API = "https://fapi.binance.com/fapi/v1/ticker/price"
 
 
@@ -121,11 +123,17 @@ def fleet_running():
 
 
 def fleet_loaded():
+    if LINUX:
+        return subprocess.run(
+            ["/usr/bin/systemctl", "is-active", "--quiet", FLEET_UNIT],
+            capture_output=True).returncode == 0
     return subprocess.run(["/bin/launchctl", "print", FLEET_SVC],
                           capture_output=True).returncode == 0
 
 
 def sleep_disabled():
+    if LINUX:                     # servers don't sleep
+        return True
     ok, out = run_cmd(["/usr/bin/pmset", "-g"])
     for ln in out.splitlines():
         if "SleepDisabled" in ln:
@@ -406,17 +414,33 @@ def ntfy_test():
         return False, repr(e)
 
 
+if LINUX:
+    _FLEET_CTL = {
+        "fleet_stop": lambda b: run_cmd(
+            ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "stop", FLEET_UNIT]),
+        "fleet_start": lambda b: run_cmd(
+            ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", FLEET_UNIT]),
+        "fleet_restart": lambda b: run_cmd(
+            ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "restart", FLEET_UNIT]),
+        "awake_on": lambda b: (True, "server is always on"),
+        "awake_off": lambda b: (True, "server is always on"),
+    }
+else:
+    _FLEET_CTL = {
+        "fleet_stop": lambda b: run_cmd(
+            ["/bin/launchctl", "bootout", FLEET_SVC]),
+        "fleet_start": lambda b: run_cmd(
+            ["/bin/launchctl", "bootstrap", f"gui/{os.getuid()}", FLEET_PLIST]),
+        "fleet_restart": lambda b: run_cmd(
+            ["/bin/launchctl", "kickstart", "-k", FLEET_SVC]),
+        "awake_on": lambda b: run_cmd(
+            ["/usr/bin/sudo", "-n", "/usr/bin/pmset", "-a", "disablesleep", "1"]),
+        "awake_off": lambda b: run_cmd(
+            ["/usr/bin/sudo", "-n", "/usr/bin/pmset", "-a", "disablesleep", "0"]),
+    }
+
 ACTIONS = {
-    "fleet_stop": lambda b: run_cmd(
-        ["/bin/launchctl", "bootout", FLEET_SVC]),
-    "fleet_start": lambda b: run_cmd(
-        ["/bin/launchctl", "bootstrap", f"gui/{os.getuid()}", FLEET_PLIST]),
-    "fleet_restart": lambda b: run_cmd(
-        ["/bin/launchctl", "kickstart", "-k", FLEET_SVC]),
-    "awake_on": lambda b: run_cmd(
-        ["/usr/bin/sudo", "-n", "/usr/bin/pmset", "-a", "disablesleep", "1"]),
-    "awake_off": lambda b: run_cmd(
-        ["/usr/bin/sudo", "-n", "/usr/bin/pmset", "-a", "disablesleep", "0"]),
+    **_FLEET_CTL,
     "pause_on": lambda b: set_pause(True),
     "pause_off": lambda b: set_pause(False),
     "set_ntfy": lambda b: set_ntfy(str(b.get("topic", "")).strip()),
