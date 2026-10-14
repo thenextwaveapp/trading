@@ -107,9 +107,38 @@ def main():
     for t, name, eq in marks:
         have.setdefault(name, []).append(t)
 
-    added = 0
+    added = dropped = 0
     for name, cfg in VARIANTS.items():
         trades = read_trades(name)
+        fixed = direction(cfg)
+        # scrub failed-fetch spikes: a mark at realized-only level while a
+        # position was open and reconstruction says unrealized was material
+        eq_of = {t: eq for t, n, eq in marks if n == name}
+        bad = set()
+        for t, eq in eq_of.items():
+            opens = [tr for tr in trades if tr["t_sig"] <= t < tr["exit_t"]]
+            if not opens:
+                continue
+            realized = START_EQUITY
+            for tr in trades:
+                if tr["exit_t"] <= t:
+                    realized = tr["eq_after"]
+            if abs(eq - realized) > 1.0:
+                continue
+            unreal = 0.0
+            for tr in opens:
+                closes(tr["tk"], tr["t_sig"], min(tr["exit_t"] + M15, now))
+                tr["side"] = infer_side(tr, fixed)
+                px = px_at(tr["tk"], t)
+                if px:
+                    unreal += tr["notional"] * tr["side"] * (px / tr["entry"] - 1)
+            if abs(unreal) > 50:
+                bad.add(t)
+        if bad:
+            marks = [r for r in marks if not (r[1] == name and r[0] in bad)]
+            have[name] = [t for t in have.get(name, []) if t not in bad]
+            dropped += len(bad)
+            print(f"{name}: dropped {len(bad)} zero-unreal spike mark(s)")
         ts = sorted(have.get(name, []))
         lo = max(now - KEEP, min([t["t_sig"] for t in trades], default=now))
         hi = ts[-1] if ts else now
@@ -124,11 +153,10 @@ def main():
         if not gaps:
             continue
         # prefetch candles for trades overlapping any gap, infer sides
-        fixed = direction(cfg)
         for tr in trades:
             if any(tr["t_sig"] < g1 and tr["exit_t"] > g0 for g0, g1 in gaps):
                 closes(tr["tk"], tr["t_sig"], min(tr["exit_t"] + M15, now))
-                tr["side"] = infer_side(tr, fixed)
+                tr.setdefault("side", infer_side(tr, fixed))
         for g0, g1 in gaps:
             t = (g0 // STEP + 1) * STEP
             while t < g1:
@@ -153,7 +181,7 @@ def main():
         os.replace(path, path + ".bak")
     with open(path, "w", newline="") as f:
         csv.writer(f).writerows(marks)
-    print(f"added {added} marks -> {path}")
+    print(f"added {added}, dropped {dropped} -> {path}")
 
 
 if __name__ == "__main__":

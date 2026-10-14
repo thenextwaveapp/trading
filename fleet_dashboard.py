@@ -170,13 +170,16 @@ def _marked_equities():
     out = {}
     for name in VARIANTS:
         st = load_state(name)
-        unreal = 0.0
+        unreal, priced = 0.0, True
         for p in st["positions"]:
             px = live_px(p["symbol"])
-            if px:
-                unreal += p["notional"] * p.get("side", -1) \
-                    * (px / p["entry"] - 1)
-        out[name] = round(st["equity"] + unreal, 2)
+            if not px:          # no price -> no mark; zero-unreal marks are lies
+                priced = False
+                break
+            unreal += p["notional"] * p.get("side", -1) \
+                * (px / p["entry"] - 1)
+        if priced:
+            out[name] = round(st["equity"] + unreal, 2)
     return out
 
 
