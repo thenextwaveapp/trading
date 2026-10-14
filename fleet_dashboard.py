@@ -630,6 +630,10 @@ tr:last-child td{border-bottom:none}
 .sw{width:10px;height:3px;display:inline-block;border-radius:2px}
 pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;overflow-x:auto;color:var(--dim)}
 .muted{color:var(--dim);font-size:12px}
+.pager{display:flex;gap:6px;align-items:center;margin:6px 0 2px;font-size:12px;color:var(--dim)}
+.pager button{padding:2px 9px;font-size:12px}
+.pager button:disabled{opacity:.35;cursor:default}
+.pager .pp{margin-left:10px}
 button{cursor:pointer;background:#21262d;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:4px 14px;font:inherit;font-size:13px}
 button:hover{background:#30363d}
 button.danger{border-color:#6e2b28;color:var(--red)}
@@ -651,14 +655,15 @@ input{background:#0d1117;border:1px solid var(--line);color:var(--fg);border-rad
 <div class="pills" id="pills"></div>
 <div class="pills" id="controls"></div>
 <div class="muted" id="ctlmsg"></div>
-<h2>Open positions (live) <span id="posbtns"></span></h2><div class="scroll"><table id="positions"></table></div>
 <h2>Variants &amp; equity</h2>
 <div class="pills" id="tabs"></div>
 <div class="pills" id="range"></div>
 <div id="chart"></div><div class="legend" id="legend"></div>
-<div class="scroll" style="margin-top:8px"><table id="variants"></table></div>
+<h2>Open positions (live) <span id="posbtns"></span></h2><div class="scroll"><table id="positions"></table></div><div class="pager" id="pospager"></div>
+<h2>Variant accounts</h2>
+<div class="scroll"><table id="variants"></table></div><div class="pager" id="varpager"></div>
 <div id="vdetail"></div>
-<h2>Closed trades</h2><div class="scroll"><table id="trades"></table></div>
+<h2>Closed trades</h2><div class="scroll"><table id="trades"></table></div><div class="pager" id="trpager"></div>
 <h2>Phone alerts (ntfy)</h2>
 <div class="pills" id="ntfy"></div>
 <p class="muted">Get pushed: trade entries/exits (one alert per signal, not
@@ -695,6 +700,30 @@ const cls=v=>v>0?"ok":v<0?"bad":"dim";
 const left=t=>{const m=Math.round((t-Date.now())/60000);
   return m<=0?"closing…":m<60?m+"m":Math.floor(m/60)+"h "+(m%60)+"m";};
 function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+const dur=ms=>{const m=Math.round(ms/60000);if(m<60)return m+"m";
+  const h=Math.floor(m/60);if(h<48)return h+"h "+(m%60)+"m";
+  return Math.floor(h/24)+"d "+(h%24)+"h";};
+const money=v=>"$"+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// ---- pagination: one state per table, original indices preserved ----
+const PAGES={pos:{p:0,n:10},var:{p:0,n:10},tr:{p:0,n:10}};
+function pageOf(arr,key){
+  const P=PAGES[key],np=Math.max(1,Math.ceil(arr.length/P.n));
+  if(P.p>=np)P.p=np-1;if(P.p<0)P.p=0;
+  return arr.map((x,i)=>[x,i]).slice(P.p*P.n,(P.p+1)*P.n);
+}
+function pager(key,total){
+  const P=PAGES[key],np=Math.max(1,Math.ceil(total/P.n));
+  if(total<=10)return"";
+  return `<span>${total} rows</span>`+
+    `<button ${P.p===0?"disabled":""} onclick="pgo('${key}',-1)">&#8249; prev</button>`+
+    `<span>${P.p+1} / ${np}</span>`+
+    `<button ${P.p>=np-1?"disabled":""} onclick="pgo('${key}',1)">next &#8250;</button>`+
+    `<span class="pp">per page</span>`+
+    [10,25,50,100].map(n=>`<button class="${P.n===n?"go":""}" onclick="pper('${key}',${n})">${n}</button>`).join("");
+}
+function pgo(k,d){PAGES[k].p+=d;if(LAST)render(LAST);}
+function pper(k,n){PAGES[k].n=n;PAGES[k].p=0;if(LAST)render(LAST);}
 
 function render(d){
   LAST=d;
@@ -756,7 +785,7 @@ function render(d){
     +TP("upnl","uP&amp;L")+TP("upct","net")+TP("stop","stop")+TP("tp","tp")+TP("room","room to stop")
     +TP("exits_at","time exit in")+TP("notional","notional")+TP("t_sig","since")+"</tr>";
   if(!POS.length)h2+=`<tr><td colspan="15" class="dim">${VSEL?"none for "+esc(VSEL):"none — scanning"}</td></tr>`;
-  POS.forEach((p,i)=>{
+  pageOf(POS,"pos").forEach(([p,i])=>{
     const sel=!LOCAL?"":`<td class=ck><input type=checkbox ${SEL.has(pkey(p))?"checked":""} onclick="selOne(${i},this.checked)"></td>`;
     const xc=!LOCAL?"":closing(p)
       ?'<td class="dim">closing…</td>'
@@ -775,8 +804,9 @@ function render(d){
     <td class="${cls(p.upct)}">${p.upct==null?"–":pct(p.upct*100)}</td>
     <td>${p.stop.toPrecision(6)}</td><td>${tpc}</td>
     <td class="${p.room!=null&&p.room<0.01?"bad":"dim"}">${p.room==null?"–":pct(p.room*100)}</td>
-    <td>${tcell}</td><td>${p.notional.toFixed(0)}</td><td>${fmt(p.t_sig)}</td></tr>`;});
+    <td>${tcell}</td><td>$${Math.round(p.notional).toLocaleString()}</td><td>${fmt(p.t_sig)}</td></tr>`;});
   document.getElementById("positions").innerHTML=h2;
+  document.getElementById("pospager").innerHTML=pager("pos",POS.length);
 
   // strategy tabs filter both the variants table and the equity chart
   const vmap={};d.variants.forEach(v=>vmap[v.name]=v);
@@ -806,24 +836,26 @@ function render(d){
     +"<th style='text-align:left'>params</th></tr>";
   if(TAB!=="all"&&d.strats[TAB])
     h3+=`<tr><td colspan="9" style="text-align:left" class="dim">${esc(d.strats[TAB].label)}</td></tr>`;
-  shown.forEach(v=>{
-    h3+=`<tr><td style="cursor:pointer" title="variant details" onclick="vModal('${v.name}')"><b>${v.name}</b>${v.kill?' <b class="bad">KILL</b>':''}</td><td>${v.equity.toFixed(2)}</td>`+
+  pageOf(shown,"var").forEach(([v])=>{
+    h3+=`<tr><td style="cursor:pointer" title="variant details" onclick="vModal('${v.name}')"><b>${v.name}</b>${v.kill?' <b class="bad">KILL</b>':''}</td><td>${money(v.equity)}</td>`+
     `<td class="${cls(v.ret)}">${pct(v.ret)}</td><td>${v.open.length}</td><td>${v.closed}</td>`+
     `<td>${v.win==null?"–":v.win+"%"}</td><td class="${cls(v.avg)}">${pct(v.avg,3)}</td>`+
     `<td class="dim">${pct(v.bt)}</td><td style="text-align:left" class="dim">${esc(v.params)}</td></tr>`;});
   document.getElementById("variants").innerHTML=h3;
+  document.getElementById("varpager").innerHTML=pager("var",shown.length);
   document.getElementById("vdetail").innerHTML=VSEL&&vmap[VSEL]
     ?`<h2 style="margin:10px 0 6px">${esc(VSEL)} <span class="dim" style="font-weight:400">· ${esc(vmap[VSEL].group||"")}</span></h2>`+vBody(VSEL):"";
 
   // trades
   TRL=sortBy(VSEL?d.trades.filter(t=>t.variant===VSEL):d.trades,
-             TSORT,(t,k)=>t[k]);
+             TSORT,(t,k)=>k==="held"?t.exit_t-t.t_sig:t[k]);
   const TT=sortTH(TSORT,"setTSort");
   let h4="<tr>"+TT("exit_t","exit")+TT("variant","variant")+TT("ticker","ticker")+TT("kind","kind")
-    +TT("net","net")+TT("pnl","pnl")+TT("notional","notional")+TT("equity_after","equity after")+"</tr>";
+    +TT("net","net")+TT("pnl","pnl")+TT("notional","notional")+TT("held","held")+"</tr>";
   if(!TRL.length)h4+='<tr><td colspan="8" class="dim">none yet</td></tr>';
-  TRL.forEach((t,i)=>{h4+=`<tr><td>${fmt(t.exit_t)}</td><td style="cursor:pointer" title="variant details" onclick="vModal('${t.variant}')">${t.variant}</td><td style="cursor:pointer" title="open chart" onclick="tradeChart(${i})"><b>${esc(t.ticker)}</b> <span class="dim">📈</span></td><td>${t.kind}</td><td class="${cls(t.net)}">${pct(t.net*100)}</td><td class="${cls(t.pnl)}">${t.pnl.toFixed(2)}</td><td>${t.notional.toFixed(0)}</td><td>${t.equity_after.toFixed(2)}</td></tr>`;});
+  pageOf(TRL,"tr").forEach(([t,i])=>{h4+=`<tr><td>${fmt(t.exit_t)}</td><td style="cursor:pointer" title="variant details" onclick="vModal('${t.variant}')">${t.variant}</td><td style="cursor:pointer" title="open chart" onclick="tradeChart(${i})"><b>${esc(t.ticker)}</b> <span class="dim">📈</span></td><td>${t.kind}</td><td class="${cls(t.net)}">${pct(t.net*100)}</td><td class="${cls(t.pnl)}">${usd(t.pnl)}</td><td>$${Math.round(t.notional).toLocaleString()}</td><td class="dim">${dur(t.exit_t-t.t_sig)}</td></tr>`;});
   document.getElementById("trades").innerHTML=h4;
+  document.getElementById("trpager").innerHTML=pager("tr",TRL.length);
 
   const keepTopic=(document.getElementById("topicin")||{}).value||"";
   document.getElementById("ntfy").innerHTML=
@@ -835,14 +867,28 @@ function render(d){
   document.getElementById("log").textContent=d.log.join("\\n")||"(empty)";
   document.getElementById("foot").textContent=
     `fleet since ${fmt(d.start)} · times in ${TZ} · auto-refresh 10s · controls work from this Mac only`;
-  chart(d,shown,tabShown);
+  const chartVs=LSEL.size?tabShown.filter(v=>LSEL.has(v.name)):tabShown;
+  chart(d,chartVs,tabShown);
 }
 
 let TAB="all",LAST=null,SORT={col:null,dir:-1};
 let VSEL=null,PSORT={col:null,dir:-1},TSORT={col:null,dir:-1};
-let TRL=[];
+let TRL=[],LSEL=new Set();
 function setTab(t){TAB=t;if(LAST)render(LAST);}
-function selVariant(n){VSEL=VSEL===n?null:n;if(LAST)render(LAST);}
+// legend: first click solos a variant, further clicks add; clear resets.
+// a solo selection also filters the tables (VSEL), multi shows all tables.
+function legSel(n){
+  if(LSEL.has(n))LSEL.delete(n);
+  else if(!LSEL.size)LSEL=new Set([n]);
+  else LSEL.add(n);
+  VSEL=LSEL.size===1?[...LSEL][0]:null;
+  if(LAST)render(LAST);
+}
+function legClear(){LSEL=new Set();VSEL=null;if(LAST)render(LAST);}
+function selVariant(n){
+  if(n==null)return legClear();
+  LSEL=new Set([n]);VSEL=n;if(LAST)render(LAST);
+}
 function flipSort(S,c,alpha){
   if(S.col===c)S.dir=-S.dir;else{S.col=c;S.dir=alpha?1:-1;}
   if(LAST)render(LAST);}
@@ -895,11 +941,11 @@ function vBody(name){
   const tr=LAST.trades.filter(t=>t.variant===name).slice(0,10);
   if(tr.length){
     h+=`<h2 style="margin:10px 0 6px">recent trades</h2><table>`+
-       `<tr><th style="text-align:left">exit</th><th style="text-align:left">ticker</th><th>kind</th><th>net</th><th>pnl</th><th>equity after</th></tr>`;
+       `<tr><th style="text-align:left">exit</th><th style="text-align:left">ticker</th><th>kind</th><th>net</th><th>pnl</th><th>held</th><th>equity after</th></tr>`;
     tr.forEach(t=>{h+=`<tr><td style="text-align:left">${fmt(t.exit_t)}</td>`+
       `<td style="text-align:left">${esc(t.ticker)}</td><td>${t.kind}</td>`+
       `<td class="${cls(t.net)}">${pct(t.net*100)}</td>`+
-      `<td class="${cls(t.pnl)}">${t.pnl.toFixed(2)}</td><td>${t.equity_after.toFixed(2)}</td></tr>`;});
+      `<td class="${cls(t.pnl)}">${usd(t.pnl)}</td><td class="dim">${dur(t.exit_t-t.t_sig)}</td><td>${money(t.equity_after)}</td></tr>`;});
     h+=`</table>`;}
   return h;
 }
@@ -955,8 +1001,9 @@ function chart(d,shown,legendVs){
   if(!DREW){setRange(RANGE);DREW=true;}
   else if(vis)LW.timeScale().setVisibleRange(vis);   // keep the user's zoom
   document.getElementById("legend").innerHTML=lvs.map(v=>
-    `<span style="cursor:pointer${VSEL&&VSEL!==v.name?";opacity:.35":""}" title="filter page to this variant" onclick="selVariant('${v.name}')">`+
-    `<i class="sw" style="background:${vcolor(v.name)}"></i>${VSEL===v.name?"<b>"+v.name+"</b>":v.name} ${v.equity.toFixed(0)}</span>`).join("");
+    `<span style="cursor:pointer${LSEL.size&&!LSEL.has(v.name)?";opacity:.35":""}" title="click: show only this · more clicks: add to view" onclick="legSel('${v.name}')">`+
+    `<i class="sw" style="background:${vcolor(v.name)}"></i>${LSEL.has(v.name)?"<b>"+v.name+"</b>":v.name} ${v.equity.toFixed(0)}</span>`).join("")
+    +(LSEL.size?` <button onclick="legClear()" style="padding:1px 10px;font-size:11px">✕ clear (${LSEL.size})</button>`:"");
 }
 
 // ---- per-trade candle chart: entry/stop/tp lines, exit marker,
