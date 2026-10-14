@@ -524,6 +524,15 @@ def run_loser(name, st, universe, candles):
     tk, mv, k = worst
     if mv > -cfg.get("min_move", 0.02):
         return
+    g24 = cfg.get("btc_r24")
+    if g24 is not None:              # entry only when BTC 24h move <= g24
+        bk = candles.get("BTC")
+        if not bk or len(bk) < 97:
+            return
+        j = len(bk) - 1
+        if bk[j]["t"] - bk[j - 96]["t"] != 96 * M15 \
+                or bk[j]["c"] / bk[j - 96]["c"] - 1 > g24:
+            return
     i = len(k) - 1
     t_sig = k[i]["t"] + M15
     if t_sig <= st["last_sig_t"] \
@@ -1102,7 +1111,9 @@ def pstr(cfg):
                   else "no-stop")
         return (f"long biggest 1h loser <=-{cfg.get('min_move', 0.02)*100:g}% "
                 f"every {cfg.get('every', 4)*15}m hold={cfg['hold']*15//60}h "
-                f"{exit_s} {cfg.get('slots', 12)}-slot")
+                f"{exit_s} {cfg.get('slots', 12)}-slot"
+                + (f" btc24<={cfg['btc_r24']*100:g}%"
+                   if cfg.get("btc_r24") else ""))
     if cfg.get("engine") == "capit":
         stop = "none" if mode == "none" else f"-{parm*100:.0f}% disaster"
         return (f"capit-long drop<=-{cfg['depth']*100:.0f}%/24h "
