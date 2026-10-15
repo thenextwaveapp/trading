@@ -1,0 +1,85 @@
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.card {
+  padding: 18px;
+}
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.rank {
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.cardName {
+  font-size: 20px;
+  font-weight: 500;
+  margin-top: 10px;
+  cursor: pointer;
+}
+.cardName:hover {
+  color: var(--trade);
+}
+.builder {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 2px 0 10px;
+}
+.cardFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 6px;
+}
+.cardCta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-top: 28px;
+}
+.table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.table th {
+  font-weight: 400;
+  color: var(--muted-2);
+  font-size: 12px;
+  text-align: right;
+  padding: 0 14px 12px;
+  white-space: nowrap;
+}
+.table td {
+  padding: 13px 14px;
+  border-top: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+  font-size: 13px;
+  vertical-align: middle;
+}
+.left {
+  text-align: left !important;
+}
+.num {
+  width: 40px;
+}
+.me {
+  background: #0c1219;
+}

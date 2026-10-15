@@ -1,0 +1,291 @@
+.side {
+  flex: 1 1 240px;
+  max-width: 264px;
+  border-right: 1px solid var(--line);
+  padding: 22px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: linear-gradient(180deg, var(--sidebar-top) 0%, #07090c 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.025);
+  transition: max-width 0.18s ease, flex-basis 0.18s ease, padding 0.18s ease;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 0 10px;
+}
+.wm {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.plane {
+  flex: none;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 6px rgba(58, 129, 215, 0.4));
+  transition: transform 0.15s ease;
+}
+.wm:hover .plane {
+  transform: translateX(1px) rotate(-6deg);
+}
+@keyframes planeFly {
+  0% {
+    transform: translate(-9px, 5px) rotate(-16deg);
+    opacity: 0.2;
+  }
+  55% {
+    transform: translate(2px, -2px) rotate(5deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 1;
+  }
+}
+.planeFly {
+  animation: planeFly 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.toggle {
+  height: 28px;
+  width: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--muted-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.toggle:hover {
+  color: var(--fg-2);
+  border-color: #2a313c;
+}
+.toggleIcon {
+  transition: transform 0.18s ease;
+}
+
+.cap {
+  font-size: 11px;
+  color: var(--muted-3);
+  padding: 0 10px 8px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.fl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--fg-2);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+.fl:hover,
+.ni:hover {
+  background: #0f1319;
+}
+.sq {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+  background: var(--accent);
+}
+.flBody {
+  flex: 1;
+  min-width: 0;
+}
+.flName {
+  display: block;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.flSub {
+  display: block;
+  font-size: 11px;
+  color: var(--muted-3);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ni {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+.niIc {
+  flex: none;
+  color: var(--muted);
+}
+.dim {
+  opacity: 0.5;
+}
+.on {
+  background: linear-gradient(180deg, #171c25, #11151b);
+  color: var(--fg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.on .niIc {
+  color: var(--fg);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.status {
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+  padding: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    0 1px 0 rgba(0, 0, 0, 0.6), 0 14px 30px -14px rgba(0, 0, 0, 0.7);
+}
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+.live {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--up);
+  animation: pulse 2s infinite;
+  flex: none;
+}
+.down {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--down);
+  flex: none;
+}
+.updated {
+  font-size: 12px;
+  color: var(--muted-2);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+.up {
+  color: var(--up);
+}
+.dn {
+  color: var(--down);
+}
+
+/* ---- collapsed state ---- */
+.collapsed {
+  max-width: 64px;
+  flex-basis: 64px;
+  padding: 20px 9px;
+  gap: 18px;
+  align-items: center;
+}
+.collapsed .txt {
+  display: none;
+}
+.collapsed .cap {
+  display: none;
+}
+.collapsed .fl,
+.collapsed .ni {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
+.collapsed .head {
+  justify-content: center;
+  padding: 0;
+}
+.collapsed .status {
+  padding: 12px 8px;
+}
+.collapsed > div,
+.collapsed > nav {
+  width: 100%;
+}
+
+/* ---- mobile: off-canvas drawer ---- */
+@media (max-width: 860px) {
+  .side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    height: 100vh;
+    height: 100dvh;
+    width: 84vw;
+    max-width: 300px;
+    flex: none;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+    padding: calc(20px + env(safe-area-inset-top)) 16px
+      calc(20px + env(safe-area-inset-bottom));
+    border-right: 1px solid var(--line-2);
+    box-shadow: 0 0 44px rgba(0, 0, 0, 0.6);
+  }
+  .side.open {
+    transform: translateX(0);
+  }
+
+  /* the drawer always shows full content — ignore the desktop collapse state */
+  .collapsed {
+    max-width: 300px;
+    flex: none;
+    gap: 22px;
+    align-items: stretch;
+    padding: calc(20px + env(safe-area-inset-top)) 16px
+      calc(20px + env(safe-area-inset-bottom));
+  }
+  .collapsed .txt,
+  .collapsed .cap {
+    display: revert;
+  }
+  .collapsed .fl,
+  .collapsed .ni {
+    justify-content: flex-start;
+    padding: 10px;
+    gap: 12px;
+  }
+  .collapsed .head {
+    justify-content: space-between;
+    padding: 0 2px 0 10px;
+  }
+}

@@ -1,0 +1,185 @@
+/* shared styles for the research hub + 5-step wizard */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px var(--gutter);
+  border-bottom: 1px solid var(--line);
+}
+.step {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  flex: none;
+}
+.step.now {
+  background: #e9ecf1;
+  color: #07090c;
+  border-color: #e9ecf1;
+}
+.step.done {
+  border-color: #2b5a30;
+  color: var(--up);
+  cursor: pointer;
+}
+.stepLine {
+  flex: 1;
+  height: 1px;
+  background: var(--line-2);
+  max-width: 48px;
+}
+.stepLabel {
+  font-size: 13px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.processGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1px;
+  background: var(--line-2);
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 36px;
+}
+.processCell {
+  background: linear-gradient(180deg, #0f141b, var(--card-bottom));
+  padding: 18px 20px;
+}
+.pNum {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted-3);
+}
+.pTitle {
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.kanban {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.col {
+  flex: 1 1 190px;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.colHead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0 2px 2px;
+}
+.kcard {
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+  padding: 14px;
+}
+.kcard.ready {
+  border-color: #2a4a75;
+}
+.kcard.dashed {
+  border-style: dashed;
+  color: var(--muted);
+  text-align: center;
+  cursor: pointer;
+}
+.kName {
+  font-size: 14px;
+  font-weight: 500;
+}
+.kDesc {
+  font-size: 12px;
+  color: var(--muted-2);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.progress {
+  height: 3px;
+  border-radius: 2px;
+  background: #1b212a;
+  margin: 10px 0 6px;
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* wizard form bits */
+.formRow {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+.label {
+  font-size: 12px;
+  color: var(--muted-2);
+}
+.h2 {
+  font-size: 18px;
+  font-weight: 500;
+}
+.blk {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #0f1319;
+  font-size: 13px;
+}
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted-3);
+  width: 72px;
+  flex: none;
+  text-transform: uppercase;
+}
+.val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #171c24;
+  border: 1px solid var(--border);
+}
+.pill {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #10141a;
+  color: var(--muted);
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill.sel {
+  border-color: #e9ecf1;
+  color: var(--fg);
+}
+.chipRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

@@ -1,0 +1,114 @@
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: radial-gradient(
+      900px 440px at 12% -8%,
+      rgba(58, 129, 215, 0.12),
+      transparent 65%
+    ),
+    radial-gradient(760px 420px at 100% -4%, rgba(129, 78, 198, 0.07), transparent 60%),
+    var(--bg);
+}
+
+.main {
+  flex: 999 1 640px;
+  min-width: 0;
+  padding-bottom: 72px;
+}
+
+.center {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted-3);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+/* ---- mobile top app bar + drawer (hidden on desktop) ---- */
+.topbar {
+  display: none;
+}
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .app {
+    display: block;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: calc(var(--topbar-h) + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) var(--gutter) 0;
+    border-bottom: 1px solid var(--line);
+    background: rgba(8, 10, 13, 0.82);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+  }
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-left: -8px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--fg-2);
+  }
+  .hamburger:active {
+    background: #0f1319;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.04em;
+    color: var(--fg);
+  }
+  .topStatus {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .main {
+    flex: none;
+    width: 100%;
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  }
+
+  /* backdrop */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 48;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .backdropOpen {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

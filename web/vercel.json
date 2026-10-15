@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api", "destination": "https://wax-appeals-explain-hydraulic.trycloudflare.com/api" },
+    { "source": "/candles", "destination": "https://wax-appeals-explain-hydraulic.trycloudflare.com/candles" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

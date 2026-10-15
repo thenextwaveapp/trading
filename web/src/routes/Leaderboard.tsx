@@ -1,0 +1,147 @@
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useData } from "../api/context";
+import type { Variant } from "../api/types";
+import { useBots } from "../db/queries";
+import type { DbBot } from "../db/types";
+import { DIRLBL, identicon, pct, windowReturn } from "../lib/format";
+import Spark from "../components/Spark";
+import p from "./pages.module.css";
+import s from "./Leaderboard.module.css";
+
+const RANGES: [string, number | null][] = [
+  ["Today", 1],
+  ["7 days", 7],
+  ["30 days", 30],
+  ["All time", null],
+];
+
+interface Row {
+  bot: DbBot;
+  v: Variant;
+  ret: number;
+  builder: string;
+}
+
+export default function Leaderboard() {
+  const nav = useNavigate();
+  const live = useData();
+  const { data: bots, loading } = useBots();
+  const [range, setRange] = useState(2);
+  const [q, setQ] = useState("");
+
+  const days = RANGES[range][1];
+
+  const rows: Row[] = useMemo(() => {
+    if (!bots) return [];
+    const byName = new Map(live.variants.map((v) => [v.name, v]));
+    return bots
+      .map((bot) => {
+        const v = byName.get(bot.name);
+        if (!v) return null;
+        return { bot, v, ret: windowReturn(v.curve, days, live.now), builder: bot.builder?.handle ?? "" };
+      })
+      .filter((x): x is Row => !!x)
+      .filter((x) => !q || x.bot.name.toLowerCase().includes(q.toLowerCase()) || x.builder.includes(q.toLowerCase()))
+      .sort((a, b) => b.ret - a.ret)
+      .map((x, i) => ({ ...x, rank: i + 1 }) as Row & { rank: number });
+  }, [bots, live, days, q]);
+
+  const top = rows.slice(0, 3);
+
+  return (
+    <>
+      <div className={p.top}>
+        <div>
+          <h1 className={p.title}>Leaderboard</h1>
+          <div className={p.subtitle}>Bots ranked by live paper results. Real returns from each bot's equity curve.</div>
+        </div>
+        <input className={p.search} placeholder="Search bots, builders" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+
+      <div className={p.body}>
+        <div className={s.filters}>
+          <div className={p.seg}>
+            {["Crypto", "Stocks · soon", "Predictions · soon"].map((m, i) => (
+              <button key={m} className={`${p.segBtn} ${i === 0 ? p.sel : ""}`} disabled={i > 0}>{m}</button>
+            ))}
+          </div>
+          <div className={p.seg}>
+            {RANGES.map(([label], i) => (
+              <button key={label} className={`${p.segBtn} ${range === i ? p.sel : ""}`} onClick={() => setRange(i)}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="muted" style={{ padding: "40px 0" }}>Loading bots…</div>
+        ) : (
+          <>
+            <div className={s.cards}>
+              {top.map((row, i) => {
+                const up = row.ret >= 0;
+                return (
+                  <div key={row.bot.id} className={`card ${s.card}`}>
+                    <div className={s.cardTop}>
+                      <svg width="52" height="52" viewBox="0 0 52 52"><rect width="52" height="52" rx="13" fill="#12161D" /><path d={identicon(row.bot.name, 34)} fill="#3a81d7" transform="translate(9 9)" /></svg>
+                      <span className={`num gradtext ${s.rank}`}>{i + 1}</span>
+                    </div>
+                    <div className={s.cardName} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</div>
+                    <div className={`lk ${s.builder}`} onClick={() => row.builder && nav("/builder/" + row.builder)}>@{row.builder}</div>
+                    <Spark data={row.v.curve.map((c) => c[1])} w={260} h={44} up={up} />
+                    <div className={s.cardFoot}>
+                      <div>
+                        <div className="lbl">{RANGES[range][0]}</div>
+                        <div className={`num ${up ? "up" : "down"}`} style={{ fontSize: 28, marginTop: 4 }}>{pct(row.ret, true)}</div>
+                      </div>
+                      <div className={s.cardCta}>
+                        <span className="chip">{row.bot.visibility === "public" ? "Public strategy" : "Results only"}</span>
+                        <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className={s.tableWrap}>
+              <table className={s.table}>
+                <thead>
+                  <tr>
+                    <th className={s.num}>#</th>
+                    <th className={s.left}>Bot</th>
+                    <th className={s.left}>Builder</th>
+                    <th className={s.left}>Direction</th>
+                    <th>{RANGES[range][0]}</th>
+                    <th>Win rate</th>
+                    <th>Trades</th>
+                    <th className={s.left}>Equity</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => {
+                    const up = row.ret >= 0;
+                    return (
+                      <tr key={row.bot.id} className={row.builder === "nightdesk" ? s.me : ""}>
+                        <td className={`num ${s.num}`}>{i + 1}</td>
+                        <td className={s.left}><span className="lk" onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</span></td>
+                        <td className={s.left}><span className="lk muted" onClick={() => row.builder && nav("/builder/" + row.builder)}>@{row.builder}</span></td>
+                        <td className={s.left}><span className="muted">{DIRLBL[row.bot.direction ?? ""] ?? row.bot.direction}</span></td>
+                        <td className={`num ${up ? "up" : "down"}`}>{pct(row.ret, true)}</td>
+                        <td className="num">{row.v.win == null ? "–" : row.v.win + "%"}</td>
+                        <td className="num muted">{row.v.closed}</td>
+                        <td className={s.left}><Spark data={row.v.curve.map((c) => c[1])} w={120} h={28} up={up} /></td>
+                        <td><button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
