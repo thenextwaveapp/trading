@@ -29,6 +29,10 @@ rsync -az paper_fleet.py paper_trader.py regime.py fleet_dashboard.py \
           fleet_config.json "$HOST:$DEST/"
 rsync -az paper/universe60.json "$HOST:$DEST/paper/"
 rsync -az assets "$HOST:$DEST/"
+
+# build + push the React dashboard; fleet_dashboard.py serves it from web_dist/
+( cd web && npm run build )
+rsync -az --delete web/dist/ "$HOST:$DEST/web_dist/"
 rsync -az --ignore-existing paper/fleet/ "$HOST:$DEST/paper/fleet/"
 rsync -az systemd/trading-paperfleet.service \
           systemd/trading-fleetdash.service "$HOST:/etc/systemd/system/"
@@ -41,7 +45,8 @@ ssh "$HOST" "chown -R trading: $DEST
              systemctl is-active trading-paperfleet trading-fleetdash"
 
 echo "---"
-echo "dashboard:  ssh -L 8787:localhost:8787 $HOST   then http://localhost:8787"
+echo "dashboard:  https://fleet.presencenet.io   (React UI + API, served by fleet_dashboard.py)"
+echo "local:      ssh -L 8787:localhost:8787 $HOST   then http://localhost:8787"
 echo "logs:       ssh $HOST journalctl -u trading-paperfleet -f"
 echo
 echo "then stop the Mac agents so only one fleet collects evidence:"

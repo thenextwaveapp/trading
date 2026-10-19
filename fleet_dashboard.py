@@ -17,6 +17,7 @@ Usage: python3 fleet_dashboard.py              # http://127.0.0.1:8787
 import csv
 import fcntl
 import json
+import mimetypes
 import os
 import secrets
 import subprocess
@@ -36,6 +37,9 @@ from paper_trader import klines
 UNI = json.load(open(os.path.join(os.path.dirname(DIR), "universe60.json")))
 BIN = "https://fapi.binance.com/fapi/v1/klines"
 IVALS = {"15m", "1h", "4h", "1d"}
+# Built React dashboard (web/dist copied here on deploy). Served at / with an
+# SPA fallback; if absent we fall back to the built-in PAGE below.
+WEB_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_dist")
 
 
 def fetch_candles(sym, interval, limit, start=None, end=None):
@@ -1197,16 +1201,50 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(fetch_candles(sym, iv, limit, start,
                                             end)).encode()
             ctype = "application/json"
-        elif path == "/":
+        elif path == "/legacy":
             body = PAGE.encode()
             ctype = "text/html; charset=utf-8"
         else:
-            self.send_error(404)
+            self._serve_spa(path)
             return
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_spa(self, path):
+        # Serve the built React app from WEB_DIST. Real files are served
+        # directly; anything else falls back to index.html so client-side
+        # routes (/research, /leaderboard, ...) resolve. If the build isn't
+        # deployed, fall back to the built-in PAGE.
+        if not os.path.isdir(WEB_DIST):
+            body = PAGE.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        target = os.path.normpath(os.path.join(WEB_DIST, path.lstrip("/")))
+        if not target.startswith(WEB_DIST + os.sep) or not os.path.isfile(target):
+            target = os.path.join(WEB_DIST, "index.html")   # SPA fallback
+        try:
+            with open(target, "rb") as f:
+                body = f.read()
+        except OSError:
+            self.send_error(404)
+            return
+        ctype = mimetypes.guess_type(target)[0] or "application/octet-stream"
+        # hashed asset filenames are immutable; the HTML shell must not cache
+        cache = "no-store" if target.endswith("index.html") \
+            else "public, max-age=31536000, immutable"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", cache)
         self.end_headers()
         self.wfile.write(body)
 
