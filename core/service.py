@@ -36,19 +36,6 @@ BINANCE = "https://fapi.binance.com/fapi/v1/klines"
 MAX_SYMBOLS = 60        # safety cap (tuning knob — OK as a constant)
 
 
-def _fleet60_file():
-    """Fallback only: the live fleet's universe file (paper/universe60.json),
-    used if Supabase is unreachable. pf_universes is the source of truth."""
-    try:
-        p = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "paper", "universe60.json")
-        with open(p) as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
 def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
     url = (f"{BINANCE}?symbol={symbol}&interval={interval}"
            f"&limit={min(int(limit), 1500)}")
@@ -84,8 +71,6 @@ def _resolve_universe(body):
     slug = body.get("universe")
     if slug:
         uni = db.universe_symbols(slug)          # pf_universes = source of truth
-        if uni is None and slug in ("fleet-60", "invo60", "invo"):
-            uni = _fleet60_file()                # fallback if Supabase is down
         if not uni:
             raise ValueError(f"unknown universe: {slug!r}")
     if uni is None and body.get("symbols"):
