@@ -15,24 +15,50 @@ Run:  python3 -m core.service [--port 8099]
 Test: curl -s localhost:8099/v1/healthz
 """
 import json
+import os
 import sys
+import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .strategy import parse, StrategyError
 from .backtest import backtest, backtest_universe
 from .checks import run_checks
+from .mapping import variant_to_spec
+from . import presets as _presets
 from .export_catalog import build as build_catalog
 
 BINANCE = "https://fapi.binance.com/fapi/v1/klines"
 
 
 # ---- data ----------------------------------------------------------------
-def fetch_candles(symbol, interval="15m", limit=1000):
-    url = f"{BINANCE}?symbol={symbol}&interval={interval}&limit={limit}"
-    with urllib.request.urlopen(url, timeout=20) as r:
+MAJORS = {s: s + "USDT" for s in
+          ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "LINK",
+           "AVAX", "LTC"]}
+MAX_SYMBOLS = 60
+
+
+def _invo60():
+    """ticker -> binance symbol, from the live universe file if present."""
+    try:
+        p = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "paper", "universe60.json")
+        with open(p) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
+    url = (f"{BINANCE}?symbol={symbol}&interval={interval}"
+           f"&limit={min(int(limit), 1500)}")
+    if start:
+        url += f"&startTime={int(start)}"
+    if end:
+        url += f"&endTime={int(end)}"
+    with urllib.request.urlopen(url, timeout=25) as r:
         rows = json.loads(r.read())
-    import time
     now = int(time.time() * 1000)
     return [dict(t=int(x[0]), o=float(x[1]), h=float(x[2]), l=float(x[3]),
                  c=float(x[4]), v=float(x[5]))
@@ -40,17 +66,37 @@ def fetch_candles(symbol, interval="15m", limit=1000):
 
 
 def _resolve_universe(body):
-    """Return {ticker: candles} from inline candles or a Binance fetch."""
+    """-> {ticker: candles}. The engine owns universe->symbols resolution and
+    the candle fetch: callers send a spec + a `universe` slug (invo60 /
+    majors), or `symbols`, or inline `candles`/`candles_by_ticker`. Optional
+    `window` = {start, end} in ms. Candles are fetched live from Binance
+    today; a persistent multi-year cache is the next step, so big universes
+    over long windows are slow until then."""
     if body.get("candles_by_ticker"):
         return body["candles_by_ticker"]
     if body.get("candles"):
         return {body.get("symbol", "SERIES"): body["candles"]}
-    symbols = body.get("symbols")
-    if symbols:
-        interval = body.get("interval", "15m")
-        limit = int(body.get("limit", 1000))
-        return {s: fetch_candles(s, interval, limit) for s in symbols}
-    raise ValueError("provide candles, candles_by_ticker, or symbols")
+    interval = body.get("interval", "15m")
+    limit = int(body.get("limit", 1500))
+    win = body.get("window") or {}
+    start, end = win.get("start"), win.get("end")
+
+    uni = None
+    slug = body.get("universe")
+    if slug in ("invo60", "invo"):
+        uni = _invo60()
+    elif slug == "majors":
+        uni = MAJORS
+    elif slug:
+        raise ValueError(f"unknown universe: {slug!r}")
+    if uni is None and body.get("symbols"):
+        uni = {s: s for s in body["symbols"]}
+    if not uni:
+        raise ValueError(
+            "provide universe, symbols, candles, or candles_by_ticker")
+    items = list(uni.items())[:MAX_SYMBOLS]
+    return {tk: fetch_candles(sym, interval, limit, start, end)
+            for tk, sym in items}
 
 
 # ---- endpoint functions (the real API — HTTP/MCP just call these) --------
@@ -98,12 +144,33 @@ def ep_checks(body):
     return 200, {"ok": True, **run_checks(s, uni)}
 
 
+def ep_presets(_body=None):
+    """The founder's seed specs — the frontend reads these instead of
+    hardcoding a copy of presets.py."""
+    return 200, {"ok": True,
+                 "presets": [_presets.RULE_P, _presets.RULE_P_WICK,
+                             _presets.CAPIT]}
+
+
+def ep_map(body):
+    """family_slug + params -> canonical spec (the weld, for real forking
+    until pf_bots.spec is backfilled)."""
+    try:
+        spec = variant_to_spec(body["family"], body.get("params", {}),
+                               body.get("name", ""))
+    except (KeyError, TypeError) as e:
+        return 400, {"ok": False, "error": str(e)}
+    return 200, {"ok": True, "spec": spec}
+
+
 ENDPOINTS = {
     ("GET", "/v1/healthz"): ep_health,
     ("GET", "/v1/catalog"): ep_catalog,
+    ("GET", "/v1/presets"): ep_presets,
     ("POST", "/v1/validate"): ep_validate,
     ("POST", "/v1/backtest"): ep_backtest,
     ("POST", "/v1/checks"): ep_checks,
+    ("POST", "/v1/map"): ep_map,
 }
 
 

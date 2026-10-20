@@ -1,6 +1,7 @@
 # secrets — never commit
 *.env
 .env*
+!web/.env.production          # public build config (VITE_ENGINE_URL), not a secret
 live/ARMED
 paper/fleet/dash_auth.json
 

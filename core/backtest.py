@@ -77,7 +77,9 @@ def exit_trade(pos, candles, taker, slip):
     fee = 2 * taker + slip
     post = [k for k in candles if k["t"] >= pos["t_sig"]][:hold]
     for n, k in enumerate(post, 1):
-        if (k["h"] > level) if side < 0 else (k["l"] < level):
+        # level 0 = "no stop" sentinel (never breached, either side). Without
+        # this a short with stop mode "none" would instant-stop at level 0.
+        if level and ((k["h"] > level) if side < 0 else (k["l"] < level)):
             return side * (level / entry - 1) - fee, k["t"] + M15, "sl"
         if tp and pos.get("tp_close"):
             if (k["c"] <= tp) if side < 0 else (k["c"] >= tp):
