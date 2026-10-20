@@ -25,6 +25,7 @@ from .strategy import parse, StrategyError
 from .backtest import backtest, backtest_universe
 from .checks import run_checks
 from .mapping import variant_to_spec
+from . import db
 from . import presets as _presets
 from .export_catalog import build as build_catalog
 
@@ -35,8 +36,9 @@ BINANCE = "https://fapi.binance.com/fapi/v1/klines"
 MAX_SYMBOLS = 60        # safety cap (tuning knob — OK as a constant)
 
 
-def _invo60():
-    """ticker -> binance symbol, from the live universe file if present."""
+def _fleet60_file():
+    """Fallback only: the live fleet's universe file (paper/universe60.json),
+    used if Supabase is unreachable. pf_universes is the source of truth."""
     try:
         p = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -44,27 +46,7 @@ def _invo60():
         with open(p) as f:
             return json.load(f)
     except Exception:
-        return {}
-
-
-def _universes():
-    """Named universes -> {ticker: binance symbol}. Data lives in files, not
-    code: named sets in paper/universes.json, invo60 in its own file. Moves to
-    pf_universes when the DB path lands; resolution stays one function."""
-    out = {}
-    try:
-        p = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "paper", "universes.json")
-        with open(p) as f:
-            out.update(json.load(f))
-    except Exception:
-        pass
-    inv = _invo60()
-    if inv:
-        out.setdefault("invo60", inv)
-        out.setdefault("invo", inv)
-    return out
+        return None
 
 
 def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
@@ -101,8 +83,10 @@ def _resolve_universe(body):
     uni = None
     slug = body.get("universe")
     if slug:
-        uni = _universes().get(slug)
-        if uni is None:
+        uni = db.universe_symbols(slug)          # pf_universes = source of truth
+        if uni is None and slug in ("fleet-60", "invo60", "invo"):
+            uni = _fleet60_file()                # fallback if Supabase is down
+        if not uni:
             raise ValueError(f"unknown universe: {slug!r}")
     if uni is None and body.get("symbols"):
         uni = {s: s for s in body["symbols"]}
