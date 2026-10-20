@@ -1,0 +1,14 @@
+{
+  "majors": {
+    "BTC": "BTCUSDT",
+    "ETH": "ETHUSDT",
+    "SOL": "SOLUSDT",
+    "BNB": "BNBUSDT",
+    "XRP": "XRPUSDT",
+    "DOGE": "DOGEUSDT",
+    "ADA": "ADAUSDT",
+    "LINK": "LINKUSDT",
+    "AVAX": "AVAXUSDT",
+    "LTC": "LTCUSDT"
+  }
+}
