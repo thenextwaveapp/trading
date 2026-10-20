@@ -182,11 +182,73 @@ def notify(title, msg, priority="default", tags=None, cat=None):
     threading.Thread(target=_send, daemon=True).start()
 
 
+# --- pf_events: mirror trade events into the product feed (best-effort) ----
+# Threaded fire-and-forget with the Supabase service key; a feed hiccup must
+# never block or break a trading cycle. Config from env (set on the box).
+PF_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+PF_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+_bot_map = [None]                          # name -> {id, visibility, market}
+
+
+def _load_bot_map():
+    if _bot_map[0] is None:
+        m = {}
+        if PF_URL and PF_KEY:
+            try:
+                req = urllib.request.Request(
+                    f"{PF_URL}/rest/v1/pf_bots?select=id,name,visibility,market",
+                    headers={"apikey": PF_KEY,
+                             "Authorization": f"Bearer {PF_KEY}"})
+                for b in json.loads(urllib.request.urlopen(req, timeout=10).read()):
+                    m[b["name"]] = b
+            except Exception:
+                pass
+        _bot_map[0] = m
+    return _bot_map[0]
+
+
+def _post_event(row):
+    try:
+        req = urllib.request.Request(
+            f"{PF_URL}/rest/v1/pf_events", data=json.dumps(row).encode(),
+            method="POST",
+            headers={"apikey": PF_KEY, "Authorization": f"Bearer {PF_KEY}",
+                     "Content-Type": "application/json",
+                     "Prefer": "return=minimal"})
+        urllib.request.urlopen(req, timeout=10)
+    except Exception:
+        pass
+
+
+def emit_events(notes):
+    if not (PF_URL and PF_KEY) or not notes:
+        return
+    bm = _load_bot_map()
+    for n in notes:
+        b = bm.get(n["v"], {})
+        base = dict(bot_id=b.get("id"), bot_name=n["v"],
+                    market=b.get("market", "crypto"),
+                    visibility=b.get("visibility", "results"))
+        if n["kind"] == "enter":
+            row = dict(base, type="entered", payload=dict(
+                ticker=n["tk"], side="long" if n["side"] == 1 else "short",
+                entry=n.get("px")))
+        elif n["kind"] == "exit":
+            row = dict(base, type="exited", payload=dict(
+                ticker=n["tk"], net=n.get("net"), pnl=n.get("pnl")))
+        elif n["kind"] == "kill":
+            row = dict(base, type="kill_switch", payload={})
+        else:
+            continue
+        threading.Thread(target=_post_event, args=(row,), daemon=True).start()
+
+
 def flush_notes():
     """Aggregate the cycle's trade events into one push each — a signal fires
     across ~11 variants at once; nobody wants 11 notifications."""
     if not NOTES:
         return
+    emit_events(NOTES)                     # mirror to the product feed
     enters = {}
     for n in (x for x in NOTES if x["kind"] == "enter"):
         enters.setdefault((n["tk"], n["side"]), []).append(n)
