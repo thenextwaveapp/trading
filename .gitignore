@@ -2,6 +2,7 @@
 *.env
 .env*
 live/ARMED
+paper/fleet/dash_auth.json
 
 # runtime state / logs
 logs/

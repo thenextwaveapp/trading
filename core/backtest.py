@@ -1,0 +1,143 @@
+"""Backtest engine — replay a strategy over one instrument's history.
+
+Wraps the shared evaluator (entry_signal) in a historical loop:
+  - fire entries via entry_signal (the same code the live fleet runs)
+  - build the position's stop from the strategy's exit rule
+  - resolve the exit (stop / take-profit / trailing / time) the exact way the
+    live check_exit does, with taker fees + slippage on both legs
+  - enforce one-position-per-instrument (a new signal while a position is
+    open is skipped)
+
+Returns the trade ledger + summary stats; `net_pct_per_trade` is the `bt`
+number the dashboard compares against.
+
+Honesty invariant: entries come from entry_signal and exits from exit_trade —
+the identical logic used live. Fees and slippage are always applied. Stats
+are a straight read of the resulting trades (no look-ahead: a trade's exit
+only uses candles at or after its signal bar).
+
+Exit modes reproduced & tested against the legacy engine: `hh` (stop at the
+signal-window high, + buffer) and `none` (no stop, long). Also implemented:
+`dstop` (disaster stop), take-profit (intrabar or close-cross), short
+trailing stop. `sig`/`ext` (momo/churn-specific) are not yet ported.
+"""
+from .evaluator import entry_signal, M15
+
+DEFAULTS = {
+    "taker": 0.00045,
+    "slip": 0.0005,
+    "risk": 0.0075,
+    "notional_cap": 0.20,
+    "start_equity": 10_000.0,
+}
+
+
+def build_position(strategy, candles, i, sig):
+    """Construct the position (entry, side, hold, stop level, tp, trailing)
+    from the strategy's exit rule and the firing signal at bar i."""
+    ex = strategy.get("exit", {})
+    side = 1 if strategy["side"] == "long" else -1
+    entry = sig["entry"]
+    stopspec = ex.get("stop", {"mode": "none", "param": 0.0})
+    mode, param = stopspec.get("mode", "none"), stopspec.get("param", 0.0)
+
+    if mode == "hh":                      # stop at the signal-window high
+        w = stopspec.get("window", 16)
+        hh = max(c["h"] for c in candles[i - w:i + 1])
+        level = hh * (1 + param)
+    elif mode == "dstop":                 # disaster stop below entry
+        level = entry * (1 - param)
+    elif mode == "none":                  # no stop (level 0 never hit)
+        level = 0.0
+    else:
+        level = stopspec.get("level", 0.0)
+
+    pos = {"entry": entry, "hold": ex.get("time_bars"), "side": side,
+           "stop": level, "t_sig": sig["t_sig"]}
+
+    tp = ex.get("take_profit")
+    if tp:
+        pos["tp"] = entry * (1 + tp) if side > 0 else entry * (1 - tp)
+        if ex.get("tp_close"):
+            pos["tp_close"] = True
+    tr = ex.get("trailing")
+    if tr and side < 0:
+        pos["trail_k"], pos["natr"] = tr.get("k"), tr.get("natr")
+    return pos
+
+
+def exit_trade(pos, candles, taker, slip):
+    """Resolve a position to (net, exit_t, kind). Mirrors
+    paper_fleet.check_exit: stop breach first, then take-profit, then (short)
+    trailing ratchet, then time exit at `hold`. net is the side-signed return
+    minus both-leg taker fees + slippage. None if candles run out first."""
+    entry, hold, side = pos["entry"], pos["hold"], pos.get("side", -1)
+    level, low_min = pos["stop"], entry
+    trail_k, natr, tp = pos.get("trail_k"), pos.get("natr"), pos.get("tp")
+    fee = 2 * taker + slip
+    post = [k for k in candles if k["t"] >= pos["t_sig"]][:hold]
+    for n, k in enumerate(post, 1):
+        if (k["h"] > level) if side < 0 else (k["l"] < level):
+            return side * (level / entry - 1) - fee, k["t"] + M15, "sl"
+        if tp and pos.get("tp_close"):
+            if (k["c"] <= tp) if side < 0 else (k["c"] >= tp):
+                return side * (k["c"] / entry - 1) - fee, k["t"] + M15, "tp"
+        elif tp and ((k["l"] <= tp) if side < 0 else (k["h"] >= tp)):
+            return side * (tp / entry - 1) - fee, k["t"] + M15, "tp"
+        if side < 0 and trail_k and natr:
+            low_min = min(low_min, k["l"])
+            level = min(level, low_min * (1 + trail_k * natr))
+        if n == hold:
+            return side * (k["c"] / entry - 1) - fee, k["t"] + M15, "time"
+    return None
+
+
+def summarize(trades, cfg):
+    """Pooled expectancy + a risk-sized compounded equity curve."""
+    n = len(trades)
+    if not n:
+        return {"n": 0, "net_pct_per_trade": 0.0, "win_rate": 0.0,
+                "total_net_pct": 0.0, "final_equity": cfg["start_equity"],
+                "kinds": {}}
+    nets = [t["net"] for t in trades]
+    kinds = {}
+    for t in trades:
+        kinds[t["kind"]] = kinds.get(t["kind"], 0) + 1
+    eq = cfg["start_equity"]
+    for t in trades:
+        sl_dist = t["stop"] / t["entry"] - 1
+        notional = min(cfg["risk"] * eq / max(abs(sl_dist), 0.005),
+                       cfg["notional_cap"] * eq)
+        eq += notional * t["net"]
+    return {
+        "n": n,
+        "net_pct_per_trade": sum(nets) / n * 100,
+        "win_rate": sum(1 for x in nets if x > 0) / n,
+        "total_net_pct": sum(nets) * 100,
+        "final_equity": round(eq, 2),
+        "kinds": kinds,
+    }
+
+
+def backtest(strategy, candles, cfg=None, start=0):
+    """Run `strategy` over one instrument's candle list. Returns
+    {trades, stats}. `start` skips leading bars (e.g. an indicator-warmup
+    cushion); entry_signal already refuses to fire before the strategy's
+    lookback is satisfied, so start=0 fires as soon as a signal is valid."""
+    cfg = {**DEFAULTS, **(cfg or {})}
+    taker, slip = cfg["taker"], cfg["slip"]
+    trades, cache, open_until = [], {}, -1
+    for i in range(start, len(candles)):
+        sig = entry_signal(strategy, candles, i, cache)
+        if not sig or sig["t_sig"] < open_until:
+            continue
+        pos = build_position(strategy, candles, i, sig)
+        ex = exit_trade(pos, candles, taker, slip)
+        if ex is None:
+            continue
+        net, exit_t, kind = ex
+        trades.append({"t_sig": sig["t_sig"], "entry": pos["entry"],
+                       "stop": pos["stop"], "exit_t": exit_t, "kind": kind,
+                       "net": net})
+        open_until = exit_t
+    return {"trades": trades, "stats": summarize(trades, cfg)}

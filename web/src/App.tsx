@@ -8,6 +8,9 @@ import FleetView from "./routes/FleetView";
 import BotProfile from "./routes/BotProfile";
 import Leaderboard from "./routes/Leaderboard";
 import Builder from "./routes/Builder";
+import Studio from "./routes/Studio";
+import Indicators from "./routes/Indicators";
+import Markets from "./routes/Markets";
 import Research from "./routes/Research";
 import Settings from "./routes/Settings";
 import Privacy from "./routes/Privacy";
@@ -105,6 +108,9 @@ export default function App() {
               <Route path="/bot/:name" element={<BotProfile />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/builder/:handle?" element={<Builder />} />
+              <Route path="/studio" element={<Studio />} />
+              <Route path="/indicators" element={<Indicators />} />
+              <Route path="/markets" element={<Markets />} />
               <Route path="/research/*" element={<Research />} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/privacy" element={<Privacy />} />

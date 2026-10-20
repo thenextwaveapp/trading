@@ -23,6 +23,8 @@ import secrets
 import subprocess
 import sys
 import threading
+import base64
+import hmac
 import time
 import urllib.request
 from datetime import datetime, timezone
@@ -40,6 +42,31 @@ IVALS = {"15m", "1h", "4h", "1d"}
 # Built React dashboard (web/dist copied here on deploy). Served at / with an
 # SPA fallback; if absent we fall back to the built-in PAGE below.
 WEB_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_dist")
+
+
+# --- Dashboard auth -------------------------------------------------------
+# The public site is fronted by a Cloudflare tunnel that connects to
+# localhost, so every request — including from the public internet — arrives
+# as 127.0.0.1. IP-based trust is therefore meaningless; gate on HTTP Basic
+# credentials instead. Source, first hit wins: env FLEET_DASH_USER +
+# FLEET_DASH_PASS, then the gitignored file paper/fleet/dash_auth.json
+# ({"user": .., "pass": ..}). With nothing configured the dashboard stays
+# open (local-only use) and main() prints a warning — production must set it.
+def _load_auth():
+    u, p = os.environ.get("FLEET_DASH_USER"), os.environ.get("FLEET_DASH_PASS")
+    if u and p:
+        return (u, p)
+    try:
+        with open(os.path.join(DIR, "dash_auth.json")) as f:
+            c = json.load(f)
+        if c.get("user") and c.get("pass"):
+            return (c["user"], c["pass"])
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+AUTH = _load_auth()
 
 
 def fetch_candles(sym, interval, limit, start=None, end=None):
@@ -1174,8 +1201,41 @@ addEventListener("resize",()=>tick());
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _authed(self):
+        """True if auth is unconfigured or valid Basic credentials given."""
+        if not AUTH:
+            return True
+        hdr = self.headers.get("Authorization", "")
+        if not hdr.startswith("Basic "):
+            return False
+        try:
+            user, _, pw = base64.b64decode(hdr[6:]).decode(
+                "utf-8", "replace").partition(":")
+        except Exception:
+            return False
+        # constant-time compare both halves to avoid leaking via timing
+        return (hmac.compare_digest(user, AUTH[0])
+                & hmac.compare_digest(pw, AUTH[1]))
+
+    def _deny(self):
+        self.send_response(401)
+        self.send_header("WWW-Authenticate",
+                         'Basic realm="fleet", charset="UTF-8"')
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
         path = self.path.split("?")[0]
+        if path == "/healthz":          # unauthenticated liveness probe, no data
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"ok")
+            return
+        if not self._authed():
+            self._deny()
+            return
         if path == "/api":
             d = payload()
             d["local"] = self.client_address[0] in ("127.0.0.1", "::1")
@@ -1252,6 +1312,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/ctl":
             self.send_error(404)
             return
+        if not self._authed():
+            self._deny()
+            return
         if self.client_address[0] not in ("127.0.0.1", "::1"):
             self.send_error(403)         # controls from this Mac only
             return
@@ -1285,6 +1348,11 @@ def main():
     load_marks()
     threading.Thread(target=watchdog, daemon=True).start()
     threading.Thread(target=mark_sampler, daemon=True).start()
+    if AUTH is None:
+        print("WARNING: dashboard auth NOT configured — server is OPEN. Set "
+              "FLEET_DASH_USER/FLEET_DASH_PASS or paper/fleet/dash_auth.json.")
+    else:
+        print(f"dashboard auth: enabled (user {AUTH[0]!r})")
     srv = ThreadingHTTPServer((host, port), Handler)
     print(f"fleet dashboard: http://{'localhost' if host != '0.0.0.0' else host}:{port}")
     srv.serve_forever()

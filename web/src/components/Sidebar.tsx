@@ -33,6 +33,26 @@ const icons = {
       <path d="M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4 3.2 12.8" stroke="currentColor" strokeWidth="1.15" />
     </svg>
   ),
+  studio: (
+    <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+      <path d="M3 4h10M3 8h10M3 12h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="6" cy="4" r="1.6" fill="currentColor" />
+      <circle cx="10.5" cy="8" r="1.6" fill="currentColor" />
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" />
+    </svg>
+  ),
+  indicators: (
+    <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+      <path d="M2 11l3.2-3.4L8 9.4 13.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 14h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
+  markets: (
+    <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6.3" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 1.7v12.6M1.7 8h12.6M3.4 4.4c2.8 1.6 6.4 1.6 9.2 0M3.4 11.6c2.8-1.6 6.4-1.6 9.2 0" stroke="currentColor" strokeWidth="1.1" />
+    </svg>
+  ),
 };
 
 export default function Sidebar({
@@ -67,6 +87,11 @@ export default function Sidebar({
     { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard", active: loc.pathname.startsWith("/leaderboard") },
     { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
   ];
+  const buildItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = [
+    { label: "Studio", path: "/studio", icon: "studio", active: loc.pathname.startsWith("/studio") },
+    { label: "Indicators", path: "/indicators", icon: "indicators", active: loc.pathname.startsWith("/indicators") },
+    { label: "Markets", path: "/markets", icon: "markets", active: loc.pathname.startsWith("/markets") },
+  ];
 
   return (
     <aside className={`${s.side} ${collapsed ? s.collapsed : ""} ${mobileOpen ? s.open : ""}`}>
@@ -97,6 +122,19 @@ export default function Sidebar({
       <nav className={s.nav}>
         <div className={s.cap}>PAPER FLEET</div>
         {navItems.map((it) => (
+          <button
+            key={it.path}
+            className={`${s.ni} ${it.active ? s.on : ""}`}
+            onClick={() => nav(it.path)}
+            title={it.label}
+          >
+            {icons[it.icon]}
+            <span className={s.txt}>{it.label}</span>
+          </button>
+        ))}
+
+        <div className={s.cap}>BUILD</div>
+        {buildItems.map((it) => (
           <button
             key={it.path}
             className={`${s.ni} ${it.active ? s.on : ""}`}

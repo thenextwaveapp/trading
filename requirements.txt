@@ -1,0 +1,12 @@
+# Python runtime dependencies. Keep this current — deploy installs from it.
+#
+# The live ops scripts (paper_fleet.py, fleet_dashboard.py, hl_bot.py,
+# regime.py, paper_trader.py) use only the Python standard library.
+# These deps are for the strategy engine + backtester in core/.
+#
+#   pip install -r requirements.txt
+#
+# TA-Lib ships prebuilt wheels (no system C library needed on recent pip).
+
+numpy>=2.0,<3
+TA-Lib>=0.8,<1.0
