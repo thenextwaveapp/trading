@@ -98,32 +98,47 @@ def summarize(trades, cfg):
     if not n:
         return {"n": 0, "net_pct_per_trade": 0.0, "win_rate": 0.0,
                 "total_net_pct": 0.0, "final_equity": cfg["start_equity"],
-                "kinds": {}}
+                "max_drawdown": 0.0, "kinds": {}, "equity_curve": []}
     nets = [t["net"] for t in trades]
     kinds = {}
     for t in trades:
         kinds[t["kind"]] = kinds.get(t["kind"], 0) + 1
+    # compound a risk-sized equity curve, ordered by exit time (so pooled
+    # multi-instrument runs compound in the sequence trades actually closed)
     eq = cfg["start_equity"]
-    for t in trades:
+    peak = eq
+    max_dd = 0.0
+    curve = [[trades[0]["t_sig"], round(eq, 2)]]
+    for t in sorted(trades, key=lambda x: x["exit_t"]):
         sl_dist = t["stop"] / t["entry"] - 1
         notional = min(cfg["risk"] * eq / max(abs(sl_dist), 0.005),
                        cfg["notional_cap"] * eq)
         eq += notional * t["net"]
+        peak = max(peak, eq)
+        max_dd = min(max_dd, eq / peak - 1)
+        curve.append([t["exit_t"], round(eq, 2)])
     return {
         "n": n,
         "net_pct_per_trade": sum(nets) / n * 100,
         "win_rate": sum(1 for x in nets if x > 0) / n,
         "total_net_pct": sum(nets) * 100,
         "final_equity": round(eq, 2),
+        "max_drawdown": round(max_dd, 4),
         "kinds": kinds,
+        "equity_curve": curve,
     }
 
 
-def backtest(strategy, candles, cfg=None, start=0):
+def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
     """Run `strategy` over one instrument's candle list. Returns
     {trades, stats}. `start` skips leading bars (e.g. an indicator-warmup
     cushion); entry_signal already refuses to fire before the strategy's
-    lookback is satisfied, so start=0 fires as soon as a signal is valid."""
+    lookback is satisfied, so start=0 fires as soon as a signal is valid.
+
+    `entry_delay` fills `d` bars after the signal (enter at candles[i+d]'s
+    close instead of the signal close) — the research "delay ladder" that
+    measures how perishable the edge is. The stop reference still comes from
+    the signal bar; only the fill moves."""
     cfg = {**DEFAULTS, **(cfg or {})}
     taker, slip = cfg["taker"], cfg["slip"]
     trades, cache, open_until = [], {}, -1
@@ -131,13 +146,32 @@ def backtest(strategy, candles, cfg=None, start=0):
         sig = entry_signal(strategy, candles, i, cache)
         if not sig or sig["t_sig"] < open_until:
             continue
-        pos = build_position(strategy, candles, i, sig)
+        fi = i + entry_delay
+        if fi >= len(candles):
+            continue
+        fsig = sig if entry_delay == 0 else {
+            **sig, "entry": candles[fi]["c"], "t_sig": candles[fi]["t"] + M15}
+        pos = build_position(strategy, candles, i, fsig)  # i -> stop window
         ex = exit_trade(pos, candles, taker, slip)
         if ex is None:
             continue
         net, exit_t, kind = ex
-        trades.append({"t_sig": sig["t_sig"], "entry": pos["entry"],
+        trades.append({"t_sig": fsig["t_sig"], "entry": pos["entry"],
                        "stop": pos["stop"], "exit_t": exit_t, "kind": kind,
                        "net": net})
         open_until = exit_t
     return {"trades": trades, "stats": summarize(trades, cfg)}
+
+
+def backtest_universe(strategy, candles_by_ticker, cfg=None, start=0,
+                      entry_delay=0):
+    """Run `strategy` across many instruments and pool the trades — the
+    expectancy number the dashboard reports is over the pooled ledger."""
+    cfg = {**DEFAULTS, **(cfg or {})}
+    all_trades = []
+    for tk, candles in candles_by_ticker.items():
+        r = backtest(strategy, candles, cfg, start=start,
+                     entry_delay=entry_delay)
+        for t in r["trades"]:
+            all_trades.append({**t, "ticker": tk})
+    return {"trades": all_trades, "stats": summarize(all_trades, cfg)}

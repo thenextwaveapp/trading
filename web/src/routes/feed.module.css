@@ -1,0 +1,68 @@
+.feed {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.dotEntry {
+  background: var(--accent-soft);
+}
+.dotUp {
+  background: var(--up);
+}
+.dotDown {
+  background: var(--down);
+}
+.bot {
+  background: none;
+  border: none;
+  color: var(--fg);
+  font: inherit;
+  font-weight: 500;
+  padding: 0;
+  cursor: pointer;
+}
+.bot:hover {
+  color: var(--accent-soft);
+}
+.text {
+  color: var(--muted);
+  flex: 1;
+}
+.text b {
+  color: var(--fg-2);
+  font-weight: 500;
+}
+.kind {
+  color: var(--muted-3);
+}
+.up {
+  color: var(--up);
+}
+.down {
+  color: var(--down);
+}
+.pnl {
+  color: var(--muted);
+  margin-left: 6px;
+}
+.time {
+  color: var(--muted-3);
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 48px;
+  text-align: right;
+}

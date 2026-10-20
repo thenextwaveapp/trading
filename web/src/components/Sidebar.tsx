@@ -41,6 +41,14 @@ const icons = {
       <circle cx="5" cy="12" r="1.6" fill="currentColor" />
     </svg>
   ),
+  feed: (
+    <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+      <circle cx="3" cy="4" r="1.3" fill="currentColor" />
+      <circle cx="3" cy="8" r="1.3" fill="currentColor" />
+      <circle cx="3" cy="12" r="1.3" fill="currentColor" />
+      <path d="M6.5 4h7M6.5 8h7M6.5 12h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   indicators: (
     <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
       <path d="M2 11l3.2-3.4L8 9.4 13.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
@@ -81,16 +89,16 @@ export default function Sidebar({
 
   const onFleet = loc.pathname === "/" || loc.pathname.startsWith("/bot");
   const statusTxt = liveOk ? "Fleet is live" : d.paused ? "Fleet paused" : "Fleet is down";
+  // BUILD = make + test a bot (Studio; the palette/markets live inside it).
+  // COMPETE = run + watch + rank. Clean verbs, no overlap.
+  const buildItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = [
+    { label: "Studio", path: "/studio", icon: "studio", active: loc.pathname.startsWith("/studio") || loc.pathname.startsWith("/indicators") || loc.pathname.startsWith("/markets") },
+  ];
   const navItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = [
     { label: "Fleet", path: "/", icon: "fleet", active: onFleet },
-    { label: "Research", path: "/research", icon: "research", active: loc.pathname.startsWith("/research") },
+    { label: "Feed", path: "/feed", icon: "feed", active: loc.pathname.startsWith("/feed") },
     { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard", active: loc.pathname.startsWith("/leaderboard") },
     { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
-  ];
-  const buildItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = [
-    { label: "Studio", path: "/studio", icon: "studio", active: loc.pathname.startsWith("/studio") },
-    { label: "Indicators", path: "/indicators", icon: "indicators", active: loc.pathname.startsWith("/indicators") },
-    { label: "Markets", path: "/markets", icon: "markets", active: loc.pathname.startsWith("/markets") },
   ];
 
   return (
@@ -120,8 +128,8 @@ export default function Sidebar({
       </div>
 
       <nav className={s.nav}>
-        <div className={s.cap}>PAPER FLEET</div>
-        {navItems.map((it) => (
+        <div className={s.cap}>BUILD</div>
+        {buildItems.map((it) => (
           <button
             key={it.path}
             className={`${s.ni} ${it.active ? s.on : ""}`}
@@ -133,8 +141,8 @@ export default function Sidebar({
           </button>
         ))}
 
-        <div className={s.cap}>BUILD</div>
-        {buildItems.map((it) => (
+        <div className={s.cap}>COMPETE</div>
+        {navItems.map((it) => (
           <button
             key={it.path}
             className={`${s.ni} ${it.active ? s.on : ""}`}

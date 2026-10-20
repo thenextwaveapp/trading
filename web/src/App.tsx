@@ -11,6 +11,7 @@ import Builder from "./routes/Builder";
 import Studio from "./routes/Studio";
 import Indicators from "./routes/Indicators";
 import Markets from "./routes/Markets";
+import Feed from "./routes/Feed";
 import Research from "./routes/Research";
 import Settings from "./routes/Settings";
 import Privacy from "./routes/Privacy";
@@ -105,6 +106,7 @@ export default function App() {
           <main className={styles.main}>
             <Routes>
               <Route path="/" element={<FleetView />} />
+              <Route path="/feed" element={<Feed />} />
               <Route path="/bot/:name" element={<BotProfile />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/builder/:handle?" element={<Builder />} />

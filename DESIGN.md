@@ -242,6 +242,64 @@ truthful mechanics; backtest=live holds within each market.
   `paper_trader.py`) — become editable `Fleet.account` fields.
 - **Single-tenant assumptions** — one config, one box, one account set.
 
+## Connection plan — how the pieces wire together
+
+The catalog (Supabase `pf_*`) and the live runtime (`/api`) are two planes
+joined by bot `name`/`id`. The missing organ between them is a **write/compute
+backend**. Build order, each slice lighting up dormant schema:
+
+0. **The weld** — canonical strategy = the `core/` spec, stored as
+   `pf_bots.spec` (jsonb). `core/mapping.py` converts legacy
+   `family_slug` + `params` → spec, so the 29 existing bots backfill. One
+   source of truth: build in Studio = backtest = run live = copy.
+1. **Engine service** (`core/service.py`) — **API-first**. Endpoints
+   (`/v1/validate`, `/v1/backtest`, `/v1/checks`, `/v1/catalog`,
+   `/v1/healthz`) are thin HTTP over plain functions in `ENDPOINTS`; an MCP
+   server or a direct API caller is the SAME thin layer over those functions.
+   Writing full `pf_backtests`/`pf_checks` from here turns the Research
+   pipeline + Studio real. (Checks battery = `core/checks.py`: cost-stress,
+   entry-delay, placebo — the honesty tests, as instruments not gates.)
+2. **DB-driven fleet** — `paper_fleet` loads live bots from `pf_bots`
+   (stage=live) instead of only `fleet_config.json`; per-bot paper account.
+   Multi-tenant: scan once, evaluate every user's spec.
+3. **Events + Feed** — a `pf_events` stream (entries, exits, new-highs,
+   graduations, copies, follows) → Feed (home, chronological) + Leaderboard
+   (ranked). Same spine, two lenses. A copy is the upvote; the market is the
+   judge.
+4. **Studio → full loop + NL onboarding** — Studio writes bots; "describe
+   your strategy" → LLM → core spec (validated by `core.parse`).
+5. **Social + billing** — copy (clone spec → new bot + fresh account),
+   follows, plans.
+
+## Information architecture — two worlds
+
+- **BUILD = Studio.** One home to make AND test a bot. Backtesting lives
+  here (compose → backtest → validate → launch). The indicator palette and
+  market picker are *tools inside Studio*, not top-level destinations.
+  "Research" is not a separate place — it is Studio's test/validate stage.
+- **COMPETE = Fleet · Feed · Leaderboard.** Run, watch, rank. Bot/Builder
+  profiles for inspect/copy/follow.
+
+One verb per surface; no overlap. Nav: BUILD (Studio) / COMPETE (Fleet,
+Feed, Leaderboard) + Settings.
+
+## Church & state — what ships vs what stays private
+
+Three layers, regardless of open-source vs closed:
+- **Product** (ships): `core/` engine, `web/`, the dashboard + engine
+  service. The machine.
+- **Alpha** (never ships): tuned strategies (`fleet_config.json` params),
+  the 60-ticker Invo universe, the regime dials. The edge — *not* "config".
+- **Lab** (doesn't ship): `Invo/`, `research/`, `master/`, `reports/`,
+  `backtest/` caches, `hl_bot` live path. The proof + notebook.
+
+Business model is open — the product is **free to use** (sign up, paper
+everything); the only thing worth gating is **going live with real money**
+(a future `live-fleet.presencenet.io` tier). Open-core (free engine, hosted
+product) stays on the table; the Lab split buys that option without deciding
+now. Physical repo split is deliberately deferred (destructive) — the Alpha +
+Lab layers simply never enter any public repo.
+
 ## Open build questions (not yet decided)
 
 - Backtest job runner: queue + worker tech, and how far back / what
