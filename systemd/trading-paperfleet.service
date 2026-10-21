@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 User=trading
 WorkingDirectory=/opt/trading
-ExecStart=/usr/bin/python3 /opt/trading/paper_fleet.py
+ExecStart=/opt/trading/engine-venv/bin/python /opt/trading/paper_fleet.py
 Restart=always
 RestartSec=30
 
