@@ -1,0 +1,493 @@
+{
+  "_readme": [
+    "ops: edit freely, picked up on next cycle / dashboard refresh.",
+    "strategies: fleet fingerprints the loaded params on start and logs +",
+    "alerts when they changed, so the trade record shows when rules moved.",
+    "New strategy = new block here (plus a signal function in paper_fleet",
+    "if it needs new entry logic; engines: pump_short (default), momo,",
+    "capit). Per-variant fields: runup/vol/depth/hold(15m bars)/stop",
+    "[mode, param]; flags: gate, btc_bear, twosided, wick, engine, only",
+    "(ticker whitelist); bt = backtest net %/trade for the dashboard",
+    "comparison column; enabled: false parks a variant, keeps history."
+  ],
+  "ops": {
+    "benchmark_pct": 2.0,
+    "dashboard_port": 8787,
+    "stale_minutes": 25,
+    "alerts": {
+      "entries": true,
+      "exits": true,
+      "kill_switch": true,
+      "errors": true,
+      "fleet_updown": true,
+      "pause": true
+    }
+  },
+  "strategies": {
+    "pump_short": {
+      "label": "Pump short \u2014 rule P (short parabolic pumps)",
+      "variants": {
+        "base": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 3.407,
+          "note": "frozen pre-registered rule \u2014 the anchor"
+        },
+        "loose": {
+          "runup": 0.08,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 0.86,
+          "note": "negative control, expected weak"
+        },
+        "strict": {
+          "runup": 0.16,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 6.457
+        },
+        "vol3": {
+          "runup": 0.12,
+          "vol": 3.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 8.037
+        },
+        "fast": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 8,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 2.608
+        },
+        "slow": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 32,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 3.651
+        },
+        "hold24": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 96,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 3.582
+        },
+        "buf2": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.02
+          ],
+          "bt": 3.389
+        },
+        "trail3": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "trail",
+            3.0
+          ],
+          "bt": 3.183
+        },
+        "gate30": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 2.478,
+          "note": "regime-gated; bt is full-span 2023-26 PARKED 2026-10-12: regime dial archived; without the dial this duplicates base.",
+          "enabled": false
+        },
+        "veto": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "veto": 0.02,
+          "bt": 2.49,
+          "note": "skip entry when dial > +2%, trade otherwise. 2026-10-11 OOS: +2.49% vs base +1.95% (veto_fh_test)"
+        },
+        "wick30": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 3.226,
+          "wick": 0.3,
+          "note": "upper-wick >=30% filter"
+        }
+      }
+    },
+    "two_sided": {
+      "label": "Two-sided \u2014 short + long books",
+      "variants": {
+        "ts30": {
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 16,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "bt": 1.751,
+          "twosided": true,
+          "note": "dial<0 short book, dial>+2% momo-long book"
+        },
+        "superlarry": {
+          "engine": "super",
+          "runup": 0.12,
+          "vol": 2.0,
+          "hold": 96,
+          "stop": [
+            "hh",
+            0.0
+          ],
+          "depth": 0.2,
+          "c_hold": 192,
+          "sizing": {
+            "S": [
+              0.25,
+              3,
+              2.0,
+              0.5
+            ],
+            "C": [
+              0.25,
+              2,
+              1.0,
+              0.3
+            ]
+          },
+          "conc": {
+            "S": 4,
+            "C": 3
+          },
+          "no_kill": true,
+          "bt": null,
+          "note": "2026-10-10 derby spec (research/super_larry.py): S = pump 24h hold, gate30, 25%x(runup/12%)^2 cap50 3x; C = capit -20%/24h 48h, no stop, btc-bear, 25%x(drop/20%) cap30 2x; loss floored at -margin; kill-switch off"
+        }
+      }
+    },
+    "momo_long": {
+      "label": "Momentum long \u2014 continuation (regime-gated)",
+      "variants": {
+        "momo30": {
+          "runup": 0.12,
+          "vol": 2.5,
+          "hold": 48,
+          "stop": [
+            "sig",
+            0.0
+          ],
+          "bt": null,
+          "engine": "momo",
+          "note": "ts30's long book standalone: strong close, wick<=15%, 12h hold; trades only when dial > +2% \u2014 expect it flat while the short regime holds 2026-10-12: dial removed, runs ungated."
+        }
+      }
+    },
+    "capit_long": {
+      "label": "Capitulation long \u2014 buy -20%/24h crashes",
+      "variants": {
+        "capit": {
+          "depth": 0.2,
+          "hold": 96,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 4.714,
+          "engine": "capit",
+          "btc_bear": true,
+          "note": "anchor: bear-gated, no stop, 24h time exit"
+        },
+        "capit_ng": {
+          "depth": 0.2,
+          "hold": 96,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 3.42,
+          "engine": "capit",
+          "btc_bear": false,
+          "note": "ungated \u2014 measures the bear gate's value live"
+        },
+        "capit_ds": {
+          "depth": 0.2,
+          "hold": 96,
+          "stop": [
+            "dstop",
+            0.15
+          ],
+          "bt": 3.866,
+          "engine": "capit",
+          "btc_bear": true,
+          "note": "disaster stop -15% (bounded worst case)"
+        },
+        "capit_slow": {
+          "depth": 0.2,
+          "hold": 192,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 7.623,
+          "engine": "capit",
+          "btc_bear": true,
+          "note": "48h hold \u2014 best compounded in backtest"
+        },
+        "capit_deep": {
+          "depth": 0.25,
+          "hold": 96,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 6.333,
+          "engine": "capit",
+          "btc_bear": true,
+          "note": "-25% depth: rarer, deeper crashes"
+        },
+        "capit_slowdeep": {
+          "depth": 0.25,
+          "hold": 192,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 10.696,
+          "engine": "capit",
+          "btc_bear": true,
+          "note": "-25% + 48h hold combined"
+        },
+        "capit_maj": {
+          "depth": 0.2,
+          "hold": 96,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 12.354,
+          "engine": "capit",
+          "btc_bear": true,
+          "only": [
+            "BTC",
+            "ETH",
+            "SOL",
+            "BNB",
+            "XRP",
+            "DOGE",
+            "ADA",
+            "LINK",
+            "AVAX",
+            "LTC"
+          ],
+          "note": "majors only, ~1 trade/mo"
+        },
+        "capit_lim4": {
+          "depth": 0.2,
+          "hold": 96,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 6.381,
+          "engine": "capit",
+          "btc_bear": true,
+          "limit": 0.04,
+          "note": "resting limit 4% below the signal close, 16-bar fill window, unfilled = no trade; fill-at-limit paper sim \u2014 live fill quality on crash candles is what this variant measures"
+        }
+      }
+    },
+    "churn": {
+      "label": "Churn \u2014 hourly fade of the biggest 1h mover",
+      "variants": {
+        "churn": {
+          "hold": 4,
+          "every": 4,
+          "min_move": 0.01,
+          "stop": [
+            "ext",
+            0.0
+          ],
+          "bt": null,
+          "engine": "churn",
+          "quiet": true,
+          "note": "~1 trade/hour: live fill, cost and beta data at high frequency; phone alerts muted DISABLED 2026-10-11: structurally negative in both universe races (-87% invo60, -99.9% majors 2020-26, -0.1%/trade fee bleed).",
+          "enabled": false
+        }
+      }
+    },
+    "hourly_loser": {
+      "label": "Hourly long-loser \u2014 buy the hour's biggest dump",
+      "variants": {
+        "loser": {
+          "min_move": 0.02,
+          "hold": 96,
+          "every": 4,
+          "slots": 12,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 0.694,
+          "engine": "loser",
+          "note": "hourly cadence: long biggest 1h loser <=-2%, no stop, 24h time exit, re-entry allowed, equity/12 per entry"
+        },
+        "loser3": {
+          "min_move": 0.03,
+          "hold": 96,
+          "every": 4,
+          "slots": 8,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "bt": 1.041,
+          "engine": "loser",
+          "note": "deeper cut: <=-3%, 8 slots"
+        },
+        "loser_tp10": {
+          "min_move": 0.02,
+          "hold": 96,
+          "every": 4,
+          "slots": 12,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "tp": 0.1,
+          "bt": 0.542,
+          "engine": "loser",
+          "note": "loser entries + harvest exit: first 15m close >=+10% else 24h time exit. loser_tp_surface.py 2026-10-12: +0.542%/trade 4y, tp8-10 only exit positive in 2026 (hold24 +0.145 ~ costs); growth grid: mar 2.87 vs hold 2.66, 2026 +56% vs -0.4%. loser/loser3 stay as controls; 4-6wk race decides the slot."
+        },
+        "loser_btc5": {
+          "min_move": 0.02,
+          "hold": 96,
+          "every": 4,
+          "slots": 12,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "btc_r24": -0.05,
+          "bt": 4.328,
+          "engine": "loser",
+          "note": "loser entries only when BTC 24h <= -5% at entry. loser_control_baseline.py 2026-10-14: +4.328%/trade n=360, 66% win, positive every year 2023-26 (2026 +1.67%/72). ~30 crash episodes carry all trades; same-timestamp stand-ins: median coin +2.38%, BTC +1.27% -> selection spread +1.95%. idle most days by design; -5% edge untuned (only -2%/-5% cuts measured)."
+        }
+      }
+    },
+    "portfolio": {
+      "label": "Portfolio \u2014 four books, one account",
+      "variants": {
+        "folio": {
+          "engine": "books",
+          "hold": 96,
+          "stop": [
+            "none",
+            0.0
+          ],
+          "books": {
+            "capit_invo": {
+              "kind": "capit",
+              "depth": 0.2,
+              "hold": 96,
+              "btc_bear": true,
+              "risk_w": 1.0,
+              "conc": 3
+            },
+            "capit_maj": {
+              "kind": "capit",
+              "depth": 0.2,
+              "hold": 96,
+              "btc_bear": false,
+              "risk_w": 1.0,
+              "conc": 2,
+              "only": [
+                "BTC",
+                "ETH",
+                "SOL",
+                "BNB",
+                "XRP",
+                "DOGE",
+                "ADA",
+                "LINK",
+                "AVAX",
+                "LTC"
+              ]
+            },
+            "short_hold24": {
+              "kind": "pump",
+              "runup": 0.12,
+              "vol": 2.0,
+              "hold": 96,
+              "risk_w": 0.5,
+              "conc": 4
+            },
+            "loser3_maj": {
+              "kind": "loser",
+              "min_move": 0.03,
+              "hold": 96,
+              "slots": 8,
+              "every": 4,
+              "risk_w": 0.5,
+              "only": [
+                "BTC",
+                "ETH",
+                "SOL",
+                "BNB",
+                "XRP",
+                "DOGE",
+                "ADA",
+                "LINK",
+                "AVAX",
+                "LTC"
+              ]
+            }
+          },
+          "bt": null,
+          "note": "2026-10-11 race pick: capit(invo60,bear-gated) + capit(majors,ungated) + hold24 short(dial-gated, half risk) + loser3(majors, half size, probation pending PIT-majors check). One ticker one position account-wide; loser book may re-enter its own ticker."
+        }
+      }
+    }
+  }
+}
