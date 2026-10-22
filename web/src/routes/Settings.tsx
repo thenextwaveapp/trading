@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useData } from "../api/context";
 import { useProfile } from "../db/queries";
+import { CURRENT_HANDLE } from "../session";
 import { ago, clock, TZ } from "../lib/format";
 import p from "./pages.module.css";
 
@@ -8,7 +9,7 @@ const TABS = ["Profile", "System", "Alerts"];
 
 export default function Settings() {
   const d = useData();
-  const { data: profile } = useProfile("nightdesk");
+  const { data: profile } = useProfile(CURRENT_HANDLE);
   const [tab, setTab] = useState("System");
 
   const liveOk = d.running && !d.paused;

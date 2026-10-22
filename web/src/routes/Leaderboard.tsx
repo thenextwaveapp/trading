@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import type { Variant } from "../api/types";
 import { useBots } from "../db/queries";
+import { CURRENT_HANDLE } from "../session";
 import type { DbBot } from "../db/types";
 import { DIRLBL, identicon, pct, windowReturn } from "../lib/format";
 import Spark from "../components/Spark";
@@ -123,7 +124,7 @@ export default function Leaderboard() {
                   {rows.map((row, i) => {
                     const up = row.ret >= 0;
                     return (
-                      <tr key={row.bot.id} className={row.builder === "nightdesk" ? s.me : ""}>
+                      <tr key={row.bot.id} className={row.builder === CURRENT_HANDLE ? s.me : ""}>
                         <td className={`num ${s.num}`}>{i + 1}</td>
                         <td className={s.left}><span className="lk" onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</span></td>
                         <td className={s.left}><span className="lk muted" onClick={() => row.builder && nav("/builder/" + row.builder)}>@{row.builder}</span></td>

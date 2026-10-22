@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { CURRENT_HANDLE } from "../session";
 import { useData } from "../api/context";
 import { useBots, useProfile } from "../db/queries";
 import { DIRLBL, identicon, pct, windowReturn } from "../lib/format";
@@ -8,7 +9,7 @@ import s from "./Builder.module.css";
 
 export default function Builder() {
   const nav = useNavigate();
-  const { handle = "nightdesk" } = useParams();
+  const { handle = CURRENT_HANDLE } = useParams();
   const live = useData();
   const { data: profile } = useProfile(handle);
   const { data: allBots } = useBots();
