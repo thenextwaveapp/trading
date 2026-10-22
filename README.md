@@ -130,7 +130,7 @@ prevents a second instance; tmp files per-PID.
 
 | Path | What |
 |---|---|
-| `Invo/` | raw scrapes: users, portfolios, trades |
+| `lab/Invo/` | raw scrapes: users, portfolios, trades |
 | `bn/` | Binance data pullers + candle/funding data for trader analysis |
 | `master/` | consolidated trades master (15,713), feature matrix, labels |
 | `backtest/` | candle caches (era20 2020–22, oos 2023–24, r60 2025–26, wide 900-perp) + ledgers |
