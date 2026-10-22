@@ -143,3 +143,35 @@ export const useBotVersions = (botId: string | null) =>
     [botId],
   );
 export const usePlans = () => useQuery<DbPlan[]>(() => fetchPlans());
+
+// ---- writes ----
+
+/** Create a draft bot owned by the signed-in user. The first real write in the
+ *  app: RLS (pf_bots_rw) requires owner = auth.uid(), so a session must be live.
+ *  It lands in stage 'draft' and shows up in Research → Pipeline → Draft. */
+export const createDraftBot = (input: {
+  name: string;
+  owner: string;
+  family_slug: string | null;
+  universe_id: string | null;
+  direction: string | null;
+  engine: string | null;
+  params: Record<string, unknown>;
+}) =>
+  supabase
+    .from("pf_bots")
+    .insert({
+      name: input.name,
+      owner: input.owner,
+      family_slug: input.family_slug,
+      universe_id: input.universe_id,
+      direction: input.direction,
+      engine: input.engine,
+      params: input.params,
+      stage: "draft",
+      status: "draft",
+      market: "crypto",
+      visibility: "results",
+    })
+    .select("id, name")
+    .single();

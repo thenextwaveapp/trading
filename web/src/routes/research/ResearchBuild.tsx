@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useBots, useFamilies, useUniverse } from "../../db/queries";
+import { useAuth } from "../../auth";
+import { createDraftBot, useBots, useFamilies, useUniverse } from "../../db/queries";
 import { DIRLBL } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./research.module.css";
@@ -8,11 +9,14 @@ import Steps from "./Steps";
 
 export default function ResearchBuild() {
   const nav = useNavigate();
+  const { user } = useAuth();
   const { data: universe } = useUniverse("fleet-60");
   const { data: families } = useFamilies();
   const { data: bots } = useBots();
   const [name, setName] = useState("New strategy");
   const [famSlug, setFamSlug] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   // when you pick a family, show that family's real base definition (first bot in it)
   const template = useMemo(() => {
@@ -22,6 +26,32 @@ export default function ResearchBuild() {
   }, [bots, famSlug, families]);
 
   const coins = universe?.pf_universe_coins.map((c) => c.coin_symbol) ?? [];
+
+  // The first real write: persist this composed strategy as a draft bot the
+  // signed-in user owns, then go to `dest`. (Backtest execution is a later step.)
+  const save = async (dest: string) => {
+    if (!user) {
+      nav("/signin");
+      return;
+    }
+    setErr(null);
+    setSaving(true);
+    const { error } = await createDraftBot({
+      name: name.trim() || "New strategy",
+      owner: user.id,
+      family_slug: famSlug ?? families?.[0]?.slug ?? null,
+      universe_id: universe?.id ?? null,
+      direction: template?.direction ?? null,
+      engine: template?.engine ?? null,
+      params: template?.params ?? {},
+    });
+    setSaving(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    nav(dest);
+  };
 
   return (
     <>
@@ -88,8 +118,14 @@ export default function ResearchBuild() {
               <div className="num" style={{ fontSize: 32, marginTop: 6 }}>{coins.length} coins</div>
               <div className="lbl" style={{ marginTop: 2 }}>{universe?.name}</div>
             </div>
-            <button className={`${p.btn} ${p.pri}`} style={{ height: 48, fontSize: 14 }} onClick={() => nav("/research/backtest")}>Run backtest</button>
-            <button className={p.btn} style={{ height: 44 }} onClick={() => nav("/research")}>Save draft</button>
+            <button className={`${p.btn} ${p.pri}`} style={{ height: 48, fontSize: 14 }} disabled={saving} onClick={() => save("/research/backtest")}>
+              {saving ? "Saving…" : "Run backtest"}
+            </button>
+            <button className={p.btn} style={{ height: 44 }} disabled={saving} onClick={() => save("/research")}>
+              {saving ? "Saving…" : user ? "Save draft" : "Sign in to save"}
+            </button>
+            {err && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13 }}>{err}</div>}
+            {!user && <div className="lbl">Sign in to save this strategy to your fleet.</div>}
           </div>
         </section>
       </div>
