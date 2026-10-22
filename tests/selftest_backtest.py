@@ -13,7 +13,7 @@ import sys
 from core import parse
 from core.backtest import backtest, DEFAULTS
 from core.presets import RULE_P, CAPIT
-from core.selftest import (legacy_signal, legacy_signal_capit,
+from .selftest import (legacy_signal, legacy_signal_capit,
                            gen_random, craft_pump, craft_capit)
 
 M15 = 900_000
