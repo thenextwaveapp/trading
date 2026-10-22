@@ -37,10 +37,10 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import regime
+from core import regime
 # Canonical dial machinery lives in regime.py; re-exported here because the
 # research scripts historically import it from this module.
-from regime import alive, make_dial                        # noqa: F401
+from core.regime import alive, make_dial                        # noqa: F401
 from wf_engine import ts, metrics, MAX_CONC, RISK, NOTIONAL_CAP, KILL_DD, \
     KILL_LOOKBACK, KILL_PAUSE
 from backtest import M15

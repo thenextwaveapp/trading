@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from rules_backtest import load
 from degen_derby import precompute, START
 from regime_switch_backtest import pump_events, make_dial
-from regime import persistent_dial
+from core.regime import persistent_dial
 import super_larry as SL
 
 DAY = 86_400_000

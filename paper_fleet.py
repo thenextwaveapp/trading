@@ -35,7 +35,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-import regime
+from core import regime
 from paper_trader import klines, M15, TAKER, SLIP, RISK, NOTIONAL_CAP, \
     MAX_CONC, KILL_DD, KILL_LOOKBACK, KILL_PAUSE, START_EQUITY, API
 

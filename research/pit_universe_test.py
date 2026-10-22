@@ -24,7 +24,7 @@ import pandas as pd
 from backtest import H, M15
 from degen_derby import precompute, sig_pump, sig_capit, resolve, START
 from regime_switch_backtest import make_dial
-import regime
+from core import regime
 
 WDAYS, THR = 30, 0.0
 TRAIL = pd.Timedelta(days=180)
