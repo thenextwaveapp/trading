@@ -19,7 +19,7 @@ import pandas as pd
 from backtest import M15
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-from paper_fleet import EVENTS, GATE_FWD, GATE_COOLDOWN, GATE_WINDOW, gate_state
+from runtime.paper_fleet import EVENTS, GATE_FWD, GATE_COOLDOWN, GATE_WINDOW, gate_state
 
 now = int(time.time() * 1000)
 cut = now - GATE_WINDOW - 5 * 86_400_000

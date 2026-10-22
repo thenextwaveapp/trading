@@ -20,7 +20,7 @@ from backtest import M15
 from rules_backtest import load, alive, TAKER, SLIP
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-from paper_fleet import VARIANTS
+from runtime.paper_fleet import VARIANTS
 
 OUT = []
 def p(*a):

@@ -36,14 +36,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from core import regime
-from paper_trader import klines, M15, TAKER, SLIP, RISK, NOTIONAL_CAP, \
+from .paper_trader import klines, M15, TAKER, SLIP, RISK, NOTIONAL_CAP, \
     MAX_CONC, KILL_DD, KILL_LOOKBACK, KILL_PAUSE, START_EQUITY, API
 
 # Strategy + variant definitions live in fleet_config.json ("strategies"
 # section — fingerprinted: changes are logged and phone-alerted so the paper
 # record always shows when the rules moved). This builds the same VARIANTS
 # shape the engine always used.
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "fleet_config.json")
 try:
     CFG = json.load(open(CONFIG_PATH))
@@ -76,7 +76,7 @@ GATE_LONG_THR = regime.LONG_THR
 MOMO_VOL = 2.5
 MOMO_HOLD = 48           # 12h
 
-DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper", "fleet")
+DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "paper", "fleet")
 LOG = os.path.join(DIR, "fleet.log")
 
 
@@ -1177,8 +1177,8 @@ def cycle_db(states):
     candles for the union, and run exits+entries for each through spec_runtime
     (which calls the same core functions the backtester uses). State is one
     paper account per bot id."""
-    import fleet_source
-    import spec_runtime
+    from . import fleet_source
+    from . import spec_runtime
 
     bots = fleet_source.load_fleet()
     if not bots:

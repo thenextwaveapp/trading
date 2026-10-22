@@ -30,11 +30,11 @@ import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from paper_fleet import (VARIANTS, BT, STRATS, OPS, DIR, LOG, START_EQUITY,
+from .paper_fleet import (VARIANTS, BT, STRATS, OPS, DIR, LOG, START_EQUITY,
                          M15, PAUSE, NTFY_CFG, notify, ntfy_topic, load_state,
                          tpath, pstr, btc_bear,
                          load_cmds, save_cmds, CFG)
-from paper_trader import klines
+from .paper_trader import klines
 
 UNI = json.load(open(os.path.join(os.path.dirname(DIR), "universe60.json")))
 BIN = "https://fapi.binance.com/fapi/v1/klines"
@@ -88,7 +88,7 @@ def valid_symbols():
 IVALS = {"15m", "1h", "4h", "1d"}
 # Built React dashboard (web/dist copied here on deploy). Served at / with an
 # SPA fallback; if absent we fall back to the built-in PAGE below.
-WEB_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_dist")
+WEB_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_dist")
 
 
 # --- Dashboard auth -------------------------------------------------------
@@ -133,7 +133,7 @@ def fetch_candles(sym, interval, limit, start=None, end=None):
                 for x in rows if int(x[6]) <= now]
     except Exception:
         return []
-LWJS = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets",
+LWJS = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets",
                          "lightweight-charts.standalone.production.js"),
             "rb").read()
 

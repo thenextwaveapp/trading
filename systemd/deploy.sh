@@ -25,13 +25,14 @@ ssh "$HOST" "id trading >/dev/null 2>&1 || useradd -r -m -d $DEST -s /usr/sbin/n
              printf 'trading ALL=(root) NOPASSWD: /usr/bin/systemctl stop trading-paperfleet, /usr/bin/systemctl start trading-paperfleet, /usr/bin/systemctl restart trading-paperfleet\n' > /etc/sudoers.d/trading-fleet
              chmod 440 /etc/sudoers.d/trading-fleet"
 
-# engine runtime + weld modules (spec_runtime/fleet_source) + the core strategy
-# library. core/ needs numpy+TA-Lib from the engine-venv the service runs under.
-rsync -az paper_fleet.py paper_trader.py weather.py \
-          spec_runtime.py fleet_source.py fleet_dashboard.py \
-          fleet_config.json "$HOST:$DEST/"
-# regime now lives in core/ (pushed wholesale below)
-rsync -az --exclude=__pycache__ core "$HOST:$DEST/"
+# services live in runtime/ (run via `python -m runtime.<service>`); the core
+# strategy library in core/ needs numpy+TA-Lib from the engine-venv the service
+# runs under. Data/config (fleet_config.json, paper/, assets/, web_dist/) stay
+# at the box root — runtime modules resolve them relative to the repo root.
+rsync -az --exclude=__pycache__ runtime core "$HOST:$DEST/"
+rsync -az weather.py fleet_config.json "$HOST:$DEST/"
+# one-time: drop the pre-runtime/ flat service files left at the box root
+ssh "$HOST" "cd $DEST && rm -f paper_fleet.py paper_trader.py spec_runtime.py fleet_source.py fleet_dashboard.py regime.py"
 rsync -az paper/universe60.json "$HOST:$DEST/paper/"
 rsync -az assets "$HOST:$DEST/"
 

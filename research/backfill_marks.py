@@ -22,7 +22,7 @@ import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from paper_fleet import VARIANTS  # noqa: E402
+from runtime.paper_fleet import VARIANTS  # noqa: E402
 
 M15 = 900_000
 STEP = 300_000                      # sampler cadence

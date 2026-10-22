@@ -41,7 +41,7 @@ KILL_LOOKBACK = 7 * 86_400_000
 KILL_PAUSE = 3 * 86_400_000
 START_EQUITY = 10_000.0
 
-DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper")
+DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "paper")
 STATE = os.path.join(DIR, "state.json")
 TRADES = os.path.join(DIR, "trades_paper.csv")
 LOG = os.path.join(DIR, "paper.log")

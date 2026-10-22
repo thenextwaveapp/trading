@@ -7,7 +7,8 @@
     <key>ProgramArguments</key>
     <array>
         <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
-        <string>/Users/mayowarosanwo/Downloads/trading/paper_fleet.py</string>
+        <string>-m</string>
+        <string>runtime.paper_fleet</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/mayowarosanwo/Downloads/trading</string>

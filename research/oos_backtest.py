@@ -24,7 +24,7 @@ from variants_backtest import signals_v
 from holds_stops_backtest import exit_g, portfolio
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-from paper_fleet import VARIANTS
+from runtime.paper_fleet import VARIANTS
 
 OOS_WINDOWS = [
     ("2023Q1", "2023-01-01", "2023-04-01"),

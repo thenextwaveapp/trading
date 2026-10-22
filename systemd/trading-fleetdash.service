@@ -5,7 +5,7 @@ After=trading-paperfleet.service
 [Service]
 User=trading
 WorkingDirectory=/opt/trading
-ExecStart=/usr/bin/python3 /opt/trading/fleet_dashboard.py
+ExecStart=/usr/bin/python3 -m runtime.fleet_dashboard
 Restart=always
 RestartSec=10
 

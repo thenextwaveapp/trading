@@ -25,7 +25,7 @@ import time
 
 from core import parse, entry_signal
 from core.backtest import build_position, exit_trade
-from paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
+from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
                           TAKER, SLIP, KILL_DD, KILL_LOOKBACK, KILL_PAUSE)
 
 M15 = 900_000

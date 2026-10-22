@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(ROOT, "live"))
 sys.path.insert(0, os.path.join(ROOT, "research"))
 os.chdir(ROOT)
 
-import paper_fleet as pf                                   # noqa: E402
+from runtime import paper_fleet as pf                                   # noqa: E402
 from bot import (signal_short, signal_capit, BOOKS,        # noqa: E402
                  SHORT_BOOK, LONG_BOOK)
 from regime_switch_backtest import load_full               # noqa: E402

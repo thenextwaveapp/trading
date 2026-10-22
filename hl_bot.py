@@ -40,11 +40,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-import paper_fleet as pf
-from paper_fleet import (signal, signal_momo, check_exit, detect_events,
+from runtime import paper_fleet as pf
+from runtime.paper_fleet import (signal, signal_momo, check_exit, detect_events,
                          resolve_events, gate_state, VARIANTS, MOMO_HOLD,
                          GATE_MIN_EV)
-from paper_trader import klines, M15, RISK, NOTIONAL_CAP, MAX_CONC, \
+from runtime.paper_trader import klines, M15, RISK, NOTIONAL_CAP, MAX_CONC, \
     KILL_DD, KILL_LOOKBACK, KILL_PAUSE
 
 BOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot")
