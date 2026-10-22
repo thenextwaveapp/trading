@@ -1,6 +1,8 @@
 # secrets — never commit
 *.env
 .env*
+!.env.example
+!web/.env.example
 live/ARMED
 
 # runtime state / logs
