@@ -30,16 +30,24 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+from core.backtest import DEFAULTS as _MODEL
+
 M15 = 900_000
-TAKER = 0.00045
-SLIP = 0.0005
-RISK = 0.0075
-NOTIONAL_CAP = 0.20
+
+# Trade model — fees, sizing, starting equity. Single source of truth is
+# core.backtest.DEFAULTS, so the live/paper fleet and the backtester can never
+# drift apart (backtest↔live parity is the whole point of this system).
+TAKER = _MODEL["taker"]
+SLIP = _MODEL["slip"]
+RISK = _MODEL["risk"]
+NOTIONAL_CAP = _MODEL["notional_cap"]
+START_EQUITY = _MODEL["start_equity"]
+
+# Live-fleet operational params (no backtest equivalent): concurrency + kill-switch.
 MAX_CONC = 6
 KILL_DD = -0.05
 KILL_LOOKBACK = 7 * 86_400_000
 KILL_PAUSE = 3 * 86_400_000
-START_EQUITY = 10_000.0
 
 DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "paper")
 STATE = os.path.join(DIR, "state.json")
