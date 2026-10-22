@@ -6,7 +6,7 @@ A Strategy is the composable object that replaces "engine + variant":
       "name": str,
       "side": "long" | "short" | "both",
       "market": str,                 # e.g. "crypto_perp"
-      "universe": str,               # e.g. "invo60"
+      "universe": str,               # e.g. "fleet-60"
       "fresh": bool,                 # fire only on the bar the entry becomes true
       "entry": <ConditionGroup>,
       "exit":  {time_bars, stop:{mode,param}, take_profit, trailing, ...},

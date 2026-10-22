@@ -53,7 +53,7 @@ def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
 
 def _resolve_universe(body):
     """-> {ticker: candles}. The engine owns universe->symbols resolution and
-    the candle fetch: callers send a spec + a `universe` slug (invo60 /
+    the candle fetch: callers send a spec + a `universe` slug (fleet-60 /
     majors), or `symbols`, or inline `candles`/`candles_by_ticker`. Optional
     `window` = {start, end} in ms. Candles are fetched live from Binance
     today; a persistent multi-year cache is the next step, so big universes

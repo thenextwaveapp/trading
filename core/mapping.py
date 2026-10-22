@@ -53,7 +53,7 @@ def _pump_entry(p):
 
 
 def variant_to_spec(family, params, name="", market="crypto_perp",
-                    universe="invo60"):
+                    universe="fleet-60"):
     """Map (family_slug, params) -> canonical strategy spec dict."""
     p = dict(params or {})
     base = {"name": name, "market": market, "universe": universe,

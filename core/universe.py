@@ -13,7 +13,7 @@ metrics — supplied by a market-data provider (see marketdata.py). A frozen lis
 is simply the degenerate rule; same concept, same role in a spec. Swap the
 provider (Binance perps today, equities later) or refresh it (volume moved) and
 every rule-universe re-resolves against current reality — nothing downstream
-changes. That is why `invo60` stops being special: it's one list among rules.
+changes. That is why `fleet-60` stops being special: it's one list among rules.
 """
 
 _OPS = {"ge": lambda a, b: a >= b, "le": lambda a, b: a <= b,

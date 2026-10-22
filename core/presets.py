@@ -11,7 +11,7 @@ RULE_P = {
     "name": "pump-short base",
     "side": "short",
     "market": "crypto_perp",
-    "universe": "invo60",
+    "universe": "fleet-60",
     "entry": {"logic": "AND", "children": [
         {"left": {"ind": "ROC", "params": {"period": 16}}, "op": "ge",
          "right": 0.12},
@@ -29,7 +29,7 @@ RULE_P_WICK = {
     "name": "pump-short wick30",
     "side": "short",
     "market": "crypto_perp",
-    "universe": "invo60",
+    "universe": "fleet-60",
     "entry": {"logic": "AND", "children": [
         {"left": {"ind": "ROC", "params": {"period": 16}}, "op": "ge",
          "right": 0.12},
@@ -51,7 +51,7 @@ MOMO = {
     "name": "momentum-long",
     "side": "long",
     "market": "crypto_perp",
-    "universe": "invo60",
+    "universe": "fleet-60",
     "entry": {"logic": "AND", "children": [
         {"left": {"ind": "ROC", "params": {"period": 16}}, "op": "ge",
          "right": 0.12},
@@ -72,7 +72,7 @@ CAPIT = {
     "name": "capit-long",
     "side": "long",
     "market": "crypto_perp",
-    "universe": "invo60",
+    "universe": "fleet-60",
     "fresh": True,
     "entry": {"logic": "AND", "children": [
         {"left": {"ind": "ROC", "params": {"period": 96}}, "op": "le",
