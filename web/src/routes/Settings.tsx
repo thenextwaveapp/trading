@@ -1,7 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
-import { useProfile } from "../db/queries";
-import { CURRENT_HANDLE } from "../session";
+import { useAuth } from "../auth";
 import { ago, clock, TZ } from "../lib/format";
 import p from "./pages.module.css";
 
@@ -9,7 +9,8 @@ const TABS = ["Profile", "System", "Alerts"];
 
 export default function Settings() {
   const d = useData();
-  const { data: profile } = useProfile(CURRENT_HANDLE);
+  const nav = useNavigate();
+  const { profile, user, signOut } = useAuth();
   const [tab, setTab] = useState("System");
 
   const liveOk = d.running && !d.paused;
@@ -31,15 +32,24 @@ export default function Settings() {
         </div>
 
         {tab === "Profile" && (
-          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
-            <Field label="Handle" value={"@" + (profile?.handle ?? "…")} />
-            <Field label="Display name" value={profile?.display_name ?? "—"} />
-            <div>
-              <div className="lbl" style={{ marginBottom: 6 }}>Avatar color</div>
-              <span style={{ display: "inline-block", width: 30, height: 30, borderRadius: 8, background: profile?.avatar_color ?? "#3a81d7" }} />
+          user ? (
+            <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+              <Field label="Handle" value={"@" + (profile?.handle ?? "…")} />
+              <Field label="Display name" value={profile?.display_name ?? "—"} />
+              <Field label="Email" value={user.email ?? "—"} />
+              <div>
+                <div className="lbl" style={{ marginBottom: 6 }}>Avatar color</div>
+                <span style={{ display: "inline-block", width: 30, height: 30, borderRadius: 8, background: profile?.avatar_color ?? "#3a81d7" }} />
+              </div>
+              <div className="lbl">Editing your profile arrives with the write backend. You're signed in — your bots and fleet are yours.</div>
+              <button className={`${p.btn} ${p.sm}`} style={{ width: "fit-content" }} onClick={() => signOut()}>Sign out</button>
             </div>
-            <div className="lbl">Profiles live in the database. Editing arrives with sign-in &amp; the write backend.</div>
-          </div>
+          ) : (
+            <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="lbl">You're not signed in. Sign in to see your profile, build strategies, and run your own fleet.</div>
+              <button className={`${p.btn} ${p.sm}`} style={{ width: "fit-content" }} onClick={() => nav("/signin")}>Sign in</button>
+            </div>
+          )
         )}
 
         {tab === "System" && (

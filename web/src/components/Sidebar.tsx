@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
+import { useAuth, useCurrentHandle } from "../auth";
 import { ago, pct, START } from "../lib/format";
 import s from "./Sidebar.module.css";
 
@@ -47,6 +48,8 @@ export default function Sidebar({
   const d = useData();
   const nav = useNavigate();
   const loc = useLocation();
+  const { user } = useAuth();
+  const myHandle = useCurrentHandle();
   const N = d.variants.length;
   const fleetRet = (d.hero.fleet_pnl / (N * START)) * 100;
   const liveOk = d.running && !d.paused;
@@ -118,6 +121,18 @@ export default function Sidebar({
         </div>
         <div className={`${s.updated} ${s.txt}`}>Updated {ago(d.state_age_s)}</div>
       </div>
+
+      <button
+        className={`${s.ni} ${loc.pathname === "/signin" ? s.on : ""}`}
+        onClick={() => nav(user ? "/settings" : "/signin")}
+        title={user ? `@${myHandle ?? "account"}` : "Sign in"}
+      >
+        <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M2.5 14c0-3 2.5-4.6 5.5-4.6S13.5 11 13.5 14" stroke="currentColor" strokeWidth="1.3" />
+        </svg>
+        <span className={s.txt}>{user ? `@${myHandle ?? "you"}` : "Sign in"}</span>
+      </button>
     </aside>
   );
 }

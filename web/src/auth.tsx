@@ -1,0 +1,97 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session, User } from "@supabase/supabase-js";
+import { supabase } from "./db/supabase";
+import type { DbProfile } from "./db/types";
+
+interface AuthState {
+  session: Session | null;
+  user: User | null;
+  profile: DbProfile | null;
+  loading: boolean;
+  signInPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUpPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInGoogle: () => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+}
+
+const AuthCtx = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<DbProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // The signed-in user's profile row — created automatically by the
+  // handle_new_user trigger on signup (see db/functions.sql).
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
+    let alive = true;
+    supabase
+      .from("pf_profiles")
+      .select("*")
+      .eq("id", uid)
+      .single()
+      .then(({ data }) => {
+        if (alive) setProfile((data as DbProfile) ?? null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [session?.user?.id]);
+
+  // OAuth returns to the same page (strip the HashRouter fragment).
+  const redirectTo =
+    typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined;
+
+  const value: AuthState = {
+    session,
+    user: session?.user ?? null,
+    profile,
+    loading,
+    signInPassword: async (email, password) => {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error?.message ?? null };
+    },
+    signUpPassword: async (email, password) => {
+      const { error } = await supabase.auth.signUp({ email, password });
+      return { error: error?.message ?? null };
+    },
+    signInGoogle: async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+      return { error: error?.message ?? null };
+    },
+    signOut: async () => {
+      await supabase.auth.signOut();
+    },
+  };
+
+  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
+}
+
+export function useAuth(): AuthState {
+  const a = useContext(AuthCtx);
+  if (!a) throw new Error("useAuth must be used within <AuthProvider>");
+  return a;
+}
+
+/** The signed-in user's handle, or null when logged out.
+ *  This is the live replacement for the old hardcoded CURRENT_HANDLE seam. */
+export function useCurrentHandle(): string | null {
+  return useAuth().profile?.handle ?? null;
+}

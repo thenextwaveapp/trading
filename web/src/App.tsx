@@ -11,6 +11,7 @@ import Builder from "./routes/Builder";
 import Research from "./routes/Research";
 import Settings from "./routes/Settings";
 import Privacy from "./routes/Privacy";
+import SignIn from "./routes/SignIn";
 import NotFound from "./routes/NotFound";
 import styles from "./App.module.css";
 
@@ -107,6 +108,7 @@ export default function App() {
               <Route path="/builder/:handle?" element={<Builder />} />
               <Route path="/research/*" element={<Research />} />
               <Route path="/settings/*" element={<Settings />} />
+              <Route path="/signin" element={<SignIn />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

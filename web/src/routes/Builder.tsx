@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CURRENT_HANDLE } from "../session";
+import { useCurrentHandle } from "../auth";
 import { useData } from "../api/context";
 import { useBots, useProfile } from "../db/queries";
 import { DIRLBL, identicon, pct, windowReturn } from "../lib/format";
@@ -9,9 +9,12 @@ import s from "./Builder.module.css";
 
 export default function Builder() {
   const nav = useNavigate();
-  const { handle = CURRENT_HANDLE } = useParams();
+  // A :handle in the URL shows that builder; otherwise show the signed-in user.
+  const { handle: param } = useParams();
+  const me = useCurrentHandle();
+  const handle = param ?? me ?? null;
   const live = useData();
-  const { data: profile } = useProfile(handle);
+  const { data: profile } = useProfile(handle ?? "");
   const { data: allBots } = useBots();
 
   const mine = useMemo(() => (allBots ?? []).filter((b) => b.builder?.handle === handle), [allBots, handle]);
@@ -24,6 +27,18 @@ export default function Builder() {
 
   const liveBots = bots.filter((x) => x.b.status === "live");
   const totalTrades = bots.reduce((a, x) => a + (x.v?.closed ?? 0), 0);
+
+  // Logged out with no :handle in the URL — nobody to show.
+  if (!handle) {
+    return (
+      <div className={p.body} style={{ padding: 24 }}>
+        <div className="muted">Sign in to see your builder profile.</div>
+        <button className={`${p.btn} ${p.sm}`} style={{ marginTop: 12 }} onClick={() => nav("/signin")}>
+          Sign in
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
