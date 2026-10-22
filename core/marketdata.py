@@ -43,11 +43,14 @@ def from_binance(timeout=20):
 
 
 def from_bn_coverage(path=None):
-    """Instruments from bn/bn_coverage.csv, deduped by binance_symbol (keep the
-    deepest-history ticker when the same contract appears under two names, e.g.
-    kPEPE / PEPE -> 1000PEPEUSDT). Metric: history_days (15m bars / 96)."""
+    """Instruments from lab/bn/bn_coverage.csv, deduped by binance_symbol (keep
+    the deepest-history ticker when the same contract appears under two names,
+    e.g. kPEPE / PEPE -> 1000PEPEUSDT). Metric: history_days (15m bars / 96).
+
+    Offline/dev helper only — production resolves universes from the DB. The
+    coverage file is lab research output (lab/bn/), not shipped to the box."""
     if path is None:
-        path = os.path.join(os.path.dirname(__file__), "..", "bn",
+        path = os.path.join(os.path.dirname(__file__), "..", "lab", "bn",
                             "bn_coverage.csv")
     rows = sorted(csv.DictReader(open(path)),
                   key=lambda r: -int(r["c15m_kept"] or 0))
