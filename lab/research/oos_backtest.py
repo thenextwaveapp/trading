@@ -23,7 +23,7 @@ from rules_backtest import load
 from variants_backtest import signals_v
 from holds_stops_backtest import exit_g, portfolio
 import os as _os, sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
 from runtime.paper_fleet import VARIANTS
 
 OOS_WINDOWS = [

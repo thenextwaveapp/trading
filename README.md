@@ -131,11 +131,11 @@ prevents a second instance; tmp files per-PID.
 | Path | What |
 |---|---|
 | `lab/Invo/` | raw scrapes: users, portfolios, trades |
-| `bn/` | Binance data pullers + candle/funding data for trader analysis |
-| `master/` | consolidated trades master (15,713), feature matrix, labels |
-| `backtest/` | candle caches (era20 2020–22, oos 2023–24, r60 2025–26, wide 900-perp) + ledgers |
-| `reports/` | all analysis output, timestamped |
-| `research/` | all analysis/backtest/fetch scripts — run from repo root: `python3 research/<script>.py` |
+| `lab/bn/` | Binance data pullers + candle/funding data for trader analysis |
+| `lab/master/` | consolidated trades master (15,713), feature matrix, labels |
+| `lab/backtest/` | candle caches (era20 2020–22, oos 2023–24, r60 2025–26, wide 900-perp) + ledgers |
+| `lab/reports/` | all analysis output, timestamped |
+| `lab/research/` | all analysis/backtest/fetch scripts — run from `lab/`: `cd lab && python3 research/<script>.py` |
 | `logs/` | old one-off fetch/run logs |
 | `paper/` | paper trading state: universe, per-variant state, trade logs |
 | `bot/` | hl_bot state + runbook |

@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from core import regime
 # Canonical dial machinery lives in regime.py; re-exported here because the
 # research scripts historically import it from this module.

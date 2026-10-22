@@ -30,9 +30,10 @@ ssh "$HOST" "id trading >/dev/null 2>&1 || useradd -r -m -d $DEST -s /usr/sbin/n
 # runs under. Data/config (fleet_config.json, paper/, assets/, web_dist/) stay
 # at the box root — runtime modules resolve them relative to the repo root.
 rsync -az --exclude=__pycache__ runtime core "$HOST:$DEST/"
-rsync -az weather.py fleet_config.json "$HOST:$DEST/"
-# one-time: drop the pre-runtime/ flat service files left at the box root
-ssh "$HOST" "cd $DEST && rm -f paper_fleet.py paper_trader.py spec_runtime.py fleet_source.py fleet_dashboard.py regime.py"
+rsync -az fleet_config.json "$HOST:$DEST/"
+# one-time: drop pre-reorg flat files left at the box root (services -> runtime/,
+# regime -> core/, weather -> lab/ and no longer deployed: product never imports it)
+ssh "$HOST" "cd $DEST && rm -f paper_fleet.py paper_trader.py spec_runtime.py fleet_source.py fleet_dashboard.py regime.py weather.py"
 rsync -az paper/universe60.json "$HOST:$DEST/paper/"
 rsync -az assets "$HOST:$DEST/"
 
