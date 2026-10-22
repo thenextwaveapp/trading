@@ -27,9 +27,10 @@ ssh "$HOST" "id trading >/dev/null 2>&1 || useradd -r -m -d $DEST -s /usr/sbin/n
 
 # engine runtime + weld modules (spec_runtime/fleet_source) + the core strategy
 # library. core/ needs numpy+TA-Lib from the engine-venv the service runs under.
-rsync -az paper_fleet.py paper_trader.py regime.py weather.py \
+rsync -az paper_fleet.py paper_trader.py weather.py \
           spec_runtime.py fleet_source.py fleet_dashboard.py \
           fleet_config.json "$HOST:$DEST/"
+# regime now lives in core/ (pushed wholesale below)
 rsync -az --exclude=__pycache__ core "$HOST:$DEST/"
 rsync -az paper/universe60.json "$HOST:$DEST/paper/"
 rsync -az assets "$HOST:$DEST/"
