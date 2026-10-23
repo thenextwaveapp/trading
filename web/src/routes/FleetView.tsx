@@ -207,11 +207,19 @@ export default function FleetView() {
             </div>
           </div>
           <div className={s.heroCards}>
-            <div className={`card ${s.statCard}`} style={{ cursor: "pointer" }} onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(top.name))}>
-              <div className="lbl">Top bot</div>
-              <div className={s.statName}>{top.name}</div>
-              <div className={`num ${top.ret >= 0 ? "up" : "down"}`} style={{ fontSize: 13, marginTop: 4 }}>{pct(top.ret, true)} · {dol(top.equity)}</div>
-            </div>
+            {top ? (
+              <div className={`card ${s.statCard}`} style={{ cursor: "pointer" }} onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(top.name))}>
+                <div className="lbl">Top bot</div>
+                <div className={s.statName}>{top.name}</div>
+                <div className={`num ${top.ret >= 0 ? "up" : "down"}`} style={{ fontSize: 13, marginTop: 4 }}>{pct(top.ret, true)} · {dol(top.equity)}</div>
+              </div>
+            ) : (
+              <div className={`card ${s.statCard}`}>
+                <div className="lbl">Top bot</div>
+                <div className={s.statName}>–</div>
+                <div className="lbl" style={{ marginTop: 4 }}>no bots trading yet</div>
+              </div>
+            )}
             <div className={`card ${s.statCard}`}>
               <div className="lbl">Open · unrealized</div>
               <div className={`num ${h.unreal >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(h.unreal, true)}</div>

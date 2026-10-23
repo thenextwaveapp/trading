@@ -1,9 +1,9 @@
-"""load_fleet() reads the live bots from pf_bots — the source of what trades.
+"""load_fleet() reads the deployed bots from pf_bots — the source of what trades.
 Trusted server read with the service key, so the engine runs every user's bot
 of any visibility (RLS is the web app's concern).
 
 A bot is {id, name, owner, spec}; spec is the canonical core Strategy run via
-spec_runtime. Bots without a spec, disabled, or not live are skipped.
+spec_runtime. Bots without a spec or not deployed are skipped.
 """
 import json
 import os
@@ -22,8 +22,8 @@ def load_fleet():
     Empty list if the DB is unconfigured or unreachable."""
     if not enabled():
         return []
-    q = ("pf_bots?select=id,name,owner,spec,stage,enabled"
-         "&enabled=eq.true&stage=eq.live&spec=not.is.null")
+    q = ("pf_bots?select=id,name,owner,spec,stage"
+         "&stage=eq.deployed&spec=not.is.null")
     req = urllib.request.Request(
         f"{URL}/rest/v1/{q}",
         headers={"apikey": KEY, "Authorization": f"Bearer {KEY}"})

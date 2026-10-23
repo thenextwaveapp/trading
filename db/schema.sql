@@ -343,6 +343,10 @@ ALTER TABLE public.pf_universe_filters    ADD CONSTRAINT pf_universe_filters_pke
 ALTER TABLE public.pf_universes           ADD CONSTRAINT pf_universes_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_universes           ADD CONSTRAINT pf_universes_slug_key UNIQUE (slug);
 
+-- ---- checks ----
+
+ALTER TABLE public.pf_bots                ADD CONSTRAINT pf_bots_stage_chk CHECK (stage IN ('draft','training','trials','weather','ready','deployed'));
+
 -- ---- foreign keys ----
 -- pf_profiles.id is the auth.users id (set by handle_new_user); no FK to the auth schema.
 

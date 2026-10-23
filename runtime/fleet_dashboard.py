@@ -62,10 +62,10 @@ def _sb_get(path, params, ttl=60):
 
 
 def fleet_bots():
-    """The live DB fleet: public/visible bots that are enabled + live."""
+    """The live DB fleet: public/visible bots that are deployed."""
     return _sb_get("pf_bots", {
         "select": "id,name,bt,direction,visibility",
-        "enabled": "eq.true", "stage": "eq.live",
+        "stage": "eq.deployed",
         "visibility": "neq.private", "order": "name"})
 
 
@@ -90,12 +90,13 @@ WEB_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 
 # ---- dashboard auth ----
-# A Cloudflare tunnel fronts the public site via localhost, so every request
-# (including from the public internet) arrives as 127.0.0.1; IP-based trust is
-# meaningless, so gate on HTTP Basic credentials. Source, first hit wins: env
-# FLEET_DASH_USER + FLEET_DASH_PASS, then the gitignored paper/fleet/dash_auth.json
-# ({"user": .., "pass": ..}). With nothing configured the dashboard stays open
-# (local-only) and main() warns — production must set it.
+# Viewing is public — the dashboard shows the same fleet data as the public
+# site. Only the controls (POST: start/stop/restart/pause) are gated: a
+# Cloudflare tunnel fronts the public site via localhost, so every request
+# arrives as 127.0.0.1 and IP-based trust is meaningless, so the POST handler
+# requires HTTP Basic credentials. Source, first hit wins: env FLEET_DASH_USER +
+# FLEET_DASH_PASS, then the gitignored paper/fleet/dash_auth.json
+# ({"user": .., "pass": ..}).
 def _load_auth():
     u, p = os.environ.get("FLEET_DASH_USER"), os.environ.get("FLEET_DASH_PASS")
     if u and p:
@@ -1275,9 +1276,6 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"ok")
             return
-        if not self._authed():
-            self._deny()
-            return
         if path == "/api":
             d = payload()
             d["local"] = self.client_address[0] in ("127.0.0.1", "::1")
@@ -1391,10 +1389,10 @@ def main():
     threading.Thread(target=watchdog, daemon=True).start()
     threading.Thread(target=mark_sampler, daemon=True).start()
     if AUTH is None:
-        print("WARNING: dashboard auth NOT configured — server is OPEN. Set "
-              "FLEET_DASH_USER/FLEET_DASH_PASS or paper/fleet/dash_auth.json.")
+        print("WARNING: control auth NOT configured — fleet controls are OPEN. "
+              "Set FLEET_DASH_USER/FLEET_DASH_PASS or paper/fleet/dash_auth.json.")
     else:
-        print(f"dashboard auth: enabled (user {AUTH[0]!r})")
+        print(f"control auth: enabled (user {AUTH[0]!r})")
     srv = ThreadingHTTPServer((host, port), Handler)
     print(f"fleet dashboard: http://{'localhost' if host != '0.0.0.0' else host}:{port}")
     srv.serve_forever()
