@@ -20,9 +20,11 @@ Four verbs, one game:
 - **Command** — your Fleet is your army; the control center is where you run it.
 - **Battle** — real P&L, not simulated flavor.
 
-Three aesthetics fused: **SuitU** (fashion dress-up / show it off), a **military
-command center** (command a force), and **Hyperliquid** (real perps, real P&L,
-don't lie). The design tension is *runway ↔ war room*, held at once.
+Three references fused:
+
+- **SuitU** — Libii's fashion dress-up game
+- a **military command center** — command a force
+- **Hyperliquid** — real perps, real P&L, don't lie
 
 **The invariant that makes it not "Pokémon with charts": the bots are real.**
 Every stat is a verified track record, never flavor. Backtest == live.
@@ -199,6 +201,71 @@ execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
 2. Replace the stub Training / Trials screens with real DB reads.
 3. Deploy the worker as a service.
 4. Apply the schema reconciliation to the live Supabase DB.
+
+## Feature map
+
+Every line resolves to a page, a field, or the editable-vs-locked line. Tagged
+**[have] / [partial] / [new]**.
+
+**Make & train**
+
+- **Build a Bot** *[have]* — `/build/compose`. Compose from a **Family** (archetype,
+  `pf_strategy_families`), a **Universe** (coin set, `pf_universes`), a **Setup**
+  (editable params, `pf_bots.params`), and a direction. Saves as a Draft in `pf_bots`.
+- **Train → Trials → Weather** *[have]* — the Build ladder. **Training**
+  `/build/training` runs the backtest over years of history (`pf_backtests`).
+  **Trials** `/build/trials` runs the honesty gauntlet — beats random entries,
+  survives triple costs, survives a late fill (`pf_checks`). **Weather**
+  `/build/weather` maps performance across BTC trend × volatility and sets the
+  regime gate (`pf_conditions` → `pf_bots.condition_filter`).
+- **Deploy** *[have]* — `/build/deploy`. A Ready Bot graduates: pick Fleet +
+  visibility, it joins on a $10k paper budget and starts battling (stage `deployed`,
+  real P&L).
+- **Report** *[have]* — `/build/report/:name`. A Bot's full record: backtest vs
+  live, equity curve, every trade, the Trials it passed.
+- **Versions** *[partial]* — each Setup change writes a row to `pf_bot_versions`;
+  Build shows the new backtest beside the previous one and the Bot it was Copied
+  from, so you keep the stronger Setup.
+
+**Collect & command**
+
+- **Roster** *[have]* — `/` home. Every Bot you own, laid out by stage, with its
+  face, record, and live return.
+- **Fleet / command center** *[have]* — `/fleet`. Deployed Bots marked to market:
+  positions, P&L, the Feed of entries/exits/kills, fleet health, with pause and stop.
+- **Fleets as squads** *[partial]* — group Bots into named Fleets (`pf_fleets`),
+  each with its own budget and check interval; the sidebar lists them.
+- **Alerts** *[partial]* — `/settings`. ntfy pushes entries, exits, and kill-switch
+  trips to your phone (runtime emits these today).
+- **Retire** *[new]* — freeze a Bot: it stops trading and keeps its verified record
+  on your Roster as a finished run.
+
+**Compete**
+
+- **Leaderboard** *[have]* — `/leaderboard`. Every public Bot ranked by live P&L,
+  with a podium and a full table (win rate, streak, sparkline). Filter by **Market**
+  (Crypto, Stocks·soon, Predictions·soon) and by **Challenge**.
+- **Challenge** *[new]* — a Copy with a locked template: some Setup fields stay
+  fixed, others stay open, so everyone tunes the same thing (Universe-only, one-knob,
+  timeframe-only — the lock-set defines it). Carries an optional expiry date and a
+  sealed-until-close option. You **enter** one from the Leaderboard and **publish**
+  one from a Bot; its board is the Leaderboard filtered to that Challenge.
+
+**Social**
+
+- **Copy** *[partial]* — from the Leaderboard or a Bot profile, clone a public Bot
+  into your Roster as a Draft to retune (`copied_from` records the source).
+- **Follow** *[partial]* — from a Builder profile `/builder/:handle`, track a
+  Builder and get their new Bots (`pf_follows`).
+- **Lineage** *[new]* — a Bot shows "descended from X" and its pedigree, read from
+  `copied_from`.
+- **Builder profile** *[have]* — `/builder/:handle`. A Builder's Bots, reputation,
+  and followers — their public identity and collection.
+
+**Capital**
+
+- **Paper → Live** *[new]* — `/settings`. Flip a Fleet to real capital: the same
+  Bots on the same engine trade real money; the logo and banner switch to Live.
 
 ## The Lab (the proof)
 

@@ -1,22 +1,38 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth";
-import { createDraftBot, useBots, useFamilies, useUniverse } from "../../db/queries";
+import { createBacktest, createDraftBot, useMyBots, useFamilies, useUniverse } from "../../db/queries";
 import { DIRLBL } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
 import Steps from "./Steps";
+import { withBot } from "./stages";
 
 export default function Compose() {
   const nav = useNavigate();
   const { user } = useAuth();
+  const [sp] = useSearchParams();
+  const resumeName = sp.get("bot");
   const { data: universe } = useUniverse("fleet-60");
   const { data: families } = useFamilies();
-  const { data: bots } = useBots();
+  const { data: bots } = useMyBots(user?.id ?? null);
   const [name, setName] = useState("New strategy");
   const [famSlug, setFamSlug] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Resuming an existing draft (from the Roster / pipeline): a bot with this
+  // name is edited in place rather than composed afresh, so we don't fork it.
+  const existing = useMemo(
+    () => (resumeName ? bots?.find((b) => b.name === resumeName) ?? null : null),
+    [bots, resumeName],
+  );
+  useEffect(() => {
+    if (existing) {
+      setName(existing.name);
+      setFamSlug(existing.family_slug);
+    }
+  }, [existing]);
 
   // On family pick, show that family's base definition (its first bot).
   const template = useMemo(() => {
@@ -27,29 +43,46 @@ export default function Compose() {
 
   const coins = universe?.pf_universe_coins.map((c) => c.coin_symbol) ?? [];
 
-  // Persist the composed strategy as a draft bot the signed-in user owns,
-  // then navigate to `dest`.
-  const save = async (dest: string) => {
+  // Persist the composed strategy as a draft the signed-in user owns (or reuse
+  // the one being resumed). Heading to Training enqueues a backtest so the
+  // engine worker starts running it over history. Carries the bot forward.
+  const save = async (toTraining: boolean) => {
     if (!user) {
       nav("/signin");
       return;
     }
     setErr(null);
     setSaving(true);
-    const { error } = await createDraftBot({
-      name: name.trim() || "New strategy",
-      owner: user.id,
-      family_slug: famSlug ?? families?.[0]?.slug ?? null,
-      universe_id: universe?.id ?? null,
-      direction: template?.direction ?? null,
-      params: template?.params ?? {},
-    });
-    setSaving(false);
-    if (error) {
-      setErr(error.message);
-      return;
+    const finalName = name.trim() || "New strategy";
+    let botId: string;
+    if (existing) {
+      botId = existing.id;
+    } else {
+      const { data, error } = await createDraftBot({
+        name: finalName,
+        owner: user.id,
+        family_slug: famSlug ?? families?.[0]?.slug ?? null,
+        universe_id: universe?.id ?? null,
+        direction: template?.direction ?? null,
+        params: template?.params ?? {},
+      });
+      if (error || !data) {
+        setSaving(false);
+        setErr(error?.message ?? "Could not save the bot.");
+        return;
+      }
+      botId = data.id;
     }
-    nav(dest);
+    if (toTraining) {
+      const { error } = await createBacktest({ bot_id: botId, universe_id: universe?.id ?? null });
+      if (error) {
+        setSaving(false);
+        setErr(error.message);
+        return;
+      }
+    }
+    setSaving(false);
+    nav(toTraining ? withBot("/build/training", finalName) : "/build");
   };
 
   return (
@@ -87,7 +120,7 @@ export default function Compose() {
 
             <div className={r.formRow} style={{ borderBottom: "none" }}>
               <h2 className={r.h2}>Start from a strategy family</h2>
-              <div className={r.label} style={{ margin: "4px 0 12px" }}>Your tested families — pick one to seed the rules</div>
+              <div className={r.label} style={{ margin: "4px 0 12px" }}>Proven strategy families — pick one to seed the rules</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {(families ?? []).map((f) => (
                   <button key={f.slug} className={r.blk} style={{ border: famSlug === f.slug ? "1px solid #e9ecf1" : "1px solid transparent", textAlign: "left", cursor: "pointer", width: "100%" }} onClick={() => setFamSlug(f.slug)}>
@@ -117,10 +150,10 @@ export default function Compose() {
               <div className="num" style={{ fontSize: 32, marginTop: 6 }}>{coins.length} coins</div>
               <div className="lbl" style={{ marginTop: 2 }}>{universe?.name}</div>
             </div>
-            <button className={`${p.btn} ${p.pri}`} style={{ height: 48, fontSize: 14 }} disabled={saving} onClick={() => save("/build/training")}>
+            <button className={`${p.btn} ${p.pri}`} style={{ height: 48, fontSize: 14 }} disabled={saving} onClick={() => save(true)}>
               {saving ? "Saving…" : "Start training"}
             </button>
-            <button className={p.btn} style={{ height: 44 }} disabled={saving} onClick={() => save("/build")}>
+            <button className={p.btn} style={{ height: 44 }} disabled={saving} onClick={() => save(false)}>
               {saving ? "Saving…" : user ? "Save draft" : "Sign in to save"}
             </button>
             {err && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13 }}>{err}</div>}

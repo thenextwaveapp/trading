@@ -7,11 +7,13 @@ import type {
   DbCheck,
   DbCondition,
   DbFamily,
+  DbFleet,
   DbPlan,
   DbProfile,
   DbStrategyCondition,
   DbUniverseFilter,
   DbUniverseWithCoins,
+  Visibility,
 } from "./types";
 
 /** Tiny async-query hook for one-shot Supabase reads. */
@@ -52,6 +54,14 @@ export const fetchBot = (name: string) =>
     .eq("name", name)
     .single();
 
+/** The signed-in Builder's own bots (any stage/visibility) — their Roster. */
+export const fetchMyBots = (owner: string) =>
+  supabase
+    .from("pf_bots")
+    .select("*, builder:pf_profiles(handle, avatar_color)")
+    .eq("owner", owner)
+    .order("created_at", { ascending: false });
+
 export const fetchUniverse = (slug: string) =>
   supabase
     .from("pf_universes")
@@ -63,6 +73,10 @@ export const fetchUniverseFilters = (universeId: string) =>
   supabase.from("pf_universe_filters").select("*").eq("universe_id", universeId).order("position");
 
 export const fetchFamilies = () => supabase.from("pf_strategy_families").select("*");
+
+/** The signed-in Builder's fleets (the signup trigger seeds a starter one). */
+export const fetchMyFleets = (owner: string) =>
+  supabase.from("pf_fleets").select("*").eq("owner", owner).order("created_at");
 
 export const fetchProfile = (handle: string) =>
   supabase.from("pf_profiles").select("*").eq("handle", handle).single();
@@ -100,6 +114,11 @@ export const fetchPlans = () => supabase.from("pf_plans").select("*").order("pos
 // ---- typed convenience hooks ----
 
 export const useBots = () => useQuery<DbBot[]>(() => fetchBots());
+export const useMyBots = (owner: string | null) =>
+  useQuery<DbBot[]>(
+    () => (owner ? fetchMyBots(owner) : Promise.resolve({ data: [], error: null })),
+    [owner],
+  );
 export const useBot = (name: string) => useQuery<DbBot>(() => fetchBot(name), [name]);
 export const useUniverse = (slug: string) =>
   useQuery<DbUniverseWithCoins>(() => fetchUniverse(slug), [slug]);
@@ -111,6 +130,11 @@ export const useUniverseFilters = (universeId: string | null) =>
 export const useFamilies = () => useQuery<DbFamily[]>(() => fetchFamilies());
 export const useProfile = (handle: string) =>
   useQuery<DbProfile>(() => fetchProfile(handle), [handle]);
+export const useMyFleets = (owner: string | null) =>
+  useQuery<DbFleet[]>(
+    () => (owner ? fetchMyFleets(owner) : Promise.resolve({ data: [], error: null })),
+    [owner],
+  );
 
 export const useBacktests = (botId: string | null) =>
   useQuery<DbBacktest[]>(
@@ -144,6 +168,49 @@ export const useBotVersions = (botId: string | null) =>
   );
 export const usePlans = () => useQuery<DbPlan[]>(() => fetchPlans());
 
+/** The whole lifecycle for one bot in a single settled read: its latest
+ *  backtest, and that backtest's checks + conditions. `loading` is honest
+ *  (an absent backtest resolves to `null`, not perpetual loading); bump
+ *  `nonce` to re-poll while the engine worker is still running it. */
+export interface BuildData {
+  loading: boolean;
+  backtest: DbBacktest | null;
+  checks: DbCheck[];
+  conditions: DbCondition[];
+}
+export function useBuildData(botId: string | null, nonce = 0): BuildData {
+  const [state, setState] = useState<BuildData>({
+    loading: true,
+    backtest: null,
+    checks: [],
+    conditions: [],
+  });
+  useEffect(() => {
+    let alive = true;
+    if (!botId) {
+      setState({ loading: false, backtest: null, checks: [], conditions: [] });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true }));
+    (async () => {
+      const { data: bt } = await fetchLatestBacktest(botId);
+      let checks: DbCheck[] = [];
+      let conditions: DbCondition[] = [];
+      if (bt) {
+        const [c, cond] = await Promise.all([fetchChecks(bt.id), fetchConditions(bt.id)]);
+        checks = c.data ?? [];
+        conditions = cond.data ?? [];
+      }
+      if (!alive) return;
+      setState({ loading: false, backtest: bt ?? null, checks, conditions });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [botId, nonce]);
+  return state;
+}
+
 // ---- writes ----
 
 /** Create a draft bot owned by the signed-in user. RLS (pf_bots_rw) requires
@@ -169,5 +236,39 @@ export const createDraftBot = (input: {
       market: "crypto",
       visibility: "results",
     })
+    .select("id, name")
+    .single();
+
+/** Enqueue a backtest for a bot: the engine worker drains pending rows,
+ *  runs the strategy over history, and writes results + Trials back. */
+export const createBacktest = (input: { bot_id: string; universe_id: string | null }) =>
+  supabase
+    .from("pf_backtests")
+    .insert({ bot_id: input.bot_id, universe_id: input.universe_id, status: "pending" })
+    .select("id")
+    .single();
+
+/** Persist the weather gate — the conditions a bot is allowed to fight in. */
+export const setConditionFilter = (bot_id: string, filter: Record<string, unknown> | null) =>
+  supabase.from("pf_bots").update({ condition_filter: filter }).eq("id", bot_id);
+
+/** Graduate a bot: assign it to a fleet, set visibility, and deploy it.
+ *  RLS (pf_bots_rw) requires owner = auth.uid(). */
+export const deployBot = (input: {
+  bot_id: string;
+  name: string;
+  fleet_id: string;
+  visibility: Visibility;
+}) =>
+  supabase
+    .from("pf_bots")
+    .update({
+      name: input.name,
+      fleet_id: input.fleet_id,
+      visibility: input.visibility,
+      stage: "deployed",
+      launched_at: new Date().toISOString(),
+    })
+    .eq("id", input.bot_id)
     .select("id, name")
     .single();

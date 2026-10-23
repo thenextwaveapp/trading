@@ -1,12 +1,12 @@
 import { Fragment } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import r from "./build.module.css";
-import { FLOW_STEPS } from "./stages";
-
-const PATHS = ["/build/compose", "/build/training", "/build/trials", "/build/weather", "/build/deploy"];
+import { FLOW_PATHS, FLOW_STEPS, withBot } from "./stages";
 
 export default function Steps({ current }: { current: number }) {
   const nav = useNavigate();
+  const [sp] = useSearchParams();
+  const bot = sp.get("bot");
   return (
     <div className={r.steps}>
       {FLOW_STEPS.map((l, i) => {
@@ -18,7 +18,7 @@ export default function Steps({ current }: { current: number }) {
             {i > 0 && <span className={r.stepLine} />}
             <span
               className={`${r.step} ${now ? r.now : done ? r.done : ""}`}
-              onClick={() => done && nav(PATHS[i])}
+              onClick={() => done && nav(withBot(FLOW_PATHS[i], bot))}
             >
               {done ? "✓" : n}
             </span>

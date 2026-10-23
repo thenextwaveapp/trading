@@ -1,97 +1,108 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 
 export default function SignIn() {
-  const { user, profile, signInPassword, signUpPassword, signInGoogle, signOut } = useAuth();
+  const { user, profile, sendMagicLink, signInGoogle, signOut } = useAuth();
   const nav = useNavigate();
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const [params] = useSearchParams();
+  const next = params.get("next") || "/";
+
+  const [step, setStep] = useState<"email" | "sent">("email");
   const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Already signed in: show who, with a way out.
+  // Already signed in: offer the way in (or out).
   if (user) {
     return (
       <Shell>
         <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ fontSize: 15 }}>
-            Signed in as <b>@{profile?.handle ?? email ?? "…"}</b>
+            Signed in as <b>@{profile?.handle ?? user.email ?? "…"}</b>
           </div>
-          <button style={btn("primary")} onClick={() => nav("/")}>Go to your fleet</button>
+          <button style={btn("primary")} onClick={() => nav(next)}>Go to your roster</button>
           <button style={btn()} onClick={() => signOut()}>Sign out</button>
         </div>
       </Shell>
     );
   }
 
-  const submit = async (e: FormEvent) => {
+  const send = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
-    setMsg(null);
     setBusy(true);
-    const { error } = await (mode === "in" ? signInPassword : signUpPassword)(email, pw);
+    const { error } = await sendMagicLink(email.trim());
     setBusy(false);
     if (error) return setErr(error);
-    if (mode === "up") setMsg("Check your email to confirm your account, then sign in.");
-    else nav("/");
+    setStep("sent");
   };
 
   const google = async () => {
     setErr(null);
     const { error } = await signInGoogle();
     if (error) setErr(error);
-    // On success the browser redirects to Google.
   };
 
   return (
     <Shell>
-      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>
-        {mode === "in" ? "Sign in" : "Create your account"}
-      </h1>
-      <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
-        {mode === "in"
-          ? "Welcome back to your fleet."
-          : "Sign up to build strategies and run your own paper fleet."}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <svg width="26" height="26" viewBox="0 0 200 200" fill="none" aria-hidden>
+          <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
+          <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
+        </svg>
+        <span style={{ fontSize: 17, fontWeight: 600 }}>Paper Fleet</span>
       </div>
 
-      <button style={btn()} onClick={google}>
-        <GoogleMark /> Continue with Google
-      </button>
+      {step === "email" ? (
+        <>
+          <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Start free</h1>
+          <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
+            Build bots, train them, and run your own paper fleet. No password — we email you a sign-in link.
+          </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0", color: "var(--muted)", fontSize: 12 }}>
-        <span style={{ flex: 1, height: 1, background: "var(--border)" }} /> or <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-      </div>
+          <button style={btn()} onClick={google}>
+            <GoogleMark /> Continue with Google
+          </button>
 
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <input style={input} type="email" placeholder="you@email.com" value={email}
-          autoComplete="email" required onChange={(e) => setEmail(e.target.value)} />
-        <input style={input} type="password" placeholder="Password" value={pw}
-          autoComplete={mode === "in" ? "current-password" : "new-password"} required minLength={6}
-          onChange={(e) => setPw(e.target.value)} />
-        <button style={btn("primary")} type="submit" disabled={busy}>
-          {busy ? "…" : mode === "in" ? "Sign in" : "Create account"}
-        </button>
-      </form>
+          <Divider />
+
+          <form onSubmit={send} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <input style={input} type="email" placeholder="you@email.com" value={email}
+              autoComplete="email" autoFocus required onChange={(e) => setEmail(e.target.value)} />
+            <button style={btn("primary")} type="submit" disabled={busy}>
+              {busy ? "…" : "Email me a sign-in link"}
+            </button>
+          </form>
+        </>
+      ) : (
+        <>
+          <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Check your email</h1>
+          <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+            We sent a sign-in link to <b>{email}</b>. Open it on this device to finish signing in.
+          </div>
+          <button style={linkBtn} onClick={() => { setStep("email"); setErr(null); }}>
+            Use a different email
+          </button>
+        </>
+      )}
 
       {err && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13, marginTop: 14 }}>{err}</div>}
-      {msg && <div style={{ color: "var(--up, #3ddc97)", fontSize: 13, marginTop: 14 }}>{msg}</div>}
-
-      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 20 }}>
-        {mode === "in" ? "New here? " : "Already have an account? "}
-        <button style={linkBtn} onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(null); setMsg(null); }}>
-          {mode === "in" ? "Create an account" : "Sign in"}
-        </button>
-      </div>
     </Shell>
+  );
+}
+
+function Divider() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0", color: "var(--muted)", fontSize: 12 }}>
+      <span style={{ flex: 1, height: 1, background: "var(--border)" }} /> or <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+    </div>
   );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: "70vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div className="card" style={{ width: "100%", maxWidth: 380, padding: 28 }}>{children}</div>
     </div>
   );

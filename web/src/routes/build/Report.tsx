@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../auth";
 import { useData } from "../../api/context";
-import { useBots, useFamilies } from "../../db/queries";
+import { useMyBots, useFamilies } from "../../db/queries";
 import DataTable, { type Column } from "../../components/DataTable";
 import BotChart from "../../components/BotChart";
 import { Coin } from "../../components/cells";
@@ -13,8 +14,9 @@ import r from "./build.module.css";
 export default function Report() {
   const nav = useNavigate();
   const { name = "" } = useParams();
+  const { user } = useAuth();
   const live = useData();
-  const { data: bots } = useBots();
+  const { data: bots } = useMyBots(user?.id ?? null);
   const { data: families } = useFamilies();
 
   const bot = bots?.find((b) => b.name === name);

@@ -68,7 +68,10 @@ CREATE TABLE IF NOT EXISTS public.pf_backtests (
     expectations jsonb,
     cost_note text,
     params jsonb,
-    status text NOT NULL DEFAULT 'done'::text,
+    -- Lifecycle: web enqueues 'pending'; the engine worker flips it to
+    -- 'running' then 'done' (or 'error'). One vocabulary, worker ↔ web ↔ DB.
+    status text NOT NULL DEFAULT 'pending'::text
+        CHECK (status IN ('pending', 'running', 'done', 'error')),
     created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 

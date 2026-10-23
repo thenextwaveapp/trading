@@ -62,14 +62,18 @@ export default function Sidebar({
     wasCollapsed.current = collapsed;
   }, [collapsed]);
 
-  const onFleet = loc.pathname === "/" || loc.pathname.startsWith("/bot");
+  const onFleet = loc.pathname.startsWith("/fleet") || loc.pathname.startsWith("/bot");
   const statusTxt = liveOk ? "Fleet is live" : d.paused ? "Fleet paused" : "Fleet is down";
-  const navItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = [
-    { label: "Fleet", path: "/", icon: "fleet", active: onFleet },
-    { label: "Build", path: "/build", icon: "build", active: loc.pathname.startsWith("/build") },
-    { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard", active: loc.pathname.startsWith("/leaderboard") },
-    { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
-  ];
+  const home = { label: "Home", path: "/", icon: "fleet" as const, active: loc.pathname === "/" };
+  const board = { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard" as const, active: loc.pathname.startsWith("/leaderboard") };
+  const navItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = user
+    ? [
+        home,
+        { label: "Build", path: "/build", icon: "build", active: loc.pathname.startsWith("/build") },
+        board,
+        { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
+      ]
+    : [home, board];
 
   return (
     <aside className={`${s.side} ${collapsed ? s.collapsed : ""} ${mobileOpen ? s.open : ""}`}>
@@ -85,7 +89,7 @@ export default function Sidebar({
 
       <div>
         <div className={s.cap}>YOUR FLEETS</div>
-        <button className={`${s.fl} ${onFleet ? s.on : ""}`} onClick={() => nav("/")} title="Paper Fleet">
+        <button className={`${s.fl} ${onFleet ? s.on : ""}`} onClick={() => nav("/fleet")} title="Paper Fleet">
           <span className={s.sq} />
           <span className={`${s.flBody} ${s.txt}`}>
             <span className={s.flName}>Paper Fleet</span>
@@ -110,6 +114,16 @@ export default function Sidebar({
             <span className={s.txt}>{it.label}</span>
           </button>
         ))}
+        {!user && (
+          <button
+            className={s.ni}
+            onClick={() => nav("/signin")}
+            title="Start free"
+            style={{ background: "var(--accent, #5e8fd8)", color: "#fff", justifyContent: "center", marginTop: 8 }}
+          >
+            <span className={s.txt}>Start free</span>
+          </button>
+        )}
       </nav>
 
       <div className={s.spacer} />

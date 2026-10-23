@@ -8,8 +8,7 @@ interface AuthState {
   user: User | null;
   profile: DbProfile | null;
   loading: boolean;
-  signInPassword: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUpPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  sendMagicLink: (email: string) => Promise<{ error: string | null }>;
   signInGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -60,12 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
-    signInPassword: async (email, password) => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
-    },
-    signUpPassword: async (email, password) => {
-      const { error } = await supabase.auth.signUp({ email, password });
+    // Passwordless: email a magic sign-in link. shouldCreateUser signs up new
+    // emails (handle_new_user seeds the account on first click), so there is no
+    // separate sign-up path.
+    sendMagicLink: async (email) => {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
+      });
       return { error: error?.message ?? null };
     },
     signInGoogle: async () => {

@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { FleetCtx } from "./api/context";
 import { useFleet } from "./api/useFleet";
+import { useAuth } from "./auth";
 import { CandleProvider } from "./components/CandleModal";
+import RequireAuth from "./components/RequireAuth";
 import Sidebar from "./components/Sidebar";
 import FleetView from "./routes/FleetView";
+import Roster from "./routes/Roster";
+import Landing from "./routes/Landing";
 import BotProfile from "./routes/BotProfile";
 import Leaderboard from "./routes/Leaderboard";
 import Builder from "./routes/Builder";
@@ -17,6 +21,7 @@ import styles from "./App.module.css";
 
 export default function App() {
   const { data, error } = useFleet();
+  const { user, loading: authLoading } = useAuth();
   const loc = useLocation();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("sbc") === "1",
@@ -48,12 +53,18 @@ export default function App() {
     };
   }, [menuOpen]);
 
-  if (!data) {
+  if (authLoading || !data) {
     return (
       <div className={styles.center}>
-        {error
-          ? "Could not reach the fleet. Is the dashboard backend / tunnel up?"
-          : "Loading the fleet…"}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <svg width="34" height="34" viewBox="0 0 200 200" fill="none" aria-hidden style={{ opacity: 0.9 }}>
+            <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
+            <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
+          </svg>
+          <span style={{ color: "var(--muted)", fontSize: 14 }}>
+            {error ? "Could not reach the fleet. Is the backend / tunnel up?" : "Paper Fleet"}
+          </span>
+        </div>
       </div>
     );
   }
@@ -102,12 +113,14 @@ export default function App() {
 
           <main className={styles.main}>
             <Routes>
-              <Route path="/" element={<FleetView />} />
+              {/* Adaptive home: your Roster when signed in, the public showcase when not. */}
+              <Route path="/" element={user ? <Roster /> : <Landing />} />
+              <Route path="/fleet" element={<FleetView />} />
               <Route path="/bot/:name" element={<BotProfile />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/builder/:handle?" element={<Builder />} />
-              <Route path="/build/*" element={<Build />} />
-              <Route path="/settings/*" element={<Settings />} />
+              <Route path="/build/*" element={<RequireAuth><Build /></RequireAuth>} />
+              <Route path="/settings/*" element={<RequireAuth><Settings /></RequireAuth>} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="*" element={<NotFound />} />

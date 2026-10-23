@@ -12,3 +12,35 @@ export const STAGES: { key: Stage; label: string; blurb: string }[] = [
 
 // Linear build steps (Report follows deploy).
 export const FLOW_STEPS = ["Compose", "Training", "Trials", "Weather", "Deploy"] as const;
+
+// Each step's route, in order, so a bot can be carried through the wizard.
+export const FLOW_PATHS = [
+  "/build/compose",
+  "/build/training",
+  "/build/trials",
+  "/build/weather",
+  "/build/deploy",
+] as const;
+
+/** Append the bot being built so each step knows which bot it's about. */
+export function withBot(path: string, bot: string | null): string {
+  return bot ? `${path}?bot=${encodeURIComponent(bot)}` : path;
+}
+
+/** Where to resume a bot given the rung it's on. */
+export function resumePath(stage: Stage, name: string): string {
+  switch (stage) {
+    case "deployed":
+      return "/bot/" + encodeURIComponent(name);
+    case "ready":
+      return withBot("/build/deploy", name);
+    case "weather":
+      return withBot("/build/weather", name);
+    case "trials":
+      return withBot("/build/trials", name);
+    case "training":
+      return withBot("/build/training", name);
+    default:
+      return withBot("/build/compose", name);
+  }
+}

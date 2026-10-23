@@ -1,12 +1,13 @@
 import { useMemo, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth";
 import { useData } from "../../api/context";
-import { useBots, useFamilies } from "../../db/queries";
+import { useMyBots, useFamilies } from "../../db/queries";
 import type { DbBot, Stage } from "../../db/types";
 import { DIRLBL, dol, pct, windowReturn } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
-import { STAGES } from "./stages";
+import { STAGES, resumePath } from "./stages";
 
 const PIPELINE = STAGES;
 const STAGE_LABEL: Record<string, string> = Object.fromEntries(
@@ -21,8 +22,9 @@ const START = [
 
 export default function Hub() {
   const nav = useNavigate();
+  const { user } = useAuth();
   const live = useData();
-  const { data: bots } = useBots();
+  const { data: bots, loading } = useMyBots(user?.id ?? null);
   const { data: families } = useFamilies();
 
   const famLabel = useMemo(
@@ -87,6 +89,12 @@ export default function Hub() {
       </div>
 
       <div className={p.body}>
+        {loading ? (
+          <div className="muted" style={{ padding: 40 }}>Loading your bots…</div>
+        ) : (bots ?? []).length === 0 ? (
+          <EmptyBuild onStart={(mode) => nav(`/build/compose?start=${mode}`)} />
+        ) : (
+        <>
         <section className={p.statgrid} style={{ gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", marginBottom: 32 }}>
           <Stat label="Deployed bots" value={String(deployedBots.length)} sub={`${(bots ?? []).length} total`} />
           <Stat label="Avg backtest edge" value={pct(avgEdge, true)} cls={(avgEdge ?? 0) >= 0 ? "up" : "down"} sub="net per trade" />
@@ -124,7 +132,7 @@ export default function Hub() {
                       key={b.id}
                       className={`${r.kcard} ${s.key === "ready" ? r.ready : ""}`}
                       style={{ cursor: "pointer" }}
-                      onClick={() => openReport(b.name)}
+                      onClick={() => nav(b.stage === "deployed" ? "/build/report/" + encodeURIComponent(b.name) : resumePath(b.stage, b.name))}
                     >
                       <div className={r.kName}>{b.name}</div>
                       <div className={r.kDesc}>{b.note || famLabel.get(b.family_slug ?? "") || s.blurb}</div>
@@ -197,8 +205,33 @@ export default function Hub() {
             ))}
           </div>
         </section>
+        </>
+        )}
       </div>
     </>
+  );
+}
+
+function EmptyBuild({ onStart }: { onStart: (mode: string) => void }) {
+  return (
+    <section style={{ maxWidth: 560, padding: "48px 0" }}>
+      <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>You haven't built a bot yet.</h2>
+      <p className={p.subtitle} style={{ marginTop: 10, lineHeight: 1.6 }}>
+        Compose a strategy, send it through the gym — training, the honesty trials, the weather gate —
+        and track every one you test right here. Your pipeline and reports fill in as you go.
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+        {START.map(([mode, t, d]) => (
+          <div key={mode} className="card" style={{ padding: 18, flex: "1 1 220px", minWidth: 0, cursor: "pointer" }} onClick={() => onStart(mode)}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{t}</div>
+            <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>{d}</div>
+          </div>
+        ))}
+      </div>
+      <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 20, height: 46 }} onClick={() => onStart("describe")}>
+        Build your first bot →
+      </button>
+    </section>
   );
 }
 
