@@ -14,7 +14,7 @@ const icons = {
       <rect x="9.5" y="9.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
     </svg>
   ),
-  research: (
+  build: (
     <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
       <path d="M6 1.8v4L2.6 11.4A1.6 1.6 0 0 0 4 13.9h8a1.6 1.6 0 0 0 1.4-2.5L10 5.8v-4" stroke="currentColor" strokeWidth="1.3" />
       <path d="M5 1.8h6M4.6 9h6.8" stroke="currentColor" strokeWidth="1.3" />
@@ -54,7 +54,7 @@ export default function Sidebar({
   const fleetRet = (d.hero.fleet_pnl / (N * START)) * 100;
   const liveOk = d.running && !d.paused;
 
-  // replay the plane fly animation each time the sidebar opens (and on load)
+  // Replay the plane fly animation each time the sidebar opens.
   const [flyKey, setFlyKey] = useState(0);
   const wasCollapsed = useRef(collapsed);
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function Sidebar({
   const statusTxt = liveOk ? "Fleet is live" : d.paused ? "Fleet paused" : "Fleet is down";
   const navItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = [
     { label: "Fleet", path: "/", icon: "fleet", active: onFleet },
-    { label: "Research", path: "/research", icon: "research", active: loc.pathname.startsWith("/research") },
+    { label: "Build", path: "/build", icon: "build", active: loc.pathname.startsWith("/build") },
     { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard", active: loc.pathname.startsWith("/leaderboard") },
     { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
   ];

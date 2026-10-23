@@ -30,8 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // The signed-in user's profile row — created automatically by the
-  // handle_new_user trigger on signup (see db/functions.sql).
+  // Profile row is created by the handle_new_user trigger on signup (db/functions.sql).
   useEffect(() => {
     const uid = session?.user?.id;
     if (!uid) {
@@ -52,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session?.user?.id]);
 
-  // OAuth returns to the same page (strip the HashRouter fragment).
+  // OAuth returns to the same page, stripping the HashRouter fragment.
   const redirectTo =
     typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined;
 
@@ -90,8 +89,7 @@ export function useAuth(): AuthState {
   return a;
 }
 
-/** The signed-in user's handle, or null when logged out.
- *  This is the live replacement for the old hardcoded CURRENT_HANDLE seam. */
+/** The signed-in user's handle, or null when logged out. */
 export function useCurrentHandle(): string | null {
   return useAuth().profile?.handle ?? null;
 }

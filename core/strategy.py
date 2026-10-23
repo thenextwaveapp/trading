@@ -75,7 +75,7 @@ def parse(spec):
     out.setdefault("fresh", False)
 
     # market capability: every indicator the strategy uses must be computable
-    # on its market, or it can't be saved (the honesty invariant, in schema)
+    # on its market, or it can't be saved
     market = spec.get("market")
     if market is not None:
         if market not in MARKETS:

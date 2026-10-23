@@ -55,9 +55,8 @@ export default function FleetView() {
 
   const filtering = selected.size > 0; // legend selection filters the page
 
-  // Soloing filters the whole page (roster above + tables below). To stop the
-  // viewport jumping, we anchor on the chart (where the legend lives): snapshot
-  // its position before the change, then scroll by the delta so it stays fixed.
+  // Filtering reflows the whole page; anchor on the chart (where the legend
+  // lives) and scroll by its position delta so the viewport stays fixed.
   const anchorRef = useRef<HTMLDivElement>(null);
   const anchorTop = useRef<number | null>(null);
   const snapshot = () => {
@@ -100,7 +99,7 @@ export default function FleetView() {
   const h = d.hero;
   const open = d.positions;
   const now = d.now;
-  const totalProfit = h.fleet_pnl + h.unreal; // marked-to-market: moves live
+  const totalProfit = h.fleet_pnl + h.unreal; // marked-to-market
   const liveOk = d.running && !d.paused;
   const errs = d.log.filter((l) => /error|exception|traceback|kill/i.test(l));
 

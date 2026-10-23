@@ -1,11 +1,9 @@
-"""The fleet is the database. load_fleet() reads the live bots from pf_bots —
-replacing fleet_config.json as the source of what trades. Trusted server read
-with the service key, so the engine runs every user's bot (any visibility); RLS
-is the web app's concern, not the engine's.
+"""load_fleet() reads the live bots from pf_bots — the source of what trades.
+Trusted server read with the service key, so the engine runs every user's bot
+of any visibility (RLS is the web app's concern).
 
-A bot is {id, name, owner, spec}. The spec is the canonical core Strategy the
-engine runs via spec_runtime. Bots without a spec, disabled, or not live are
-skipped — they aren't runnable yet.
+A bot is {id, name, owner, spec}; spec is the canonical core Strategy run via
+spec_runtime. Bots without a spec, disabled, or not live are skipped.
 """
 import json
 import os
@@ -21,7 +19,7 @@ def enabled():
 
 def load_fleet():
     """-> [{id, name, owner, spec}] for enabled, live bots that carry a spec.
-    Empty list if the DB is unconfigured or unreachable (caller decides)."""
+    Empty list if the DB is unconfigured or unreachable."""
     if not enabled():
         return []
     q = ("pf_bots?select=id,name,owner,spec,stage,enabled"

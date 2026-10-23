@@ -1,4 +1,4 @@
-// Shared formatters — ported 1:1 from the prototype so figures match exactly.
+// Shared formatters.
 
 export const START = 10_000;
 
@@ -110,7 +110,7 @@ export const lt = (t: number): number =>
 
 export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** equity value at/just-before time t in a [t,eq] curve (binary search). */
+/** Equity value at/just-before time t in a [t,eq] curve (binary search). */
 export function curveAt(curve: [number, number][], t: number): number {
   if (!curve.length) return START;
   if (t <= curve[0][0]) return curve[0][1];
@@ -135,7 +135,7 @@ export function windowReturn(curve: [number, number][], days: number | null, now
   return start ? (end / start - 1) * 100 : 0;
 }
 
-/** chart line colour by variant index (12-colour cycle, like the original). */
+/** Chart line colour by variant index (12-colour cycle). */
 export function vcolor(i: number): string {
   const palette = [
     "#58a6ff", "#3fb950", "#f85149", "#d29922", "#bc8cff", "#39c5cf",

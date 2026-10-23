@@ -61,7 +61,7 @@ export default function DataTable<T>({
     setPage(0);
     setSort((cur) => {
       if (cur.col === c.key) return { col: c.key, dir: (cur.dir * -1) as 1 | -1 };
-      // sample first row to decide default direction (names asc, numbers desc)
+      // Default direction from first row: strings asc, numbers desc.
       const sample = c.value?.(rows[0]);
       return { col: c.key, dir: typeof sample === "string" ? 1 : -1 };
     });

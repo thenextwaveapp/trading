@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Local web dashboard + remote control for the paper fleet. Stdlib only.
 
-Serves a self-contained HTML page (no internet needed to render) showing:
-health banner, P&L headline, open positions marked to live prices, equity
-curves, per-variant table, trades, log tail. Control buttons
-(loopback-only): start/stop/restart the fleet (launchd), pause/resume
-trading (PAUSED flag file), ntfy phone alerts
-(topic config + test). A watchdog thread pushes a phone alert if the fleet
-process dies.
+Serves a self-contained HTML page (renders offline): health banner, P&L
+headline, open positions marked to live prices, equity curves, per-variant
+table, trades, log tail. Loopback-only controls: start/stop/restart the fleet
+(launchd), pause/resume trading (PAUSED flag file), ntfy phone alerts (topic
+config + test). A watchdog thread alerts if the fleet process dies.
 
 Usage: python3 fleet_dashboard.py              # http://127.0.0.1:8787
        python3 fleet_dashboard.py --port 9000
@@ -39,7 +37,7 @@ from .paper_trader import klines
 UNI = json.load(open(os.path.join(os.path.dirname(DIR), "universe60.json")))
 BIN = "https://fapi.binance.com/fapi/v1/klines"
 
-# ---- the fleet is pf_bots now (not fleet_config) -------------------------
+# ---- DB fleet (pf_bots) ----
 # Read the DB fleet + the pickable coin set for /candles validation. Cached so
 # a 10s /api poll doesn't hammer the DB. Service env supplies SUPABASE_*.
 import urllib.parse as _uparse
@@ -91,14 +89,13 @@ IVALS = {"15m", "1h", "4h", "1d"}
 WEB_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_dist")
 
 
-# --- Dashboard auth -------------------------------------------------------
-# The public site is fronted by a Cloudflare tunnel that connects to
-# localhost, so every request — including from the public internet — arrives
-# as 127.0.0.1. IP-based trust is therefore meaningless; gate on HTTP Basic
-# credentials instead. Source, first hit wins: env FLEET_DASH_USER +
-# FLEET_DASH_PASS, then the gitignored file paper/fleet/dash_auth.json
-# ({"user": .., "pass": ..}). With nothing configured the dashboard stays
-# open (local-only use) and main() prints a warning — production must set it.
+# ---- dashboard auth ----
+# A Cloudflare tunnel fronts the public site via localhost, so every request
+# (including from the public internet) arrives as 127.0.0.1; IP-based trust is
+# meaningless, so gate on HTTP Basic credentials. Source, first hit wins: env
+# FLEET_DASH_USER + FLEET_DASH_PASS, then the gitignored paper/fleet/dash_auth.json
+# ({"user": .., "pass": ..}). With nothing configured the dashboard stays open
+# (local-only) and main() warns — production must set it.
 def _load_auth():
     u, p = os.environ.get("FLEET_DASH_USER"), os.environ.get("FLEET_DASH_PASS")
     if u and p:
@@ -185,8 +182,8 @@ def run_cmd(cmd):
 
 
 def fleet_running():
-    """The fleet holds an exclusive flock on fleet.lock while its loop runs;
-    if we can grab the lock, nobody is home."""
+    """The fleet holds an exclusive flock on fleet.lock while its loop runs; if
+    we can grab the lock, it is not running."""
     path = os.path.join(DIR, "fleet.lock")
     if not os.path.exists(path):
         return None
@@ -241,7 +238,7 @@ def _marked_equities():
         unreal, priced = 0.0, True
         for p in st["positions"]:
             px = live_px(p["symbol"])
-            if not px:          # no price -> no mark; zero-unreal marks are lies
+            if not px:          # no price -> no mark (don't fake zero unreal)
                 priced = False
                 break
             unreal += p["notional"] * p.get("side", -1) \
@@ -448,7 +445,7 @@ def payload():
                 symbols=coin_map())
 
 
-# ---------------------------------------------------------------- controls
+# ---- controls ----
 
 def set_pause(on):
     if on:

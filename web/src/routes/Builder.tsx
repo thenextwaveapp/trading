@@ -9,7 +9,7 @@ import s from "./Builder.module.css";
 
 export default function Builder() {
   const nav = useNavigate();
-  // A :handle in the URL shows that builder; otherwise show the signed-in user.
+  // A :handle in the URL shows that builder; otherwise the signed-in user.
   const { handle: param } = useParams();
   const me = useCurrentHandle();
   const handle = param ?? me ?? null;
@@ -25,10 +25,10 @@ export default function Builder() {
     .filter((x) => x.v)
     .map((x) => ({ ...x, ret: windowReturn(x.v!.curve, 30, live.now) }));
 
-  const liveBots = bots.filter((x) => x.b.status === "live");
+  const liveBots = bots.filter((x) => x.b.stage === "deployed");
   const totalTrades = bots.reduce((a, x) => a + (x.v?.closed ?? 0), 0);
 
-  // Logged out with no :handle in the URL — nobody to show.
+  // Logged out with no :handle — nobody to show.
   if (!handle) {
     return (
       <div className={p.body} style={{ padding: 24 }}>

@@ -63,7 +63,7 @@ export default function BotChart({
       lineRef.current = null;
       drew.current = false;
     };
-    // recreate per-bot so the series reset cleanly between profiles
+    // Recreate per-bot so the series reset cleanly between profiles.
   }, [variant.name]);
 
   useEffect(() => {

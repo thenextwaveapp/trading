@@ -4,10 +4,10 @@ import { useAuth } from "../../auth";
 import { createDraftBot, useBots, useFamilies, useUniverse } from "../../db/queries";
 import { DIRLBL } from "../../lib/format";
 import p from "../pages.module.css";
-import r from "./research.module.css";
+import r from "./build.module.css";
 import Steps from "./Steps";
 
-export default function ResearchBuild() {
+export default function Compose() {
   const nav = useNavigate();
   const { user } = useAuth();
   const { data: universe } = useUniverse("fleet-60");
@@ -18,7 +18,7 @@ export default function ResearchBuild() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // when you pick a family, show that family's real base definition (first bot in it)
+  // On family pick, show that family's base definition (its first bot).
   const template = useMemo(() => {
     if (!bots) return null;
     const slug = famSlug ?? families?.[0]?.slug;
@@ -27,8 +27,8 @@ export default function ResearchBuild() {
 
   const coins = universe?.pf_universe_coins.map((c) => c.coin_symbol) ?? [];
 
-  // The first real write: persist this composed strategy as a draft bot the
-  // signed-in user owns, then go to `dest`. (Backtest execution is a later step.)
+  // Persist the composed strategy as a draft bot the signed-in user owns,
+  // then navigate to `dest`.
   const save = async (dest: string) => {
     if (!user) {
       nav("/signin");
@@ -42,7 +42,6 @@ export default function ResearchBuild() {
       family_slug: famSlug ?? families?.[0]?.slug ?? null,
       universe_id: universe?.id ?? null,
       direction: template?.direction ?? null,
-      engine: template?.engine ?? null,
       params: template?.params ?? {},
     });
     setSaving(false);
@@ -55,7 +54,7 @@ export default function ResearchBuild() {
 
   return (
     <>
-      <div className={p.crumb}><span className="lk" onClick={() => nav("/research")}>Research</span> / <b>{name}</b></div>
+      <div className={p.crumb}><span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{name}</b></div>
       <Steps current={1} />
       <div className={p.body}>
         <section style={{ display: "flex", flexWrap: "wrap", gap: 32, paddingTop: 28 }}>
@@ -118,10 +117,10 @@ export default function ResearchBuild() {
               <div className="num" style={{ fontSize: 32, marginTop: 6 }}>{coins.length} coins</div>
               <div className="lbl" style={{ marginTop: 2 }}>{universe?.name}</div>
             </div>
-            <button className={`${p.btn} ${p.pri}`} style={{ height: 48, fontSize: 14 }} disabled={saving} onClick={() => save("/research/backtest")}>
-              {saving ? "Saving…" : "Run backtest"}
+            <button className={`${p.btn} ${p.pri}`} style={{ height: 48, fontSize: 14 }} disabled={saving} onClick={() => save("/build/training")}>
+              {saving ? "Saving…" : "Start training"}
             </button>
-            <button className={p.btn} style={{ height: 44 }} disabled={saving} onClick={() => save("/research")}>
+            <button className={p.btn} style={{ height: 44 }} disabled={saving} onClick={() => save("/build")}>
               {saving ? "Saving…" : user ? "Save draft" : "Sign in to save"}
             </button>
             {err && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13 }}>{err}</div>}

@@ -1,10 +1,8 @@
-"""Robustness checks — the honesty battery a strategy passes before you trust
-it. Generalizes the research's own tests (pump_short_robustness.py): does the
-edge survive higher costs, survive a late fill, and beat random entries?
+"""Robustness checks — does the edge survive higher costs, survive a late
+fill, and beat random entries?
 
 Each check returns {key, label, passed, stat, threshold, detail}. These are
-instruments, not gates — the product shows them and lets you decide; it never
-blocks you (DESIGN.md). A final `summary` reports how many passed.
+informational, not gates: the product shows them but never blocks.
 
 run_checks(strategy, candles_by_ticker) -> {checks: [...], passed, total}
 """

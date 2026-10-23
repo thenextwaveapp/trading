@@ -5,7 +5,7 @@
 # display) is `pmset disablesleep`, which needs root. This installs a
 # sudoers rule scoped to exactly those two commands — nothing else gains
 # privileges. Run once:
-#   sudo bash launchd/allow_pmset.sh
+#   sudo bash deploy/launchd/allow_pmset.sh
 # Undo:
 #   sudo rm /etc/sudoers.d/trading-pmset
 set -euo pipefail

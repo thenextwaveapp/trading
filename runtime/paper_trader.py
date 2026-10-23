@@ -35,8 +35,7 @@ from core.backtest import DEFAULTS as _MODEL
 M15 = 900_000
 
 # Trade model — fees, sizing, starting equity. Single source of truth is
-# core.backtest.DEFAULTS, so the live/paper fleet and the backtester can never
-# drift apart (backtest↔live parity is the whole point of this system).
+# core.backtest.DEFAULTS, so live/paper and the backtester never drift apart.
 TAKER = _MODEL["taker"]
 SLIP = _MODEL["slip"]
 RISK = _MODEL["risk"]

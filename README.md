@@ -1,198 +1,232 @@
-# Trading
+# Paper Fleet
 
-Updated: 2026-10-11. Single source of truth (old `reports/HANDOFF.md` merged in).
+**Build trading bots, train them until they earn it, and deploy the ones that
+pass to battle — on paper money first, real money when you flip the switch.**
+The structure is Pokémon; the stakes are a verified track record. Expressive
+*and* honest.
 
-## What this is
+Updated: 2026-10-22.
 
-Mined 15,713 trades from 52 top Invo traders (Feb 2024 → Oct 2026), found
-the market conditions behind their entries, trade the setup on Hyperliquid
-— not copy-trading. Result: a paper fleet of strategy variants (short and
-long books — see `fleet_config.json`) derived from their conditions, each
-earning its own live verdict.
+---
 
-## Rule P (frozen) — the short book's base rule
+## What it is
 
-On 15m candles, short at candle close when ALL hold:
+Four verbs, one game:
 
-1. `close / close[16 bars ago] − 1 ≥ 12%`  (4h stretch)
-2. `close < prev close`                     (first red candle)
-3. `volume ≥ 2× mean of prior 8 bars`       (event volume)
-4. market alive (gapless 4h, nonzero vol, high ≠ low)
+- **Build** — compose a bot: name it, give it a face and a color, pick a family,
+  tune its Setup.
+- **Train** — a bot earns its place through Training → Trials → Weather before
+  it can battle. Nothing is faked into the Roster.
+- **Command** — your Fleet is your army; the control center is where you run it.
+- **Battle** — real P&L, not simulated flavor.
 
-Stop = max high of the signal 4h window. Time exit 4h. Taker fees + slip
-(0.045%/leg + 0.05%). Size = min(0.75% equity / stop-distance, 20% equity).
-Max 6 concurrent, 1/ticker. Kill-switch: −5% equity in 7d → 3d pause.
+Three aesthetics fused: **SuitU** (fashion dress-up / show it off), a **military
+command center** (command a force), and **Hyperliquid** (real perps, real P&L,
+don't lie). The design tension is *runway ↔ war room*, held at once.
 
-Expectation: ~+2%/trade, ~2 trades/week, ~53% win (2025–26 full calendar;
-walk-forward windows gave +3.41%). Dashboard benchmark in `fleet_config.json`.
+**The invariant that makes it not "Pokémon with charts": the bots are real.**
+Every stat is a verified track record, never flavor. Backtest == live.
 
-## The 60-ticker universe
+## How it started
 
-`paper/universe60.json` = the tickers the 52 Invo traders traded most
-(Feb 2024 → Oct 2026), mapped to Binance perps.
+This began as a single-owner system. We mined **15,713 trades from 52 top Invo
+traders** (Feb 2024 → Oct 2026), reverse-engineered the market conditions behind
+their entries, and traded the *setup* on Hyperliquid — not copy-trading. The
+finding that held up: their big wins are shorts into parabolic small-cap pumps,
+and the entry timing is a real, measurable edge (see [The Lab](#the-lab-the-proof)).
 
-## Findings
+That became a live paper fleet of strategy variants, each earning its own verdict
+from its own account. The product is the generalization: the tooling that let one
+owner do it, opened up so anyone can — without touching code.
 
-1. Trader entry timing is real: +0.55%/4h vs 0.00% random, ~13σ, robust
-   across quarters/regimes/traders. Their exits capture ~30% of the move.
-2. ML extraction failed out-of-sample twice (−0.03 to −0.08%/trade). The
-   edge is in trade selection, not averaged features. (`walkforward_results.md`)
-3. Reading individual trades found the phenomenon: their big wins are
-   shorts into parabolic small-cap pumps.
-4. Rule P passed a pre-registered gate: 74 trades, +3.4%/trade, all 7
-   windows positive, CI [+1.2, +5.9]%. (`rules_preregistration.md`)
-5. Edge scales with pump size (8% → +0.86%, 12% → +3.41%, 16% → +6.46%)
-   and volume filter.
-6. Edge persists to 24h hold, gone by 48h; stop choice barely matters.
-7. Robustness battery: monotone in thresholds, survives 3–4× costs, beats
-   placebos, LOO-stable. Entry is perishable: 15-min delay halves the
-   edge, 1h removes it — taker entry at close. (`pump_short_robustness.py`)
-8. Full-calendar edge ≈ +2.2%/trade (2025: +0.54%, 2026: +3.97%); the 7
-   walk-forward windows covered only ~54% of the span. (`regime_findings.md`)
-9. In 2023–24 the same signal lost (−0.8%/trade); regime flipped ~early
-   2025. The regime dial exists because of this. (`oos_backtest_*.txt`)
-10. Dial (trailing 30d mean 24h fwd return of pump events): robust as a
-    short/flat gate (+2.48% vs +1.08% ungated), not as a direction flip.
-    Two-sided (dial<0 short, dial>+2% momo long) positive all 4 years.
-11. 2026-10-11, era20 cache (2020–22, 166 perps): dial tracks regimes
-    correctly (2021 pinned long, flipped short H2 2022); tuned-up sizing
-    loses out-of-regime even gated. (`era20_test_*`)
-12. 2026-10-11, wide cache (every USDT perp ever, 900): edge is
-    universe-specific — full universe ≈ breakeven, placebo-60 and random-60
-    universes lose. (`wide_veto_test_*`, `placebo_universe_*`, `random_degen_*`)
-13. 2026-10-11: point-in-time universe rebuild (trailing Invo trade count,
-    no hindsight) cuts tuned-sizing results ~1000×. Static-universe
-    backtests overstate; judge on live fleet results. (`pit_universe_*`)
-14. 2026-10-11: `veto` (skip entry when dial > +2%) passed its OOS test:
-    +2.49% vs base +1.95%, same dd. Failed-high confirm failed — drops
-    winners. (`veto_fh_test_*`)
+## Direction
 
-## Variant provenance
+A **multi-tenant SaaS** where any Builder runs the whole pipeline through the UI.
+The product is the **machine, not the signals** — ship the tooling, not the edge.
 
-`base` is the pre-registered original. Everything else came from later
-research rounds; each gets its live verdict from its own paper account.
+- **Market-agnostic core.** crypto → stocks → predictions is adapters, not
+  rewrites. The engine already scans a market once and evaluates many bots
+  against the same candles; multi-tenant is just "those bots belong to different
+  Builders" (one scanner → N evaluators).
+- **Editable vs locked** is the product spine. A bot = `{family (fixed menu) +
+  Setup (editable) + universe (selectable)}`. Editable: entry/exit params,
+  sizing, concurrency, account, alerts. Locked: family logic, universe
+  construction, fee/fill model, paper accounting.
+- **Three buckets.** **System** = the running machine (`core/` + `runtime/` +
+  the Fleet). **Process** = the pipeline, shipped inside the product as Build.
+  **Lab** = `lab/`, the owner's proof-of-concept; it does not ship.
 
-## Live paper fleet
+## Lexicon
 
-`paper_fleet.py` — one process, 15m cadence, Binance futures data,
-60-ticker universe, one $10k paper account per variant. Signal/exit code
-reproduces backtest trades (pump-short 74/74, capit-long 1667/1670).
+Canonical vocabulary — **one concept, one word, from the DB field to the button
+label.** Where they drift, the product lies to itself.
 
-Config: `fleet_config.json`. `ops` = port, benchmark, alert toggles — edit
-freely. `strategies` = all variants and params, one note each; the fleet
-fingerprints params on start and alerts on change. `"enabled": false`
-parks a variant. The strategies section is the authoritative lineup;
-dashboard groups by direction (short / long / both).
+| Word | Meaning | Backing |
+|---|---|---|
+| **Bot** | a strategy | `pf_bots` |
+| **Builder** | the human | `pf_profiles` |
+| **Roster** | home screen — all your bots, every stage | — |
+| **Fleet** | your *deployed* (trading) bots | runtime |
+| **Setup** | a bot's editable params (runup/vol/hold/stop/sizing…) | `pf_bots.params` |
+| **Family** | archetype (pump_short, momo, capit, loser, churn, books) | `pf_strategy_families` |
+| **Universe** | the tradeable coin set | `pf_universes` |
+| **Battle** | what a Deployed bot does | real P&L |
+| **Leaderboard / Follow / Copy / Feed** | the social layer | `pf_follows`, `pf_events` |
+
+**Two axes, never crossed.** A bot is **Deployed** (answers *is it working?*).
+The capital is **Live** (answers *is the money real?*). The product flips **Paper
+Fleet → Live Fleet** when you fund it with real money — logo and banner change;
+"Live" is reserved for that switch alone. "Paper Fleet" is a pun: paper
+(paper-trading, honesty in the name) + paper (money) + Fleet (the army),
+paper-airplane logo.
+
+## Screens & flows
+
+The target experience, described as it should be — not the stubbed state the code
+is in today.
+
+**Roster** (`/`) — home, and the heart of the game. Your bots laid out with their
+face, level (stage), and record. At a glance: who's training, who's Ready, who's
+Deployed and battling, who's winning. A living roster you command.
+
+**Build** (`/build`) — the flow that takes a bot from idea to Deployed:
+
+- *Compose* — name the bot, give it a face, pick a Family, tune the Setup; a live
+  preview shows exactly what it will trade.
+- *Training* — it runs over years of history: equity curve, trade count, win
+  rate, drawdown, all after fees.
+- *Trials* — the honesty gauntlet; each trial passes or fails in the open.
+- *Weather* — the regime gate: when the bot is allowed to fight.
+- *Ready → Deploy* — it graduates, and you deploy it to the Fleet.
+- *Report* — its record, shareable.
+
+**Bot profile** (`/bot/:name`) — a bot's full, honest stat sheet: its Setup,
+verified track record, equity curve, every battle, which Trials it passed. The
+page that proves the bot is real.
+
+**Leaderboard** (`/leaderboard`) — every public bot ranked by real P&L. **Follow**
+a Builder, **Copy** a bot into your Roster as a Draft to train yourself. The
+social arena where a verified record is the currency.
+
+**Builder profile** (`/builder/:handle`) — a Builder's bots, reputation, and
+followers. Your identity and collection, public.
+
+**Command center** — the war room for your Deployed Fleet: live positions marked
+to market, P&L, the Feed of entries/exits/kills, fleet health, alerts. (Today in
+`runtime/fleet_dashboard`; it folds into the app.)
+
+**Settings** (`/settings`) — account, alerts, and the control that flips the
+product **Paper Fleet → Live Fleet** when you fund it with real capital.
+
+Key flows:
+
+- **First run** — a Builder signs up, a starter fleet is seeded automatically
+  (the signup trigger), and a guided first Build gets their first bot moving.
+- **Build → Deploy** — compose → Training → Trials → Weather → Ready → Deploy,
+  each step showing real results as the bot earns them.
+- **Discover → Copy** — find a bot on the Leaderboard → Copy it → it lands in
+  your Roster as a Draft to retune and train as your own.
+- **Paper → Live** — fund with real capital → the product flips to Live Fleet →
+  Deployed bots battle real money, same engine, same bots.
+
+## Build (the pipeline)
+
+Every bot climbs the same ladder; `pf_bots.stage` is the rung it's on.
+
+| Stage | What happens | Engine |
+|---|---|---|
+| **Draft** | composed, never fought | — |
+| **Training** | run over years of history | `core.backtest` → `pf_backtests` |
+| **Trials** | the honesty gauntlet (below) | `core.checks` → `pf_checks` |
+| **Weather** | regime gate — rules of engagement | `core.regime` |
+| **Ready** | passed everything, awaiting orders | — |
+| **Deployed** | battling in the Fleet | `runtime/` |
+
+**Trials — the honesty gauntlet.** A bot proves its edge is real, not luck:
+
+1. **Survives 3× costs** — edge holds at triple fees + slippage.
+2. **Survives a late fill** — edge holds entered one bar late.
+3. **Beats random entries** — real net/trade beats the 95th pct of placebo entries.
+
+## Architecture
 
 ```
-http://localhost:8787                    # web dashboard (fleet_dashboard.py)
-python3 paper_fleet.py --status          # terminal dashboard, one-shot
-python3 paper_fleet.py --monitor         # terminal dashboard, live
-bash launchd/install.sh                  # install fleet + dashboard as
-                                         # launchd agents (auto-restart)
+web  ──insert pf_backtests(pending)──▶  DB  ◀──drain & write back──  runtime/engine_worker
+ ▲                                      │                                    │
+ └──────────────── reads ───────────────┘                            core/ (the one engine)
 ```
 
-Dashboard: health banner, P&L cards, open positions marked to live
-prices, equity curves, variants vs backtest, trades, pump events, log
-tail. Controls (this Mac only; `--lan` = read-only phone viewing):
-start/stop/restart, pause (`paper/fleet/PAUSED` — stops new entries,
-keeps managing open ones), keep-awake.
+The web **never calls the engine**. It enqueues work by inserting a row; the
+worker is the only thing that runs a bot, through the same `core/` engine the
+Lab and live Fleet use (so backtest↔live parity holds); it writes results back
+to the DB, the single source of truth the web reads.
 
-Phone alerts (ntfy): entries/exits, kill-switch, errors, pause, fleet
-down/up. Config `paper/fleet/ntfy.json`; topic string works like a
-password.
-
-Lid-shut: keep-awake toggles `pmset disablesleep` (one-time
-`sudo bash launchd/allow_pmset.sh`). While ON the Mac never sleeps; OFF =
-sleep pauses scanning, open positions replay on wake.
-
-2026-10-10: unknown CLI args exit with an error; `paper/fleet/fleet.lock`
-prevents a second instance; tmp files per-PID.
-
-### Live results
-
-- ALGO short, Oct 8: base +11.3%, slow +15.8%, hold24 +14.0%, fast +2.6%;
-  all 11 participating variants won; wick30 didn't fire.
-- `hl_bot.py` (ts30 port, 58/60 coins on HL) runs as a dry daemon —
-  runbook `bot/README.md`.
-
-## Path to real money
-
-1. 2–4 weeks paper (~10+ base trades) vs the configured benchmark.
-2. Regime monitor: stop-out rate drifting 40% → 55% = regime dying.
-3. Pre-registration round 2: freeze the go-live variant spec.
-4. Hyperliquid wallet, micro size $1–2k, 0.75% risk, kill-switch live.
-   20–30 live trades before size-up.
-5. Pump-short entry: taker at close within 30s, not postOnly. Capit-long
-   is delay-tolerant; limit entries fine there.
-
-## Folder map
-
-| Path | What |
+| Dir | What |
 |---|---|
-| `lab/Invo/` | raw scrapes: users, portfolios, trades |
-| `lab/bn/` | Binance data pullers + candle/funding data for trader analysis |
-| `lab/master/` | consolidated trades master (15,713), feature matrix, labels |
-| `lab/backtest/` | candle caches (era20 2020–22, oos 2023–24, r60 2025–26, wide 900-perp) + ledgers |
-| `lab/reports/` | all analysis output, timestamped |
-| `lab/research/` | all analysis/backtest/fetch scripts — run from `lab/`: `cd lab && python3 research/<script>.py` |
-| `logs/` | old one-off fetch/run logs |
-| `paper/` | paper trading state: universe, per-variant state, trade logs |
-| `bot/` | hl_bot state + runbook |
-| `live/` | go-live package: hold24 short + capit_slow long on Hyperliquid, dashboard :8788, dry until armed — `live/README.md` |
-| `launchd/` | launchd agents + installer |
+| `core/` | the engine library — indicators (211, full TA-Lib + ROC/VOL_RATIO/WICK_FRAC), `expr`/`strategy`/`evaluator`, `backtest`, `checks`, `regime`, `markets` (capability model, `inputs ⊆ provides`), `universe`, `service` (endpoints), `db` |
+| `runtime/` | the services — `paper_fleet`, `fleet_dashboard`, `engine_worker` (the Build worker), `fleet_source`, `pf_db` (service-key DB helper), `spec_runtime` |
+| `db/` | version-controlled Supabase schema: `schema.sql` + `policies.sql` (RLS, owner-scoped) + `functions.sql` (signup trigger, event emitters). Apply order in `db/README.md` |
+| `web/` | the React SPA (Vite, HashRouter) — live at fleet.presencenet.io |
+| `lab/` | the proof-of-concept research (does not ship) |
+| `tests/` | engine self-tests — `python3 -m tests` reproduces legacy signal/exit bar-for-bar |
+| `deploy/` | deploy units — `systemd/` (Hetzner box) + `launchd/` (Mac) |
+| `live/` | the Hyperliquid go-live package (dry until armed) |
 
-Root keeps the live-side code (`paper_fleet.py`, `fleet_dashboard.py`,
-`paper_trader.py`, `hl_bot.py`, `fleet_config.json`); launchd and `live/`
-import from here. Scripts moved to `research/` 2026-10-11;
-`variants_backtest`, `oos_backtest`, `seed_pump_events` carry a 2-line
-path shim to reach root.
+Root keeps the live-side config: `fleet_config.json`. (The older `hl_bot.py`
+execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
+`live/` package supersedes it.)
 
-Scripts, roughly chronological (all in `research/`):
+## Current state
 
-| Script | What |
-|---|---|
-| `eda_report.py` | exploratory analysis of the trader dataset |
-| `build_feature_matrix.py` | market-state features at each trader entry |
-| `cluster_paths.py` | forward-path clustering |
-| `classifier_test.py` | ML entry-quality model, out-of-time test |
-| `backtest.py` / `backtest2.py` | ML condition-firing backtests (failed) |
-| `wf_engine.py` | walk-forward engine + portfolio layer (constants) |
-| `rules_backtest.py` | pre-registered rules P and D |
-| `variants_backtest.py` | entry-parameter variants |
-| `holds_stops_backtest.py` | hold-horizon and stop-style sweep |
-| `robustness_backtest.py` | delay ladder, cost stress, random control |
-| `pump_short_robustness.py` | 23-variant stress battery |
-| `oos_backtest.py` | 2023–24 out-of-sample run |
-| `regime_switch_backtest.py` | full-span regime-dial backtest |
-| `regime_policy_test.py` | dial policy comparison |
-| `indicator_tests.py` | indicator/anatomy/BTC-guard audit |
-| `twosided_system_test.py` | two-sided regime system |
-| `seed_pump_events.py` | seed the live gate's event store from cache |
-| `fetch_*_data.py` | candle fetchers (Binance Vision archive) |
-| 2026-10-10/11 round | `degen_derby`, `exits_lab`, `derby_heats`, `larry_tuner`, `grand_finale`, `soft_gate`, `super_larry(+_wide)`, `era20_test`, `dial_persistence`, `veto_fh_test`, `wide_veto_test`, `pit_universe_test`, `random_degen`, `fetch_mega_data` — sizing/exit/universe experiments, see docstrings |
+- **Engine** (`core/`) built + tested; selftests green (`python3 -m tests`).
+- **DB** multi-tenant: RLS on all `pf_*` tables, signup trigger seeds a starter
+  fleet, `pf_events` emits trade/copy/follow events. See `db/README.md`.
+- **Web** reads the catalog, Markets model, and live Leaderboard; the first real
+  write landed — Build saves a Draft bot the signed-in Builder owns.
+- **Build worker** (`runtime/engine_worker.py`) drains pending backtests → writes
+  results + Trials → flips stage. Has a `--once` drain mode.
 
-Live-side code:
+- **Lexicon reconciled** — schema obeys the words: `pf_bots` dropped `status`
+  and `engine`, folded the sizing knobs into `params`; `stage` values are
+  `draft/training/trials/weather/ready/deployed`; the web `Research` flow is now
+  `Build` (`routes/build/`, `/build`). tsc + vite green. Not yet applied to the
+  live Supabase DB.
 
-| Script | What |
-|---|---|
-| `paper_fleet.py` | the paper fleet |
-| `fleet_config.json` | ops settings + fingerprinted strategy definitions |
-| `fleet_dashboard.py` | web dashboard, http://localhost:8787 |
-| `hl_bot.py` | Hyperliquid execution bot (ts30), dry/live |
-| `paper_trader.py` | superseded; kept as library (`klines` + constants) |
+**Next — close the Build loop:**
 
-Key reports: `rules_preregistration.md`, `regime_findings.md`,
-`walkforward_results.md`, latest `*_backtest_*.txt` per experiment.
+1. Wire the enqueue — Build's run button inserts `pf_backtests` (status=pending)
+   so a Draft bot starts Training.
+2. Replace the stub Training / Trials screens with real DB reads.
+3. Deploy the worker as a service.
+4. Apply the schema reconciliation to the live Supabase DB.
 
-## Open items
+## The Lab (the proof)
 
-- Micro-live decision at ~10 base trades (~2 months); gate30-vs-base
-  comparison is part of the review.
-- Long-side knobs untested: depth-scaled sizing, laddered entries,
-  crash-speed/funding conditions, recovery exits, holds >48h, re-entry.
-- Pre-registration round 2 when going live; self-gate (strategy's own
-  trailing 60d P&L) is the runner-up dial.
-- `hl_bot.py` live order path untested; watch the first live entry on the
-  HL UI, measure mania-moment slippage.
-- Funding costs unmodeled.
+The research behind the origin, in full in `lab/reports/`. Load-bearing findings:
+
+- **The edge is real.** Trader entry timing beats random by +0.55%/4h, ~13σ,
+  robust across quarters/regimes/traders. The phenomenon: shorting parabolic
+  small-cap pumps.
+- **ML extraction failed** out-of-sample twice — the edge is in trade
+  *selection*, not averaged features.
+- **Rule P** (the frozen pump-short base) passed a pre-registered gate: 74
+  trades, +3.4%/trade, all 7 windows positive, CI [+1.2, +5.9]%.
+- **Regime-dependent.** The same signal lost in 2023–24; regime flipped ~early
+  2025. The Weather dial exists because of this.
+- **Universe-specific and perishable.** Point-in-time universe rebuild (no
+  hindsight) cuts tuned-sizing results ~1000×, and a 15-min entry delay halves
+  the edge. Lesson baked into the invariant: judge on live Fleet results, PIT
+  universe, fees on, taker entry at close.
+
+### Rule P — the short book's base rule
+
+On 15m candles, short at close when ALL hold: (1) `close/close[16] − 1 ≥ 12%`
+(4h stretch), (2) `close < prev close` (first red), (3) `volume ≥ 2× mean of
+prior 8 bars`, (4) market alive. Stop = max high of the 4h signal window; time
+exit 4h; taker fees + slip (0.045%/leg + 0.05%); size =
+`min(0.75% equity / stop-dist, 20% equity)`; max 6 concurrent, 1/ticker;
+kill-switch −5% equity in 7d → 3d pause. ~+2%/trade, ~2 trades/week, ~53% win.
+
+`lab/` map: `Invo/` raw scrapes · `bn/` Binance data · `master/` consolidated
+trades + features · `backtest/` candle caches + ledgers · `reports/` timestamped
+analysis · `research/` the scripts (`cd lab && python3 research/<script>.py`).

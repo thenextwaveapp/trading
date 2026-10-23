@@ -49,7 +49,7 @@ export function CandleProvider({ children }: { children: ReactNode }) {
   const open = useCallback((r: CandleReq) => {
     if (r.sym) setReq(r);
   }, []);
-  // close the chart when navigating between fleet / bot pages
+  // Close the chart on navigation.
   useEffect(() => setReq(null), [loc.pathname]);
   return (
     <CandleCtx.Provider value={open}>

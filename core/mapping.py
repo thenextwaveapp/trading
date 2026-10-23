@@ -1,18 +1,17 @@
-"""The weld — convert legacy fleet_config / pf_bots.params into the canonical
-core strategy spec.
+"""Convert legacy fleet_config / pf_bots.params into the canonical core
+strategy spec.
 
 Existing bots store strategy as (family_slug + params jsonb), e.g.
     pump_short  {"runup": 0.12, "vol": 2.0, "hold": 16, "stop": ["hh", 0.0]}
     capit_long  {"depth": 0.2, "hold": 96, "stop": ["none", 0.0], "btc_bear": true}
 
-This module turns those into the composable spec the engine runs (indicators →
-conditions). That makes one source of truth: build in Studio, store the spec,
-run it live, let others copy it — all the same object.
+This maps those to the composable spec the engine runs (indicators ->
+conditions).
 
 Coverage: pump_short, two_sided (short book), capit_long, momo_long map
 cleanly. The regime/book engines (super, portfolio, churn, hourly_loser) carry
-engine-specific logic not yet expressible as pure indicator conditions — they
-return a spec marked {"partial": true} with whatever maps, so nothing breaks.
+engine-specific logic not yet expressible as pure indicator conditions; they
+return a spec marked {"partial": true} with whatever maps.
 """
 
 
@@ -79,8 +78,8 @@ def variant_to_spec(family, params, name="", market="crypto_perp",
                 "exit": exit_}
 
     if family == "momo_long":
-        # clean high-volume breakout that closes strong; stop from the signal
-        # window (max(window low, midpoint) - 0.1%). Fully expressible now.
+        # high-volume breakout that closes strong; stop from the signal
+        # window (max(window low, midpoint) - 0.1%)
         return {**base, "side": "long", "fresh": False,
                 "entry": {"logic": "AND", "children": [
                     {"left": {"ind": "ROC", "params": {"period": 16}},

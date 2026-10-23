@@ -1,7 +1,6 @@
--- paperfleet RLS policies — one coherent set per table.
---   <table>_rw   = owner/write (FOR ALL), <table>_read = public/visibility read.
--- Reads via the anon key (auth.uid() IS NULL) stay open for public/visibility
--- data so the public site works logged-out; writes are owner-scoped.
+-- paperfleet RLS policies, one set per table:
+--   <table>_rw = owner write (FOR ALL); <table>_read = public/visibility read.
+-- Anon-key reads (auth.uid() IS NULL) stay open for public data; writes are owner-scoped.
 -- Run after schema.sql. Idempotent: drops any existing pf_* policy first.
 
 DO $$

@@ -1,9 +1,7 @@
 -- paperfleet trigger functions. Run after schema.sql.
 
 -- On auth signup: create the profile, a starter fleet, and bot defaults.
--- Idempotent (ON CONFLICT DO NOTHING) so a pre-seeded account is left intact —
--- this is why the founder's bots are just an ordinary seeded account, not a
--- special case: signup for anyone produces the same shape.
+-- Idempotent (ON CONFLICT DO NOTHING) so a pre-seeded account is left intact.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -53,8 +51,8 @@ begin
 end;
 $function$;
 
--- Trigger on the Supabase auth schema (not dumped by the pf_* queries — standard
--- Supabase signup hook). Run once against the fresh project.
+-- Trigger on the Supabase auth schema (standard signup hook, not dumped by the
+-- pf_* queries). Run once against the fresh project.
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users

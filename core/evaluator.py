@@ -1,20 +1,17 @@
-"""Strategy evaluator — the shared heart used by both backtest and live.
+"""Strategy evaluator — shared by both backtest and live.
 
 entry_signal() answers "does this strategy fire on bar i?" by applying two
-universal crypto-market validity guards (gapless tape over the strategy's
-lookback, and a market-alive check) and then the strategy's entry conditions.
-A `fresh` strategy fires only on the bar its entry becomes newly true (the
-capitulation rule's "fresh crossing").
+validity guards (gapless tape over the strategy's lookback, and a market-alive
+check) and then the strategy's entry conditions. A `fresh` strategy fires only
+on the bar its entry becomes newly true.
 
-This reproduces the hand-coded paper_fleet.signal() / signal_capit() exactly
-(see core/selftest.py). The guards here are the generalization of the checks
-those functions baked in: gapless over the runup/drawdown window, nonzero
-volume over the recent window, and a non-flat current bar.
+Guards: gapless over the lookback window, nonzero volume over the recent
+window, and a non-flat current bar.
 """
 from .expr import eval_node
 
 M15 = 900_000
-ALIVE_VOL_BARS = 8        # mirrors the legacy guard window k[i-8:i+1]
+ALIVE_VOL_BARS = 8        # volume guard window k[i-8:i+1]
 
 
 def _index_ok(candles, i, L):

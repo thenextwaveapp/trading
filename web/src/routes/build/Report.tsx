@@ -8,9 +8,9 @@ import { Coin } from "../../components/cells";
 import type { Trade } from "../../api/types";
 import { DIRLBL, REASON, START, clock, dol, dstr, held, identicon, pct, usd, windowReturn } from "../../lib/format";
 import p from "../pages.module.css";
-import r from "./research.module.css";
+import r from "./build.module.css";
 
-export default function ResearchReport() {
+export default function Report() {
   const nav = useNavigate();
   const { name = "" } = useParams();
   const live = useData();
@@ -25,7 +25,7 @@ export default function ResearchReport() {
   if (!bot || !v) {
     return (
       <div className={p.body} style={{ paddingTop: 40 }}>
-        <div className="muted">No report for "{name}". <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/research")}>Back to Research →</span></div>
+        <div className="muted">No report for "{name}". <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/build")}>Back to Build →</span></div>
       </div>
     );
   }
@@ -46,7 +46,7 @@ export default function ResearchReport() {
   return (
     <>
       <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/research")}>Research</span> / <span className="lk" onClick={() => nav("/research")}>Reports</span> / <b>{name}</b>
+        <span className="lk" onClick={() => nav("/build")}>Build</span> / <span className="lk" onClick={() => nav("/build")}>Reports</span> / <b>{name}</b>
       </div>
       <div className={p.body}>
         <section style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "center", padding: "36px 0 24px" }}>
@@ -54,7 +54,7 @@ export default function ResearchReport() {
           <div style={{ flex: "1 1 320px" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", fontWeight: 500 }}>{name}</h1>
-              <span className="chip"><span className={bot.status === "live" ? "liveDot" : "downDot"} />{bot.status === "live" ? "Live" : "Paused"}</span>
+              <span className="chip"><span className={bot.stage === "deployed" ? "liveDot" : "downDot"} />{bot.stage === "deployed" ? "Deployed" : "Not deployed"}</span>
               <span className="chip">{DIRLBL[bot.direction ?? ""] ?? bot.direction}</span>
             </div>
             <div className="muted" style={{ fontSize: 15, marginTop: 8 }}>{bot.note || famLabel.get(bot.family_slug ?? "")}</div>

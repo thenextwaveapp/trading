@@ -1,8 +1,7 @@
-"""Supabase reader — the engine's window into the product database.
+"""Supabase reader — read-only access to the product database.
 
-Read-only, via the REST API with the public anon key (same RLS the web app
-uses). This is what makes the DB the single source of truth for data the
-engine needs — universes now, live bots next (#2). Config from env:
+Via the REST API with the public anon key (same RLS the web app uses). The DB
+is the single source of truth for data the engine needs. Config from env:
 
     SUPABASE_URL        e.g. https://<ref>.supabase.co
     SUPABASE_ANON_KEY   the public anon/publishable key
@@ -25,10 +24,9 @@ _TTL = 300
 _cache = {}
 
 # instruments a rule-universe resolves against: the live Binance perp set +
-# 24h volume. If the fetch fails (offline), universe_symbols returns None and
-# the caller treats the rule-universe as unresolved — no founder-data fallback.
-# Tests/offline override with set_provider(_md.from_bn_coverage). List-universes
-# don't use this — their coins are stored.
+# 24h volume. On fetch failure, universe_symbols returns None and the caller
+# treats the rule-universe as unresolved. Tests/offline override with
+# set_provider(_md.from_bn_coverage). List-universes store their coins instead.
 _PROVIDER = _md.from_binance
 
 

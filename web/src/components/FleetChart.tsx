@@ -39,7 +39,7 @@ export function lineData(curve: [number, number][]) {
   return out;
 }
 
-/** same, but as % return from the fund (START = 0%). */
+/** As % return from the fund (START = 0%). */
 export function pctData(curve: [number, number][]) {
   return lineData(curve).map((p) => ({ time: p.time, value: (p.value / START - 1) * 100 }));
 }

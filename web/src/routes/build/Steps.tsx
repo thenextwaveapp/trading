@@ -1,15 +1,15 @@
 import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
-import r from "./research.module.css";
+import r from "./build.module.css";
+import { FLOW_STEPS } from "./stages";
 
-const PATHS = ["/research/build", "/research/backtest", "/research/checks", "/research/weather", "/research/graduate"];
-const LABELS = ["Strategy", "Backtest", "Validation", "Conditions", "Launch"];
+const PATHS = ["/build/compose", "/build/training", "/build/trials", "/build/weather", "/build/deploy"];
 
 export default function Steps({ current }: { current: number }) {
   const nav = useNavigate();
   return (
     <div className={r.steps}>
-      {LABELS.map((l, i) => {
+      {FLOW_STEPS.map((l, i) => {
         const n = i + 1;
         const done = n < current;
         const now = n === current;

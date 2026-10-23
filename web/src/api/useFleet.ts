@@ -8,7 +8,7 @@ export interface FleetState {
   loading: boolean;
 }
 
-/** Polls /api every `intervalMs` (default 10s), like the original dashboard. */
+/** Polls /api every `intervalMs` (default 10s). */
 export function useFleet(intervalMs = 10_000): FleetState {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export function useFleet(intervalMs = 10_000): FleetState {
         setError(null);
       } catch (e) {
         if (!alive) return;
-        // keep last-good data; only surface error if we have nothing
+        // Keep last-good data; surface error only when we have nothing.
         if (!dataRef.current) setError((e as Error).message);
       } finally {
         if (alive) timer = setTimeout(tick, intervalMs);

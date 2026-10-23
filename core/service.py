@@ -1,15 +1,14 @@
-"""The engine service — API-first. The missing organ.
+"""The engine service — API-first.
 
 Everything the product needs from the engine is a plain function in ENDPOINTS
 (validate / backtest / checks / catalog / health). The HTTP server below is a
-thin adapter over them; an MCP server or a direct Python/API caller is the
-same thin adapter over the SAME functions. That's how this is API- and
-MCP-friendly by construction, not by retrofit.
+thin adapter over them; an MCP server or a direct Python/API caller would be
+the same thin adapter over the same functions.
 
 Data: endpoints accept candles inline — `candles` (one series) or
-`candles_by_ticker` ({ticker: [...]}) — for pure, offline, deterministic
-compute. If given `symbols` + `interval`/`limit` instead, the service fetches
-closed candles from Binance so it can run on real market data.
+`candles_by_ticker` ({ticker: [...]}) — for offline deterministic compute. If
+given `symbols` + `interval`/`limit` instead, the service fetches closed
+candles from Binance.
 
 Run:  python3 -m core.service [--port 8099]
 Test: curl -s localhost:8099/v1/healthz
@@ -32,8 +31,8 @@ from .export_catalog import build as build_catalog
 BINANCE = "https://fapi.binance.com/fapi/v1/klines"
 
 
-# ---- data ----------------------------------------------------------------
-MAX_SYMBOLS = 60        # safety cap (tuning knob — OK as a constant)
+# ---- data ----
+MAX_SYMBOLS = 60        # safety cap
 
 
 def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
@@ -52,12 +51,11 @@ def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
 
 
 def _resolve_universe(body):
-    """-> {ticker: candles}. The engine owns universe->symbols resolution and
-    the candle fetch: callers send a spec + a `universe` slug (fleet-60 /
-    majors), or `symbols`, or inline `candles`/`candles_by_ticker`. Optional
-    `window` = {start, end} in ms. Candles are fetched live from Binance
-    today; a persistent multi-year cache is the next step, so big universes
-    over long windows are slow until then."""
+    """-> {ticker: candles}. Resolves universe->symbols and fetches candles:
+    callers send a `universe` slug (fleet-60 / majors), or `symbols`, or inline
+    `candles`/`candles_by_ticker`. Optional `window` = {start, end} in ms.
+    Candles are fetched live from Binance (no cache yet), so big universes over
+    long windows are slow."""
     if body.get("candles_by_ticker"):
         return body["candles_by_ticker"]
     if body.get("candles"):
@@ -70,7 +68,7 @@ def _resolve_universe(body):
     uni = None
     slug = body.get("universe")
     if slug:
-        uni = db.universe_symbols(slug)          # pf_universes = source of truth
+        uni = db.universe_symbols(slug)          # pf_universes is source of truth
         if not uni:
             raise ValueError(f"unknown universe: {slug!r}")
     if uni is None and body.get("symbols"):
@@ -83,7 +81,7 @@ def _resolve_universe(body):
             for tk, sym in items}
 
 
-# ---- endpoint functions (the real API — HTTP/MCP just call these) --------
+# ---- endpoint functions (HTTP/MCP adapters call these) ----
 def ep_health(_body=None):
     return 200, {"ok": True, "service": "paperfleet-engine"}
 
@@ -129,16 +127,15 @@ def ep_checks(body):
 
 
 def ep_presets(_body=None):
-    """The founder's seed specs — the frontend reads these instead of
-    hardcoding a copy of presets.py."""
+    """The seed specs, so the frontend doesn't hardcode a copy of presets.py."""
     return 200, {"ok": True,
                  "presets": [_presets.RULE_P, _presets.RULE_P_WICK,
                              _presets.CAPIT]}
 
 
 def ep_map(body):
-    """family_slug + params -> canonical spec (the weld, for real forking
-    until pf_bots.spec is backfilled)."""
+    """family_slug + params -> canonical spec (for forking until pf_bots.spec
+    is backfilled)."""
     try:
         spec = variant_to_spec(body["family"], body.get("params", {}),
                                body.get("name", ""))
@@ -158,7 +155,7 @@ ENDPOINTS = {
 }
 
 
-# ---- thin HTTP adapter ---------------------------------------------------
+# ---- thin HTTP adapter ----
 class Handler(BaseHTTPRequestHandler):
     def _run(self, method):
         path = self.path.split("?")[0]

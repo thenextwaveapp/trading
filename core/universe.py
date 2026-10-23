@@ -1,19 +1,17 @@
-"""Universe resolution — a universe is the set of instruments a strategy may
-trade, resolved from market DATA, not a frozen hand-picked list.
+"""Universe resolution — the set of instruments a strategy may trade, resolved
+from market data rather than a frozen hand-picked list.
 
-A universe DEFINITION is one of:
+A universe definition is one of:
     {"list": ["BTC", "ETH", ...]}                      explicit tickers
     {"rule": {"metric": "volume_24h", "op": "ge",      a threshold predicate
               "value": 1e8}}                           over a market metric
     {"rule": {"sort": "volume_24h", "top": 100}}       top-N by a metric
 (threshold and sort/top compose: "the 100 highest-volume perps over $X".)
 
-It resolves against INSTRUMENTS — the current tradeable set, each carrying its
-metrics — supplied by a market-data provider (see marketdata.py). A frozen list
-is simply the degenerate rule; same concept, same role in a spec. Swap the
-provider (Binance perps today, equities later) or refresh it (volume moved) and
-every rule-universe re-resolves against current reality — nothing downstream
-changes. That is why `fleet-60` stops being special: it's one list among rules.
+Resolves against instruments — the current tradeable set, each carrying its
+metrics — supplied by a market-data provider (see marketdata.py). A list is
+the degenerate rule. Swap or refresh the provider and every rule-universe
+re-resolves against current data.
 """
 
 _OPS = {"ge": lambda a, b: a >= b, "le": lambda a, b: a <= b,

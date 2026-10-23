@@ -1,9 +1,8 @@
 """Export the indicator + market catalog to JSON for the web app.
 
-Writes web/src/data/catalog.json — the real registry (indicators with their
-inputs/params and the market model), so the Builder/Indicators/Markets pages
-render from the actual engine, not a hand-kept copy. Market availability is
-computed client-side from inputs ⊆ provides.
+Writes web/src/data/catalog.json (indicators with their inputs/params and the
+market model) so the Builder/Indicators/Markets pages render from the engine
+registry. Market availability is computed client-side from inputs ⊆ provides.
 
 Re-run after changing indicators or markets:  python3 -m core.export_catalog
 """

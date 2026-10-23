@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install the paper fleet + dashboard as launchd agents (survive terminal
 # closes, auto-restart on crash, auto-start on login). Run once:
-#   bash launchd/install.sh
+#   bash deploy/launchd/install.sh
 # Undo:
 #   launchctl bootout gui/$(id -u)/com.trading.paperfleet
 #   launchctl bootout gui/$(id -u)/com.trading.fleetdash

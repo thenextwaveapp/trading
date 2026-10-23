@@ -3,9 +3,8 @@ import p from "../pages.module.css";
 import Steps from "./Steps";
 
 /**
- * The backtest / validation / launch steps compute results from a backtest &
- * strategy-authoring engine that isn't wired to the frontend yet (it needs the
- * write backend). Rather than invent numbers, we say so honestly.
+ * Placeholder for backtest / validation / launch steps: the backtest &
+ * strategy-authoring engine is not yet wired to the frontend.
  */
 export default function EngineStep({
   step,
@@ -23,7 +22,7 @@ export default function EngineStep({
   const nav = useNavigate();
   return (
     <>
-      <div className={p.crumb}><span className="lk" onClick={() => nav("/research")}>Research</span> / <b>New strategy</b></div>
+      <div className={p.crumb}><span className="lk" onClick={() => nav("/build")}>Build</span> / <b>New bot</b></div>
       <Steps current={step} />
       <div className={p.body}>
         <section style={{ paddingTop: 40, maxWidth: 640 }}>
@@ -33,7 +32,7 @@ export default function EngineStep({
             <span className="downDot" style={{ background: "#d29922" }} />
             <div style={{ fontSize: 14, color: "var(--fg-2)" }}>
               This runs the backtest &amp; strategy engine, which lands with the write backend.
-              Live bot results are real now on <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/research")}>Research → Reports</span>.
+              Live bot results are real now on <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/build")}>Build → Reports</span>.
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>

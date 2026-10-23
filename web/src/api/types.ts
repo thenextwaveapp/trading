@@ -1,8 +1,8 @@
-// Mirrors fleet_dashboard.py payload() — the single source of truth.
+// Mirrors fleet_dashboard.py payload() — single source of truth.
 
 export type Group = "short" | "long" | "both";
 export type Side = "short" | "long";
-/** exit reason codes used in trade logs */
+// Exit reason codes from trade logs.
 export type Kind = "sl" | "time" | "tp" | "manual" | "trail" | string;
 
 export interface Position {

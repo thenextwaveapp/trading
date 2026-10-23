@@ -1,19 +1,19 @@
-"""Market model — what each market truthfully provides.
+"""Market model — the columns each market provides.
 
-The capability rule, one line, drives everything:
+The capability rule drives everything:
 
     an indicator is available on a market iff
         set(indicator.inputs) <= market.provides
 
-Model each market by the columns it honestly has, and the rest falls out:
-  - volume indicators (OBV, MFI, VWAP, VOL_RATIO) auto-drop where there's no
-    trustworthy volume (FX spot)
-  - candlestick patterns (need open/high/low) auto-drop on prediction markets
+Consequences:
+  - volume indicators (OBV, MFI, VWAP, VOL_RATIO) drop where there's no volume
+    (FX spot)
+  - candlestick patterns (need open/high/low) drop on prediction markets
     (which only have a probability `close`)
-  - plain close-momentum (RSI, ROC, EMA) survives everywhere
+  - plain close-momentum (RSI, ROC, EMA) is available everywhere
 
-This same check powers the Builder palette (what's offered) and strategy
-validation (what can be saved) — no per-indicator-per-market table.
+The same check powers the Builder palette and strategy validation (no
+per-indicator-per-market table).
 """
 from dataclasses import dataclass
 
@@ -27,7 +27,7 @@ OHLC = frozenset({"open", "high", "low", "close"})
 class Market:
     id: str
     label: str
-    provides: frozenset        # columns this market truthfully has
+    provides: frozenset        # columns this market has
     series_kind: str           # "continuous" | "resolution"
     asset_class: str
 

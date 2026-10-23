@@ -1,25 +1,23 @@
-"""The weld, live side — run a canonical core Strategy spec in the live fleet.
+"""Run a canonical core Strategy spec in the live fleet.
 
-paper_fleet's run_signals() dispatches on a hand-coded `engine` key and computes
-entries with signal()/signal_capit()/signal_momo(). This module does the same job
-from a *spec*: entries come from core.entry_signal and the position (stop/tp) from
-core.build_position — the identical functions the backtester runs, so a bot
-trades live exactly as it backtested (proven: core/selftest.py for entries,
-core/selftest_exit.py for exits).
+Unlike paper_fleet.run_signals(), which dispatches on a hand-coded `engine` key,
+this module runs from a spec: entries come from core.entry_signal and the
+position (stop/tp) from core.build_position — the same functions the backtester
+runs, so a bot trades live exactly as it backtested (core/selftest.py for
+entries, core/selftest_exit.py for exits).
 
-Scope — the honest subset. We only run a spec whose every feature has proven
-live==backtest parity: side long/short (not both), stop mode hh/dstop/none, no
-trailing/sig/ext stop, no resting-limit order, not `partial`. covered() is the
-gate; anything it rejects stays on the legacy run_signals path (dual-engine
-transition). That covers pump_short (base/strict/fast/slow/loose/hold24/buf2/
-vol3/veto/wick30) and capit_long — the validated edges and the bulk of variants.
+Scope: only specs with proven live==backtest parity — side long/short (not
+both), stop mode hh/dstop/none, no trailing/sig/ext stop, no resting-limit
+order, not `partial`. covered() is the gate; anything it rejects stays on the
+legacy run_signals path. Covers pump_short (base/strict/fast/slow/loose/hold24/
+buf2/vol3/veto/wick30) and capit_long.
 
-Exits are unchanged: paper_fleet.run_exits() already drives check_exit() over the
-position dict we build here, and check_exit == core.exit_trade (selftest_exit).
+Exits are unchanged: paper_fleet.run_exits() drives check_exit() over the
+position dict built here, and check_exit == core.exit_trade.
 
 Sizing & account logic (kill-switch, concurrency, dedupe) are reproduced from
-run_signals verbatim so the equity math is identical; they live here, not in
-core, because they are live-account concerns, not strategy logic.
+run_signals verbatim so the equity math is identical; they live here, not core,
+because they are live-account concerns, not strategy logic.
 """
 import time
 
@@ -35,9 +33,9 @@ _COVERED_STOPS = {"hh", "dstop", "none", "sig"}
 
 
 def covered(spec):
-    """True if this spec can run live with proven parity. Conservative: any
-    feature we haven't pinned with a differential test disqualifies the bot,
-    which keeps it on the legacy engine rather than trading it unverified."""
+    """True if this spec can run live with proven parity. Any feature not pinned
+    by a differential test disqualifies the bot, keeping it on the legacy engine
+    rather than trading it unverified."""
     try:
         if spec.get("partial"):
             return False
@@ -198,12 +196,11 @@ def run_exits_spec(name, st, fetch, *, notes, log=lambda *_: None):
 def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
               notes=None, log=lambda *_: None):
     """One cycle over the DB-sourced fleet. For each bot: resolve exits, then
-    scan entries from its spec — but only over ITS OWN universe's tickers, never
-    a shared global set. `bots` is [{id, name, spec}] from load_fleet();
-    `universes` is {bot_id: {ticker: binance_symbol}} resolved from pf_universes;
+    scan entries from its spec over its own universe's tickers only, never a
+    shared global set. `bots` is [{id, name, spec}] from load_fleet();
+    `universes` is {bot_id: {ticker: binance_symbol}} from pf_universes;
     `candles` is {ticker: series} fetched for the union. A bot whose universe
-    didn't resolve ({} / missing) does NOT open new positions — it only manages
-    what's already open. No founder-universe fallback."""
+    didn't resolve ({} / missing) manages open positions only, opens none."""
     notes = notes if notes is not None else []
     for bot in bots:
         st = states.setdefault(bot["id"], new_state())

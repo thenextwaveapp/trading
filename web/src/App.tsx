@@ -8,7 +8,7 @@ import FleetView from "./routes/FleetView";
 import BotProfile from "./routes/BotProfile";
 import Leaderboard from "./routes/Leaderboard";
 import Builder from "./routes/Builder";
-import Research from "./routes/Research";
+import Build from "./routes/Build";
 import Settings from "./routes/Settings";
 import Privacy from "./routes/Privacy";
 import SignIn from "./routes/SignIn";
@@ -21,7 +21,7 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("sbc") === "1",
   );
-  // mobile drawer (off-canvas sidebar)
+  // Off-canvas mobile drawer.
   const [menuOpen, setMenuOpen] = useState(false);
 
   const toggle = () =>
@@ -35,12 +35,12 @@ export default function App() {
       return next;
     });
 
-  // close the drawer whenever the route changes
+  // Close the drawer on route change.
   useEffect(() => {
     setMenuOpen(false);
   }, [loc.pathname, loc.hash]);
 
-  // lock background scroll while the drawer is open
+  // Lock background scroll while the drawer is open.
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
     return () => {
@@ -64,7 +64,7 @@ export default function App() {
     <FleetCtx.Provider value={data}>
       <CandleProvider>
         <div className={styles.app}>
-          {/* mobile-only top app bar */}
+          {/* mobile top app bar */}
           <header className={styles.topbar}>
             <button
               className={styles.hamburger}
@@ -91,7 +91,7 @@ export default function App() {
             </span>
           </header>
 
-          {/* backdrop behind the drawer */}
+          {/* drawer backdrop */}
           <div
             className={`${styles.backdrop} ${menuOpen ? styles.backdropOpen : ""}`}
             onClick={() => setMenuOpen(false)}
@@ -106,7 +106,7 @@ export default function App() {
               <Route path="/bot/:name" element={<BotProfile />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/builder/:handle?" element={<Builder />} />
-              <Route path="/research/*" element={<Research />} />
+              <Route path="/build/*" element={<Build />} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/privacy" element={<Privacy />} />

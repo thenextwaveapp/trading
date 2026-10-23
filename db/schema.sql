@@ -1,8 +1,8 @@
--- paperfleet schema (pf_* tables) — snapshot of the live Supabase public schema.
+-- paperfleet schema (pf_* tables): snapshot of the Supabase public schema.
 -- Apply to a FRESH database, then run policies.sql and functions.sql.
--- Source of truth is the DB; regenerate with the queries in db/README.md.
+-- Source of truth is the DB; regenerate via the queries in db/README.md.
 
--- ============================== tables ==============================
+-- ---- tables ----
 
 CREATE TABLE IF NOT EXISTS public.pf_alert_settings (
     owner uuid NOT NULL,
@@ -111,24 +111,21 @@ CREATE TABLE IF NOT EXISTS public.pf_bots (
     bt numeric,
     note text,
     visibility text NOT NULL DEFAULT 'results'::text,
-    status text NOT NULL DEFAULT 'live'::text,
     created_at timestamp with time zone DEFAULT now(),
     stage text NOT NULL DEFAULT 'draft'::text,
-    engine text,
     slug text,
     description text,
     market text NOT NULL DEFAULT 'crypto'::text,
     version integer NOT NULL DEFAULT 1,
     copied_from uuid,
     condition_filter jsonb,
-    risk_weight numeric NOT NULL DEFAULT 1.0,
-    max_concurrent integer,
-    enabled boolean NOT NULL DEFAULT true,
     updated_at timestamp with time zone NOT NULL DEFAULT now(),
     validated_at timestamp with time zone,
     launched_at timestamp with time zone,
     spec jsonb
 );
+-- stage: draft | training | trials | weather | ready | deployed
+-- Editable setup knobs (risk_weight, max_concurrent, enabled, sizing) live in params.
 
 CREATE TABLE IF NOT EXISTS public.pf_checks (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -314,7 +311,7 @@ CREATE TABLE IF NOT EXISTS public.pf_universes (
     definition jsonb
 );
 
--- ======================= primary keys & uniques =======================
+-- ---- primary keys & uniques ----
 
 ALTER TABLE public.pf_alert_settings      ADD CONSTRAINT pf_alert_settings_pkey PRIMARY KEY (owner);
 ALTER TABLE public.pf_api_keys            ADD CONSTRAINT pf_api_keys_pkey PRIMARY KEY (id);
@@ -346,9 +343,8 @@ ALTER TABLE public.pf_universe_filters    ADD CONSTRAINT pf_universe_filters_pke
 ALTER TABLE public.pf_universes           ADD CONSTRAINT pf_universes_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_universes           ADD CONSTRAINT pf_universes_slug_key UNIQUE (slug);
 
--- ============================ foreign keys ============================
--- pf_profiles.id is the auth.users id (set by the handle_new_user trigger);
--- there is intentionally no FK to the auth schema.
+-- ---- foreign keys ----
+-- pf_profiles.id is the auth.users id (set by handle_new_user); no FK to the auth schema.
 
 ALTER TABLE public.pf_alert_settings      ADD CONSTRAINT pf_alert_settings_owner_fkey FOREIGN KEY (owner) REFERENCES pf_profiles(id) ON DELETE CASCADE;
 ALTER TABLE public.pf_api_keys            ADD CONSTRAINT pf_api_keys_owner_fkey FOREIGN KEY (owner) REFERENCES pf_profiles(id) ON DELETE CASCADE;
@@ -379,7 +375,7 @@ ALTER TABLE public.pf_universe_coins      ADD CONSTRAINT pf_universe_coins_unive
 ALTER TABLE public.pf_universe_coins      ADD CONSTRAINT pf_universe_coins_coin_symbol_fkey FOREIGN KEY (coin_symbol) REFERENCES pf_coins(symbol) ON DELETE CASCADE;
 ALTER TABLE public.pf_universe_filters    ADD CONSTRAINT pf_universe_filters_universe_id_fkey FOREIGN KEY (universe_id) REFERENCES pf_universes(id) ON DELETE CASCADE;
 
--- ========================= row level security =========================
+-- ---- row level security ----
 -- Policies are defined in policies.sql (run after this file).
 
 ALTER TABLE public.pf_alert_settings      ENABLE ROW LEVEL SECURITY;

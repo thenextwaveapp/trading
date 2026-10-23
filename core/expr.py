@@ -9,9 +9,8 @@ A condition compares two operands:
 A group combines nodes:
     {"logic": "AND"|"OR"|"NOT", "children": [<node>, ...]}
 
-This same evaluator is used by both backtest and live — the honesty
-invariant. `cache` memoizes computed indicator series across bars and across
-conditions within one evaluation pass.
+Used by both backtest and live. `cache` memoizes computed indicator series
+across bars and across conditions within one evaluation pass.
 """
 from .indicators import REGISTRY
 

@@ -1,26 +1,21 @@
-"""Register the full TA-Lib indicator set behind core's indicator interface.
+"""Register the TA-Lib indicator set behind core's indicator interface.
 
-On import this iterates every TA-Lib function and registers it into the
-shared REGISTRY — canonical reference implementations, auto-discovered from
-TA-Lib's own abstract-API metadata (params, defaults, outputs, lookback), so
-the whole standard library comes in with one adapter instead of 150 hand
-wrappers.
+On import, iterates every TA-Lib function and registers it into the shared
+REGISTRY, auto-discovered from TA-Lib's abstract-API metadata (params,
+defaults, outputs, lookback).
 
-Rules of the wrap:
-  - Only indicator groups are included; the Math Operators / Math Transform
-    utility groups (ADD, SUB, SIN, LN, …) are skipped — they are not
-    indicators.
-  - A function is skipped if it needs an input outside OHLCV (e.g. MAVP's
-    `periods` array) — it can't be driven from candles alone.
+Rules:
+  - Only indicator groups; the Math Operators / Math Transform utility groups
+    (ADD, SUB, SIN, LN, …) are skipped.
+  - A function needing an input outside OHLCV (e.g. MAVP's `periods` array) is
+    skipped — it can't be driven from candles alone.
   - Multi-output functions (MACD, BBANDS, STOCH, …) register one indicator
     per output, id = NAME_<output> (e.g. MACD_macd, MACD_macdsignal).
-  - An id already in the REGISTRY is left untouched (our fraction-form ROC
-    and the custom VOL_RATIO / WICK_FRAC win over any TA-Lib namesake).
+  - An id already in REGISTRY is left untouched (the custom ROC / VOL_RATIO /
+    WICK_FRAC win over any TA-Lib namesake).
 
-If TA-Lib is not installed, this module registers nothing and sets
-TALIB_AVAILABLE = False, so `core` still imports (with just the custom
-indicators). TA-Lib is a product dependency; install it on any box that runs
-backtests.
+If TA-Lib is not installed, registers nothing and sets TALIB_AVAILABLE =
+False, so `core` still imports with just the custom indicators.
 """
 from .indicators import REGISTRY, Indicator, register
 

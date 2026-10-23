@@ -1,15 +1,13 @@
-"""Market-data providers — the live tradeable set + per-instrument metrics that
-rule-universes resolve against. Each provider returns the same shape:
+"""Market-data providers — the live tradeable set + per-instrument metrics
+that rule-universes resolve against. Each provider returns the same shape:
 
     [{"ticker": str, "binance_symbol": str, "metrics": {name: number, ...}}, ...]
 
-so a universe rule (universe.resolve) is provider-agnostic. The honest seam:
- - LIVE (the reservoir, on the box): Binance exchangeInfo for the full perp list
-   + the 24h ticker for volume -> metric "volume_24h", refreshed continuously.
- - OFFLINE (now): from_bn_coverage() reads the local bn/ pull. It only knows how
-   much history each symbol has, so its metric is "history_days" — a liquidity/
-   longevity proxy, enough to resolve real rule-universes today and to prove the
-   mechanism. Swap in the live provider and nothing above this file changes.
+so a universe rule (universe.resolve) is provider-agnostic.
+ - LIVE: Binance exchangeInfo for the perp list + the 24h ticker for volume ->
+   metric "volume_24h".
+ - OFFLINE: from_bn_coverage() reads the local bn/ pull; metric "history_days"
+   (a liquidity/longevity proxy) since it only knows each symbol's history.
 """
 import csv
 import json
@@ -22,9 +20,8 @@ _FAPI = "https://fapi.binance.com/fapi/v1"
 def from_binance(timeout=20):
     """LIVE instruments: every tradeable USDT perpetual from Binance
     exchangeInfo, with metric volume_24h (quote volume from the 24h ticker) —
-    the real liquidity a rule-universe like 'top 100 by volume' ranks on. This
-    is the reservoir the bn_coverage proxy stood in for; same shape, so nothing
-    above marketdata changes. Raises on a failed fetch (caller falls back)."""
+    the liquidity a rule-universe like 'top 100 by volume' ranks on. Raises on
+    a failed fetch (caller falls back)."""
     def _get(path):
         with urllib.request.urlopen(f"{_FAPI}/{path}", timeout=timeout) as r:
             return json.loads(r.read())
@@ -47,8 +44,7 @@ def from_bn_coverage(path=None):
     the deepest-history ticker when the same contract appears under two names,
     e.g. kPEPE / PEPE -> 1000PEPEUSDT). Metric: history_days (15m bars / 96).
 
-    Offline/dev helper only — production resolves universes from the DB. The
-    coverage file is lab research output (lab/bn/), not shipped to the box."""
+    Offline/dev helper only — production resolves universes from the DB."""
     if path is None:
         path = os.path.join(os.path.dirname(__file__), "..", "lab", "bn",
                             "bn_coverage.csv")

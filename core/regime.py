@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""REGIME ENGINE — the one canonical home of the regime dials.
+"""Regime engine — the regime dials.
 
-A dial is an event-outcome measurement, not a price shape: collect events
-(pumps or dumps), measure each one's 24h-forward return, and read the
-trailing 30d mean of COMPLETED outcomes. The reading decides which books
-may trade.
+A dial is an event-outcome measurement: collect events (pumps or dumps),
+measure each one's 24h-forward return, and read the trailing 30d mean of
+completed outcomes. The reading decides which books may trade.
 
-SPEC (frozen — matches every backtest in reports/):
+Frozen spec:
   pump event   : 4h runup >= +12% on an alive bar, 24h per-ticker cooldown
   dump event   : 24h return <= -10%, 24h per-ticker cooldown
   outcome      : close-to-close return over the next 24h
@@ -16,8 +15,8 @@ SPEC (frozen — matches every backtest in reports/):
   momo long    : OPEN while pump dial m > +2%     (continuation regime)
   capit long   : OPEN while BTC 4h EMA20 <= EMA50 (bear trend)
   causality    : an event enters the dial only once its 24h outcome has
-                 completed — every reading uses only the past, so the dial
-                 is at least 24h stale by construction. Deliberate.
+                 completed, so every reading uses only the past and the dial
+                 is at least 24h stale by construction.
 
 Two API layers, same spec:
   LIVE  (stdlib-only; dict candles + JSON event store):
@@ -26,16 +25,9 @@ Two API layers, same spec:
         alive, pump_events_15m, pump_events_1h, dump_events_1h,
         make_dial, dial_series, persistent_dial, btc_trend_series
 
-Consumers: paper_fleet.py + hl_bot.py (live gate), research/
-regime_switch_backtest.py (re-exports for the backtest scripts),
-research/regime_view.py (dashboard), research/dial_persistence.py.
-live/bot.py is deliberately NOT a consumer — it is the self-contained,
-fingerprinted go-live package carrying byte-equivalent machinery.
-
-Note: the 15m-candle dials (live gate, backtests) and the 1h-candle dials
-(regime_view) are close cousins, not bit-identical — same spec, different
-bar basis. Thresholds (0 short / +2% long) were tuned in-sample, not
-pre-registered (reports/regime_policy_*.txt, twosided_system_*.txt).
+The 15m-candle dials (live gate, backtests) and 1h-candle dials (regime_view)
+share the spec but differ in bar basis, so they are not bit-identical.
+Thresholds (0 short / +2% long) were tuned in-sample, not pre-registered.
 """
 import time
 
@@ -43,7 +35,7 @@ M15 = 900_000
 H1 = 3_600_000
 DAY = 86_400_000
 
-# ---- the frozen spec -------------------------------------------------------
+# ---- frozen spec ----
 PUMP_RUNUP = 0.12          # 4h runup defining a pump event
 DUMP_DROP = -0.10          # 24h return defining a dump event
 WINDOW_DAYS = 30           # trailing dial window
@@ -57,7 +49,7 @@ LONG_THR = 0.02            # momo long opens while m > LONG_THR (asymmetric)
 EMA_FAST, EMA_SLOW = 20, 50   # BTC 4h trend gate
 
 
-# ============================================================= LIVE LAYER
+# ---- live layer ----
 # stdlib-only: safe to import from the always-on fleet/bot processes.
 
 def detect_pump_event(k, last_ev_t):
@@ -113,7 +105,7 @@ def ema_bull(closes, fast=EMA_FAST, slow=EMA_SLOW):
     return e_f > e_s
 
 
-# ========================================================= RESEARCH LAYER
+# ---- research layer ----
 # numpy/pandas imported lazily so the live processes never pay for them.
 
 def alive(d, i):
@@ -237,10 +229,9 @@ def dial_series(ev, grid, window_ms=WINDOW_MS, min_ev=MIN_EV):
 
 def persistent_dial(dial, t0, t1, min_days):
     """Daily-sampled wrapper: reports -1 only once the dial has held -1 for
-    min_days consecutive days (causal — uses only completed days). The
-    flicker filter from the era20 finding: brief dial dips inside a buying
-    regime let full-size shorts through; real short regimes hold for
-    months (research/dial_persistence.py)."""
+    min_days consecutive days (causal — uses only completed days). Flicker
+    filter: brief dial dips inside a buying regime would otherwise let
+    full-size shorts through."""
     import numpy as np
     days = np.arange(t0, t1 + DAY, DAY)
     state = np.array([dial(int(t))[0] for t in days])
@@ -269,7 +260,7 @@ def btc_trend_series(t, c, grid):
     b4 = s.groupby(lambda x: x - x % (4 * H1)).last()
     e_f = b4.ewm(span=EMA_FAST, adjust=False).mean()
     e_s = b4.ewm(span=EMA_SLOW, adjust=False).mean()
-    t4 = b4.index.to_numpy() + 4 * H1          # signal known at candle CLOSE
+    t4 = b4.index.to_numpy() + 4 * H1          # signal known at candle close
     sig = (e_f > e_s).to_numpy()
     idx = np.searchsorted(t4, grid, "right") - 1
     return np.where(idx >= 0, sig[np.maximum(idx, 0)], True)

@@ -1,4 +1,4 @@
-/** Sparkline from real data points (preferred). */
+/** Sparkline from data points. */
 export default function Spark({
   data,
   w = 240,
@@ -12,7 +12,7 @@ export default function Spark({
   up?: boolean;
   color?: string;
 }) {
-  // downsample to ~48 points so the path stays light
+  // Downsample to ~48 points to keep the path light.
   let arr = data;
   if (arr.length > 48) {
     const stride = Math.ceil(arr.length / 48);

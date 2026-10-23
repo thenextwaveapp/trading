@@ -1,25 +1,20 @@
 """Backtest engine — replay a strategy over one instrument's history.
 
 Wraps the shared evaluator (entry_signal) in a historical loop:
-  - fire entries via entry_signal (the same code the live fleet runs)
+  - entries via entry_signal
   - build the position's stop from the strategy's exit rule
-  - resolve the exit (stop / take-profit / trailing / time) the exact way the
-    live check_exit does, with taker fees + slippage on both legs
-  - enforce one-position-per-instrument (a new signal while a position is
-    open is skipped)
+  - resolve the exit (stop / take-profit / trailing / time)
+  - one position per instrument (a new signal while open is skipped)
 
 Returns the trade ledger + summary stats; `net_pct_per_trade` is the `bt`
 number the dashboard compares against.
 
-Honesty invariant: entries come from entry_signal and exits from exit_trade —
-the identical logic used live. Fees and slippage are always applied. Stats
-are a straight read of the resulting trades (no look-ahead: a trade's exit
-only uses candles at or after its signal bar).
-
-Exit modes reproduced & tested against the legacy engine: `hh` (stop at the
-signal-window high, + buffer) and `none` (no stop, long). Also implemented:
-`dstop` (disaster stop), take-profit (intrabar or close-cross), short
-trailing stop. `sig`/`ext` (momo/churn-specific) are not yet ported.
+Entries come from entry_signal, exits from exit_trade. Fees and slippage are
+always applied. No look-ahead: a trade's exit only uses candles at or after
+its signal bar. Exit modes implemented: `hh` (stop at the signal-window high
++ buffer), `none` (no stop), `dstop` (disaster stop), `sig` (momo
+signal-window stop), take-profit (intrabar or close-cross), short trailing
+stop.
 """
 from .evaluator import entry_signal, M15
 
@@ -74,18 +69,18 @@ def build_position(strategy, candles, i, sig):
 
 
 def exit_trade(pos, candles, taker, slip):
-    """Resolve a position to (net, exit_t, kind). Mirrors
-    paper_fleet.check_exit: stop breach first, then take-profit, then (short)
-    trailing ratchet, then time exit at `hold`. net is the side-signed return
-    minus both-leg taker fees + slippage. None if candles run out first."""
+    """Resolve a position to (net, exit_t, kind). Order: stop breach, then
+    take-profit, then (short) trailing ratchet, then time exit at `hold`. net
+    is the side-signed return minus both-leg taker fees + slippage. None if
+    candles run out first."""
     entry, hold, side = pos["entry"], pos["hold"], pos.get("side", -1)
     level, low_min = pos["stop"], entry
     trail_k, natr, tp = pos.get("trail_k"), pos.get("natr"), pos.get("tp")
     fee = 2 * taker + slip
     post = [k for k in candles if k["t"] >= pos["t_sig"]][:hold]
     for n, k in enumerate(post, 1):
-        # level 0 = "no stop" sentinel (never breached, either side). Without
-        # this a short with stop mode "none" would instant-stop at level 0.
+        # level 0 = "no stop" sentinel (never breached, either side), else a
+        # short with stop mode "none" would instant-stop at level 0.
         if level and ((k["h"] > level) if side < 0 else (k["l"] < level)):
             return side * (level / entry - 1) - fee, k["t"] + M15, "sl"
         if tp and pos.get("tp_close"):
@@ -112,8 +107,8 @@ def summarize(trades, cfg):
     kinds = {}
     for t in trades:
         kinds[t["kind"]] = kinds.get(t["kind"], 0) + 1
-    # compound a risk-sized equity curve, ordered by exit time (so pooled
-    # multi-instrument runs compound in the sequence trades actually closed)
+    # compound a risk-sized equity curve ordered by exit time (pooled
+    # multi-instrument runs compound in the sequence trades closed)
     eq = cfg["start_equity"]
     peak = eq
     max_dd = 0.0
@@ -140,13 +135,12 @@ def summarize(trades, cfg):
 
 def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
     """Run `strategy` over one instrument's candle list. Returns
-    {trades, stats}. `start` skips leading bars (e.g. an indicator-warmup
-    cushion); entry_signal already refuses to fire before the strategy's
-    lookback is satisfied, so start=0 fires as soon as a signal is valid.
+    {trades, stats}. `start` skips leading bars; entry_signal refuses to fire
+    before the strategy's lookback is satisfied, so start=0 fires as soon as a
+    signal is valid.
 
     `entry_delay` fills `d` bars after the signal (enter at candles[i+d]'s
-    close instead of the signal close) — the research "delay ladder" that
-    measures how perishable the edge is. The stop reference still comes from
+    close instead of the signal close). The stop reference still comes from
     the signal bar; only the fill moves."""
     cfg = {**DEFAULTS, **(cfg or {})}
     taker, slip = cfg["taker"], cfg["slip"]
@@ -174,8 +168,8 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
 
 def backtest_universe(strategy, candles_by_ticker, cfg=None, start=0,
                       entry_delay=0):
-    """Run `strategy` across many instruments and pool the trades — the
-    expectancy number the dashboard reports is over the pooled ledger."""
+    """Run `strategy` across many instruments and pool the trades. The
+    reported expectancy is over the pooled ledger."""
     cfg = {**DEFAULTS, **(cfg or {})}
     all_trades = []
     for tk, candles in candles_by_ticker.items():

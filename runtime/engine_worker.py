@@ -1,15 +1,15 @@
-"""Studio backtest worker — the one thing that runs a user's backtest.
+"""Studio backtest worker — runs users' backtests.
 
-The web enqueues work by inserting a pf_backtests row with status='pending'
-(Studio's "Run backtest"). This worker drains those rows and runs each through
-the SAME core/ engine the lab and live fleet use (core.service) — so
-backtest<->live parity holds — then writes the results back to the DB, the
-single source of truth the web reads. The web never calls the engine directly.
+The web enqueues work by inserting a pf_backtests row with status='pending'.
+This worker drains those rows and runs each through the same core/ engine the
+lab and live fleet use (core.service) for backtest<->live parity, then writes
+results back to the DB (the single source of truth the web reads). The web
+never calls the engine directly.
 
     pending pf_backtests  ->  core.service.ep_backtest / ep_checks  ->  DB  ->  web
 
-Run:  python -m runtime.engine_worker            # poll loop (the service)
-      python -m runtime.engine_worker --once     # drain once and exit (cron/tests)
+Run:  python -m runtime.engine_worker            # poll loop
+      python -m runtime.engine_worker --once     # drain once and exit
 """
 import sys
 import time
@@ -22,8 +22,8 @@ POLL_SECONDS = 10
 
 def _spec_for(bot: dict):
     """The bot's canonical spec. pf_bots.spec is the source of truth; until it's
-    backfilled, derive it from family+params via the engine's own weld (ep_map)
-    — the same derivation used everywhere, not a worker-local shortcut."""
+    backfilled, derive it from family+params via the engine's weld (ep_map),
+    the same derivation used everywhere."""
     if bot.get("spec"):
         return bot["spec"]
     code, out = ep_map({
@@ -55,7 +55,7 @@ def process(bt: dict):
         return
     bot = bots[0]
     pf_db.patch("pf_backtests", f"id=eq.{bt['id']}", {"status": "running"})
-    pf_db.patch("pf_bots", f"id=eq.{bot['id']}", {"stage": "backtesting"})
+    pf_db.patch("pf_bots", f"id=eq.{bot['id']}", {"stage": "training"})
 
     try:
         body = {"spec": _spec_for(bot), "universe": _universe_slug(bot)}
@@ -82,7 +82,7 @@ def process(bt: dict):
             "equity_curve": st["equity_curve"],
         })
 
-        # the honesty battery -> pf_checks
+        # checks -> pf_checks
         ccode, cout = ep_checks(body)
         if ccode == 200 and cout.get("ok"):
             for i, c in enumerate(cout["checks"]):
@@ -99,8 +99,8 @@ def process(bt: dict):
                 })
 
         pf_db.patch("pf_bots", f"id=eq.{bot['id']}",
-                    {"stage": "validation", "bt": npt})
-    except Exception as e:  # a failed run is a result, not a crash — record it
+                    {"stage": "trials", "bt": npt})
+    except Exception as e:  # record a failed run as a result, not a crash
         pf_db.patch("pf_backtests", f"id=eq.{bt['id']}",
                     {"status": "error", "cost_note": str(e)[:500]})
         pf_db.patch("pf_bots", f"id=eq.{bot['id']}", {"stage": "draft"})

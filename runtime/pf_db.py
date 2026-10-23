@@ -1,9 +1,5 @@
-"""The runtime's one way to talk to the product DB (Supabase PostgREST) with the
-service key. Server-side and trusted: it bypasses RLS (RLS is the web app's
-concern, not the engine's).
-
-New runtime code should use this helper. fleet_source.py and paper_fleet.py
-still carry their own ad-hoc copies of this pattern and should converge here.
+"""Runtime access to the product DB (Supabase PostgREST) with the service key.
+Server-side and trusted: bypasses RLS (RLS is the web app's concern).
 """
 import json
 import os

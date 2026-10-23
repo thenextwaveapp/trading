@@ -5,28 +5,13 @@ import { useBots, useFamilies } from "../../db/queries";
 import type { DbBot, Stage } from "../../db/types";
 import { DIRLBL, dol, pct, windowReturn } from "../../lib/format";
 import p from "../pages.module.css";
-import r from "./research.module.css";
+import r from "./build.module.css";
+import { STAGES } from "./stages";
 
-// The research pipeline — the lifecycle every strategy flows through.
-const PIPELINE: { key: Stage; label: string; blurb: string }[] = [
-  { key: "draft", label: "Draft", blurb: "Rules defined, not yet tested" },
-  { key: "backtesting", label: "Backtesting", blurb: "Running over history" },
-  { key: "validation", label: "Validation", blurb: "Proving it isn't luck" },
-  { key: "conditions", label: "Conditions", blurb: "Finding where it works" },
-  { key: "ready", label: "Ready", blurb: "Validated, awaiting launch" },
-  { key: "live", label: "Live", blurb: "Trading paper money" },
-];
-
-const STAGE_LABEL: Record<string, string> = {
-  draft: "Draft",
-  backtesting: "Backtesting",
-  validation: "Validation",
-  conditions: "Conditions",
-  ready: "Ready to launch",
-  live: "Live",
-  paused: "Paused",
-  archived: "Archived",
-};
+const PIPELINE = STAGES;
+const STAGE_LABEL: Record<string, string> = Object.fromEntries(
+  STAGES.map((s) => [s.key, s.label]),
+);
 
 const START = [
   ["describe", "Describe it", "Write the strategy in plain language and we'll turn it into rules."],
@@ -34,7 +19,7 @@ const START = [
   ["blank", "Start blank", "Build the entry and exit rules yourself from scratch."],
 ];
 
-export default function ResearchHub() {
+export default function Hub() {
   const nav = useNavigate();
   const live = useData();
   const { data: bots } = useBots();
@@ -46,28 +31,25 @@ export default function ResearchHub() {
   );
   const byName = useMemo(() => new Map(live.variants.map((v) => [v.name, v])), [live.variants]);
 
-  // live return per bot, from the engine's equity curve (runtime data, joined by name)
+  // Live return per bot, from the engine's equity curve (joined by name).
   const liveRet = (b: DbBot): number | null => {
     const v = byName.get(b.name);
     return v ? windowReturn(v.curve, null, live.now) : null;
   };
 
-  // group bots into pipeline columns (paused counts as live; archived only in the table)
+  // Group bots into pipeline columns by stage.
   const columns = useMemo(() => {
     const m = new Map<Stage, DbBot[]>(PIPELINE.map((s) => [s.key, []]));
     for (const b of bots ?? []) {
-      if (b.stage === "archived") continue;
-      const k = (b.stage === "paused" ? "live" : b.stage) as Stage;
-      (m.get(k) ?? m.get("draft")!).push(b);
+      (m.get(b.stage) ?? m.get("draft")!).push(b);
     }
-    // within live, sort by live return desc so the best sits on top
-    m.get("live")?.sort((a, b) => (liveRet(b) ?? -1e9) - (liveRet(a) ?? -1e9));
+    // Within deployed, sort by live return desc so the best sits on top.
+    m.get("deployed")?.sort((a, b) => (liveRet(b) ?? -1e9) - (liveRet(a) ?? -1e9));
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bots, live.variants, live.now]);
 
-  // overview — all real
-  const liveBots = (bots ?? []).filter((b) => b.stage === "live");
+  const deployedBots = (bots ?? []).filter((b) => b.stage === "deployed");
   const avgEdge = useMemo(() => {
     const xs = (bots ?? []).map((b) => b.bt).filter((x): x is number => x != null);
     return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -85,29 +67,28 @@ export default function ResearchHub() {
     [live.variants],
   );
 
-  // reports — every strategy, best live return first
+  // Every bot, best live return first.
   const reports = (bots ?? [])
     .map((b) => ({ b, ret: liveRet(b) }))
     .sort((a, b) => (b.ret ?? -1e9) - (a.ret ?? -1e9));
 
-  const openReport = (name: string) => nav("/research/report/" + encodeURIComponent(name));
+  const openReport = (name: string) => nav("/build/report/" + encodeURIComponent(name));
 
   return (
     <>
       <div className={p.top}>
         <div>
-          <h1 className={p.title}>Research</h1>
-          <div className={p.subtitle}>Design, test and launch bots.</div>
+          <h1 className={p.title}>Build</h1>
+          <div className={p.subtitle}>Compose, train and deploy bots.</div>
         </div>
-        <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/research/build?start=describe")}>
-          New strategy
+        <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/build/compose?start=describe")}>
+          New bot
         </button>
       </div>
 
       <div className={p.body}>
-        {/* overview — real numbers */}
         <section className={p.statgrid} style={{ gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", marginBottom: 32 }}>
-          <Stat label="Live bots" value={String(liveBots.length)} sub={`${(bots ?? []).length} total`} />
+          <Stat label="Deployed bots" value={String(deployedBots.length)} sub={`${(bots ?? []).length} total`} />
           <Stat label="Avg backtest edge" value={pct(avgEdge, true)} cls={(avgEdge ?? 0) >= 0 ? "up" : "down"} sub="net per trade" />
           <Stat
             label="Best live"
@@ -119,11 +100,11 @@ export default function ResearchHub() {
           <Stat label="Paper equity" value={dol(paperEquity)} sub="across the fleet" />
         </section>
 
-        {/* pipeline kanban — driven by stage */}
+        {/* pipeline kanban */}
         <div className={p.sectionHead} style={{ marginBottom: 14 }}>
           <div>
             <h2 className={p.h2}>Pipeline</h2>
-            <div className="lbl" style={{ marginTop: 4 }}>Every strategy, by where it is in the journey.</div>
+            <div className="lbl" style={{ marginTop: 4 }}>Every bot, by where it is in the journey.</div>
           </div>
         </div>
         <div className={r.kanban} style={{ marginBottom: 44 }}>
@@ -149,10 +130,10 @@ export default function ResearchHub() {
                       <div className={r.kDesc}>{b.note || famLabel.get(b.family_slug ?? "") || s.blurb}</div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 10 }}>
                         <span className="num lbl">{b.bt == null ? "" : pct(b.bt, true) + "/trade"}</span>
-                        {s.key === "live" && ret != null && (
+                        {s.key === "deployed" && ret != null && (
                           <span className={`num ${ret >= 0 ? "up" : "down"}`} style={{ fontSize: 12 }}>{pct(ret, true)}</span>
                         )}
-                        {s.key === "ready" && <span className="lk lbl" style={{ color: "#8BB4E8" }}>Launch →</span>}
+                        {s.key === "ready" && <span className="lk lbl" style={{ color: "#8BB4E8" }}>Deploy →</span>}
                       </div>
                     </div>
                   );
@@ -163,7 +144,7 @@ export default function ResearchHub() {
                 {items.length === 0 && (
                   <div
                     className={`${r.kcard} ${r.dashed}`}
-                    onClick={() => nav("/research/build?start=blank&stage=" + s.key)}
+                    onClick={() => nav("/build/compose?start=blank&stage=" + s.key)}
                   >
                     + New
                   </div>
@@ -174,17 +155,16 @@ export default function ResearchHub() {
         </div>
 
         <section style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
-          {/* reports table */}
           <div style={{ flex: "999 1 560px", minWidth: 0 }}>
             <div className={p.sectionHead}>
               <div>
                 <h2 className={p.h2}>Reports <span className="num muted" style={{ fontSize: 14, fontWeight: 400 }}>{reports.length}</span></h2>
-                <div className="lbl" style={{ marginTop: 4 }}>Every strategy you've tested, with its backtest and live result.</div>
+                <div className="lbl" style={{ marginTop: 4 }}>Every bot you've tested, with its backtest and live result.</div>
               </div>
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
-                <thead><tr>{["Strategy", "Family", "Direction", "Stage", "Backtest", "Live", ""].map((h, i) => (
+                <thead><tr>{["Bot", "Family", "Direction", "Stage", "Backtest", "Live", ""].map((h, i) => (
                   <th key={i} style={{ fontWeight: 400, color: "var(--muted-2)", fontSize: 12, textAlign: i >= 4 && i <= 5 ? "right" : "left", padding: "0 14px 12px", whiteSpace: "nowrap" }}>{h}</th>
                 ))}</tr></thead>
                 <tbody>
@@ -204,11 +184,10 @@ export default function ResearchHub() {
             </div>
           </div>
 
-          {/* start a new strategy — three distinct entry modes */}
           <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div className={p.sectionHead} style={{ margin: "0 0 4px" }}><h2 className={p.h2}>Start a new strategy</h2></div>
+            <div className={p.sectionHead} style={{ margin: "0 0 4px" }}><h2 className={p.h2}>Start a new bot</h2></div>
             {START.map(([mode, t, d]) => (
-              <div key={mode} className="card" style={{ padding: 18, display: "flex", gap: 14, alignItems: "center", cursor: "pointer" }} onClick={() => nav(`/research/build?start=${mode}`)}>
+              <div key={mode} className="card" style={{ padding: 18, display: "flex", gap: 14, alignItems: "center", cursor: "pointer" }} onClick={() => nav(`/build/compose?start=${mode}`)}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{t}</div>
                   <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>{d}</div>
@@ -224,9 +203,7 @@ export default function ResearchHub() {
 }
 
 function stageCls(stage: string): string {
-  if (stage === "live") return "up";
-  if (stage === "ready") return "";
-  if (stage === "archived" || stage === "paused") return "muted";
+  if (stage === "deployed") return "up";
   return "";
 }
 

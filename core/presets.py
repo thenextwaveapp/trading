@@ -1,12 +1,11 @@
 """Seed presets — the founder's frozen rules expressed as compositions.
 
-These are the proof the composable model captures the hand-coded engines:
-RULE_P is paper_fleet.signal() base, RULE_P_WICK adds the wick filter, and
-CAPIT is signal_capit(). In the product these become entries in the preset
-gallery; nothing about them is special — each is just a Strategy.
+RULE_P is the pump-short base, RULE_P_WICK adds the wick filter, MOMO is the
+momentum-long breakout, and CAPIT is the capitulation long. Each is just a
+Strategy; in the product they are entries in the preset gallery.
 """
 
-# pump-short base (Rule P, frozen) — paper_fleet.signal() with base cfg
+# pump-short base (Rule P)
 RULE_P = {
     "name": "pump-short base",
     "side": "short",
@@ -24,7 +23,7 @@ RULE_P = {
     "sizing": {"risk": 0.0075, "notional_cap": 0.20, "weight": 1.0},
 }
 
-# pump-short + upper-wick >= 30% (the wick30 variant)
+# pump-short + upper-wick >= 30%
 RULE_P_WICK = {
     "name": "pump-short wick30",
     "side": "short",
@@ -44,9 +43,9 @@ RULE_P_WICK = {
     "sizing": {"risk": 0.0075, "notional_cap": 0.20, "weight": 1.0},
 }
 
-# momentum-continuation long (momo) — signal_momo(): a clean high-volume 4h
-# breakout that closes strong. runup>=12%, vol>=2.5x, upper wick<=15%, close in
-# the top 20% of the 4h range; stop from the signal window.
+# momentum-continuation long: high-volume 4h breakout that closes strong.
+# runup>=12%, vol>=2.5x, upper wick<=15%, close in the top 20% of the 4h range;
+# stop from the signal window.
 MOMO = {
     "name": "momentum-long",
     "side": "long",
@@ -67,7 +66,7 @@ MOMO = {
     "sizing": {"risk": 0.0075, "notional_cap": 0.20, "weight": 1.0},
 }
 
-# capitulation long — signal_capit(): 24h drop <= -20% on a fresh crossing
+# capitulation long: 24h drop <= -20% on a fresh crossing
 CAPIT = {
     "name": "capit-long",
     "side": "long",

@@ -40,9 +40,8 @@ from .paper_trader import klines, M15, TAKER, SLIP, RISK, NOTIONAL_CAP, \
     MAX_CONC, KILL_DD, KILL_LOOKBACK, KILL_PAUSE, START_EQUITY, API
 
 # Strategy + variant definitions live in fleet_config.json ("strategies"
-# section — fingerprinted: changes are logged and phone-alerted so the paper
-# record always shows when the rules moved). This builds the same VARIANTS
-# shape the engine always used.
+# section; fingerprinted — rule changes are logged and phone-alerted). Builds
+# the VARIANTS shape the engine expects.
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "fleet_config.json")
 try:
@@ -65,9 +64,9 @@ for _sk, _s in CFG["strategies"].items():
         _names.append(_vn)
     STRATS[_sk] = dict(label=_s.get("label", _sk), variants=_names)
 
-# Regime dial ARCHIVED 2026-10-12 — books trade at all times. regime.py
-# stays for ema_bull (the capit family's btc_bear entry condition) and these
-# aliases, which hl_bot still imports. Dial research: research/_archive/.
+# Regime dial retired — books trade at all times. regime.py stays for ema_bull
+# (the capit family's btc_bear entry condition) and these aliases, used here and
+# by lab/research/seed_pump_events.py.
 GATE_WINDOW = regime.WINDOW_MS
 GATE_MIN_EV = regime.MIN_EV
 GATE_FWD = regime.FWD_BARS_15M            # 24h in 15m bars
@@ -182,9 +181,9 @@ def notify(title, msg, priority="default", tags=None, cat=None):
     threading.Thread(target=_send, daemon=True).start()
 
 
-# --- pf_events: mirror trade events into the product feed (best-effort) ----
-# Threaded fire-and-forget with the Supabase service key; a feed hiccup must
-# never block or break a trading cycle. Config from env (set on the box).
+# ---- pf_events: mirror trade events into the product feed (best-effort) ----
+# Threaded fire-and-forget with the Supabase service key; a feed hiccup never
+# blocks or breaks a trading cycle. Config from env.
 PF_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 PF_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 _bot_map = [None]                          # name -> {id, visibility, market}
@@ -244,8 +243,8 @@ def emit_events(notes):
 
 
 def flush_notes():
-    """Aggregate the cycle's trade events into one push each — a signal fires
-    across ~11 variants at once; nobody wants 11 notifications."""
+    """Aggregate the cycle's trade events into one push each: a signal fires
+    across many variants at once, so collapse to one notification per event."""
     if not NOTES:
         return
     emit_events(NOTES)                     # mirror to the product feed
@@ -1118,8 +1117,8 @@ def cycle(universe, states):
     if n_ok < len(universe) * 0.8:
         log(f"WARN: only {n_ok}/{len(universe)} tickers fetched, skipping cycle")
         return
-    # regime dial archived 2026-10-12 — books trade at all times; only the
-    # capit family's btc-bear entry condition (part of its rule) remains
+    # regime dial retired — books trade at all times; only the capit family's
+    # btc-bear entry condition (part of its rule) remains
     gate = dict(bear=btc_bear())
     paused = os.path.exists(PAUSE)
     if paused != _pause_state[0]:
@@ -1149,14 +1148,12 @@ def cycle(universe, states):
     flush_notes()
 
 
-# --- the weld: run the fleet from pf_bots specs through core -----------------
+# ---- the weld: run the fleet from pf_bots specs through core ----
 def _resolve_universes(bots):
-    """{bot_id: {ticker: binance_symbol}} resolved per bot from pf_universes —
-    the DB is the only source. A bot whose spec names no universe, or a slug the
-    DB can't resolve, maps to {} and simply won't open new positions. There is
-    NO founder-universe fallback: trading a strategy on assets it never chose is
-    a worse failure than not trading it. Slugs are cached, so N bots sharing a
-    universe cost one DB read."""
+    """{bot_id: {ticker: binance_symbol}} resolved per bot from pf_universes
+    (the only source). A bot whose spec names no universe, or an unresolvable
+    slug, maps to {} and won't open new positions; no founder-universe fallback.
+    Slugs are cached, so N bots sharing a universe cost one DB read."""
     from core import db as coredb
     cache = {}
     out = {}
@@ -1309,8 +1306,8 @@ def main():
     known = {"--once", "--monitor", "--status"}
     bad = [a for a in sys.argv[1:] if a not in known]
     if bad:
-        # A mistyped flag once fell through here and silently ran a SECOND
-        # fleet loop (duplicate trades, tmp-file races). Never again.
+        # reject unknown flags: a mistyped flag falling through starts a second
+        # fleet loop (duplicate trades, tmp-file races)
         sys.exit(f"unknown argument(s): {' '.join(bad)} — valid: "
                  + " ".join(sorted(known)))
     os.makedirs(DIR, exist_ok=True)
@@ -1326,8 +1323,8 @@ def main():
                  "(paper/fleet/fleet.lock is held) — refusing to start")
     lock.write(str(os.getpid()))
     lock.flush()
-    # The fleet is the DB (pf_bots): one paper account per bot id, loaded lazily
-    # in cycle_db. No fleet_config fingerprint — a bot's spec IS its identity.
+    # Fleet is the DB (pf_bots): one paper account per bot id, loaded lazily in
+    # cycle_db. No fleet_config fingerprint — a bot's spec is its identity.
     states = {}
     log("fleet start | running the DB fleet (pf_bots) through core")
     last_err_note = 0

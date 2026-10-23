@@ -2,8 +2,8 @@
 # Deploy the paper fleet to a Linux VPS (systemd replaces launchd).
 # The VPS must be non-US — Binance futures API returns 451 from US IPs.
 #
-#   bash systemd/deploy.sh root@HOST        # first deploy, and every code/config update
-#   bash systemd/deploy.sh root@HOST pull   # fetch server fleet state -> paper/fleet_vps/
+#   bash deploy/systemd/deploy.sh root@HOST        # first deploy, and every code/config update
+#   bash deploy/systemd/deploy.sh root@HOST pull   # fetch server fleet state -> paper/fleet_vps/
 #
 # State rules: the first deploy seeds paper/fleet/ from this machine (books
 # keep their equity); after that the server's copy is the evidence record and
@@ -11,7 +11,7 @@
 set -euo pipefail
 HOST=${1:?usage: deploy.sh user@host [pull]}
 DEST=/opt/trading
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 if [ "${2:-}" = pull ]; then
     mkdir -p paper/fleet_vps
@@ -41,8 +41,8 @@ rsync -az assets "$HOST:$DEST/"
 ( cd web && npm run build )
 rsync -az --delete web/dist/ "$HOST:$DEST/web_dist/"
 rsync -az --ignore-existing paper/fleet/ "$HOST:$DEST/paper/fleet/"
-rsync -az systemd/trading-paperfleet.service \
-          systemd/trading-fleetdash.service "$HOST:/etc/systemd/system/"
+rsync -az deploy/systemd/trading-paperfleet.service \
+          deploy/systemd/trading-fleetdash.service "$HOST:/etc/systemd/system/"
 
 ssh "$HOST" "chown -R trading: $DEST
              systemctl daemon-reload

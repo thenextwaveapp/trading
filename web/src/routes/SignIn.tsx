@@ -12,7 +12,7 @@ export default function SignIn() {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Already signed in — show who, and a way out.
+  // Already signed in: show who, with a way out.
   if (user) {
     return (
       <Shell>
@@ -43,7 +43,7 @@ export default function SignIn() {
     setErr(null);
     const { error } = await signInGoogle();
     if (error) setErr(error);
-    // on success the browser redirects to Google
+    // On success the browser redirects to Google.
   };
 
   return (

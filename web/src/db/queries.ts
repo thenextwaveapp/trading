@@ -67,7 +67,7 @@ export const fetchFamilies = () => supabase.from("pf_strategy_families").select(
 export const fetchProfile = (handle: string) =>
   supabase.from("pf_profiles").select("*").eq("handle", handle).single();
 
-// ---- research lifecycle ----
+// ---- build lifecycle ----
 
 export const fetchBacktests = (botId: string) =>
   supabase.from("pf_backtests").select("*").eq("bot_id", botId).order("created_at", { ascending: false });
@@ -146,16 +146,14 @@ export const usePlans = () => useQuery<DbPlan[]>(() => fetchPlans());
 
 // ---- writes ----
 
-/** Create a draft bot owned by the signed-in user. The first real write in the
- *  app: RLS (pf_bots_rw) requires owner = auth.uid(), so a session must be live.
- *  It lands in stage 'draft' and shows up in Research → Pipeline → Draft. */
+/** Create a draft bot owned by the signed-in user. RLS (pf_bots_rw) requires
+ *  owner = auth.uid(), so a live session is required. Lands in stage 'draft'. */
 export const createDraftBot = (input: {
   name: string;
   owner: string;
   family_slug: string | null;
   universe_id: string | null;
   direction: string | null;
-  engine: string | null;
   params: Record<string, unknown>;
 }) =>
   supabase
@@ -166,10 +164,8 @@ export const createDraftBot = (input: {
       family_slug: input.family_slug,
       universe_id: input.universe_id,
       direction: input.direction,
-      engine: input.engine,
       params: input.params,
       stage: "draft",
-      status: "draft",
       market: "crypto",
       visibility: "results",
     })

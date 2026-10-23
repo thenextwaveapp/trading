@@ -1,16 +1,14 @@
-// Mirrors the pf_* tables in Supabase (the product data layer).
-// Runtime data (equity, trades, positions, curves, health) is NOT here —
-// it comes from the live engine API, keyed by bot/variant `name`.
+// Mirrors the pf_* tables in Supabase.
+// Runtime data (equity, trades, positions, curves, health) is not here — it
+// comes from the live engine API, keyed by bot/variant `name`.
 
 export type Stage =
   | "draft"
-  | "backtesting"
-  | "validation"
-  | "conditions"
+  | "training"
+  | "trials"
+  | "weather"
   | "ready"
-  | "live"
-  | "paused"
-  | "archived";
+  | "deployed";
 
 export type Visibility = "private" | "results" | "public";
 export type Direction = "short" | "long" | "both";
@@ -24,7 +22,6 @@ export interface DbBot {
   family_slug: string | null;
   universe_id: string | null;
   direction: Direction | null;
-  engine: string | null;
   params: Record<string, unknown>;
   condition_filter: Record<string, unknown> | null;
   bt: number | null;
@@ -34,11 +31,7 @@ export interface DbBot {
   version: number;
   copied_from: string | null;
   visibility: Visibility;
-  status: string;
   stage: Stage;
-  risk_weight: number;
-  max_concurrent: number | null;
-  enabled: boolean;
   created_at: string | null;
   updated_at: string | null;
   validated_at: string | null;
@@ -118,7 +111,7 @@ export interface DbFleet {
   description: string | null;
 }
 
-// ---- research lifecycle ----
+// ---- build lifecycle ----
 
 export interface DbBacktest {
   id: string;
@@ -146,11 +139,11 @@ export interface DbBacktest {
   expectations: Record<string, unknown> | null;
   cost_note: string | null;
   params: Record<string, unknown> | null;
-  status: "queued" | "running" | "done" | "failed";
+  status: "pending" | "running" | "done" | "error";
   created_at: string;
 }
 
-export type CheckKey = "random" | "episodes" | "years" | "recent" | "unique";
+export type CheckKey = "cost_stress" | "entry_delay" | "placebo";
 
 export interface DbCheck {
   id: string;
@@ -158,7 +151,7 @@ export interface DbCheck {
   bot_id: string;
   key: CheckKey;
   label: string | null;
-  status: "pending" | "checking" | "passed" | "failed";
+  status: "pending" | "pass" | "fail";
   stat: number | null;
   threshold: number | null;
   detail: Record<string, unknown> | null;
