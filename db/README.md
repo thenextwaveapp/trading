@@ -15,6 +15,24 @@ psql "$DATABASE_URL" -f db/policies.sql     # one RLS policy set per table
 `policies.sql` is idempotent (drops any existing `pf_*` policy first), so it can
 be re-run to reset policies on an existing project.
 
+## Apply incremental changes
+
+Existing projects apply files under `db/migrations/` in filename order:
+
+```
+psql "$DATABASE_URL" -f db/migrations/20261024_build_flow.sql
+psql "$DATABASE_URL" -f db/migrations/20261024_weather_thresholds.sql
+psql "$DATABASE_URL" -f db/migrations/20261025_checks_lexicon.sql
+```
+
+Migrations are idempotent where possible. `20261024_build_flow.sql` adds the
+per-owner bot-name uniqueness the Build flow relies on, an index for the latest
+backtest lookup, and canonical `default_params` for the mapped families.
+`20261024_weather_thresholds.sql` stores the training-window volatility
+terciles with each Weather cell so the live fleet can enforce the gate.
+`20261025_checks_lexicon.sql` aligns the `pf_checks` constraints with the
+engine's `placebo`/`cost_stress`/`entry_delay` keys and `pass`/`fail` statuses.
+
 ## Scope
 
 - **Included:** all `pf_*` tables, primary/foreign/unique keys, RLS enable +

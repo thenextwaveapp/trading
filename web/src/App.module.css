@@ -19,6 +19,14 @@
   padding-bottom: 72px;
 }
 
+/* landing: full-width marketing layout (top nav, no sidebar).
+   Sections run edge-to-edge; their own .inner wrappers cap content width. */
+.landingMain {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
 .center {
   min-height: 100vh;
   min-height: 100dvh;

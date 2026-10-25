@@ -2,8 +2,9 @@
 Trusted server read with the service key, so the engine runs every user's bot
 of any visibility (RLS is the web app's concern).
 
-A bot is {id, name, owner, spec}; spec is the canonical core Strategy run via
-spec_runtime. Bots without a spec or not deployed are skipped.
+A bot is {id, name, owner, spec, condition_filter}; spec is the canonical core
+Strategy run via spec_runtime, and condition_filter is the Weather gate. Bots
+without a spec or not deployed are skipped.
 """
 import json
 import os
@@ -22,7 +23,7 @@ def load_fleet():
     Empty list if the DB is unconfigured or unreachable."""
     if not enabled():
         return []
-    q = ("pf_bots?select=id,name,owner,spec,stage"
+    q = ("pf_bots?select=id,name,owner,spec,condition_filter,stage"
          "&stage=eq.deployed&spec=not.is.null")
     req = urllib.request.Request(
         f"{URL}/rest/v1/{q}",
@@ -30,5 +31,5 @@ def load_fleet():
     with urllib.request.urlopen(req, timeout=15) as r:
         rows = json.loads(r.read())
     return [{"id": x["id"], "name": x["name"], "owner": x.get("owner"),
-             "spec": x["spec"]}
+             "spec": x["spec"], "condition_filter": x.get("condition_filter")}
             for x in rows if x.get("spec")]

@@ -19,8 +19,9 @@ const RANGES: [string, number | null][] = [
 
 interface Row {
   bot: DbBot;
-  v: Variant;
-  ret: number;
+  v: Variant | null; // live feed entry, when the fleet is reporting this bot
+  ret: number | null; // live window return when live, else the backtest net
+  live: boolean; // true when ret is a live result, not a backtest stand-in
   builder: string;
 }
 
@@ -37,16 +38,25 @@ export default function Leaderboard() {
   const rows: Row[] = useMemo(() => {
     if (!bots) return [];
     const byName = new Map(live.variants.map((v) => [v.name, v]));
+    // The board is the list of public bots (useBots already filters out
+    // private). The live feed only decorates each row with its current
+    // numbers; when a bot isn't being reported yet — or the feed blips — its
+    // backtest net stands in, so the board is never empty just because the
+    // live feed went quiet.
     return bots
       .map((bot) => {
-        const v = byName.get(bot.name);
-        if (!v) return null;
-        return { bot, v, ret: windowReturn(v.curve, days, live.now), builder: bot.builder?.handle ?? "" };
+        const v = byName.get(bot.name) ?? null;
+        const liveRet = v ? windowReturn(v.curve, days, live.now) : null;
+        return {
+          bot,
+          v,
+          ret: liveRet ?? bot.bt ?? null,
+          live: liveRet != null,
+          builder: bot.builder?.handle ?? "",
+        };
       })
-      .filter((x): x is Row => !!x)
       .filter((x) => !q || x.bot.name.toLowerCase().includes(q.toLowerCase()) || x.builder.includes(q.toLowerCase()))
-      .sort((a, b) => b.ret - a.ret)
-      .map((x, i) => ({ ...x, rank: i + 1 }) as Row & { rank: number });
+      .sort((a, b) => (b.ret ?? -Infinity) - (a.ret ?? -Infinity));
   }, [bots, live, days, q]);
 
   const top = rows.slice(0, 3);
@@ -81,7 +91,7 @@ export default function Leaderboard() {
           <>
             <div className={s.cards}>
               {top.map((row, i) => {
-                const up = row.ret >= 0;
+                const up = (row.ret ?? 0) >= 0;
                 return (
                   <div key={row.bot.id} className={`card ${s.card}`}>
                     <div className={s.cardTop}>
@@ -90,11 +100,11 @@ export default function Leaderboard() {
                     </div>
                     <div className={s.cardName} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</div>
                     <div className={`lk ${s.builder}`} onClick={() => row.builder && nav("/builder/" + row.builder)}>@{row.builder}</div>
-                    <Spark data={row.v.curve.map((c) => c[1])} w={260} h={44} up={up} />
+                    {row.v ? <Spark data={row.v.curve.map((c) => c[1])} w={260} h={44} up={up} /> : <div style={{ height: 44 }} />}
                     <div className={s.cardFoot}>
                       <div>
-                        <div className="lbl">{RANGES[range][0]}</div>
-                        <div className={`num ${up ? "up" : "down"}`} style={{ fontSize: 28, marginTop: 4 }}>{pct(row.ret, true)}</div>
+                        <div className="lbl">{row.live ? RANGES[range][0] : "backtest"}</div>
+                        <div className={`num ${up ? "up" : "down"}`} style={{ fontSize: 28, marginTop: 4 }}>{row.ret == null ? "–" : pct(row.ret, true)}</div>
                       </div>
                       <div className={s.cardCta}>
                         <span className="chip">{row.bot.visibility === "public" ? "Public strategy" : "Results only"}</span>
@@ -123,17 +133,17 @@ export default function Leaderboard() {
                 </thead>
                 <tbody>
                   {rows.map((row, i) => {
-                    const up = row.ret >= 0;
+                    const up = (row.ret ?? 0) >= 0;
                     return (
                       <tr key={row.bot.id} className={me && row.builder === me ? s.me : ""}>
                         <td className={`num ${s.num}`}>{i + 1}</td>
                         <td className={s.left}><span className="lk" onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</span></td>
                         <td className={s.left}><span className="lk muted" onClick={() => row.builder && nav("/builder/" + row.builder)}>@{row.builder}</span></td>
                         <td className={s.left}><span className="muted">{DIRLBL[row.bot.direction ?? ""] ?? row.bot.direction}</span></td>
-                        <td className={`num ${up ? "up" : "down"}`}>{pct(row.ret, true)}</td>
-                        <td className="num">{row.v.win == null ? "–" : row.v.win + "%"}</td>
-                        <td className="num muted">{row.v.closed}</td>
-                        <td className={s.left}><Spark data={row.v.curve.map((c) => c[1])} w={120} h={28} up={up} /></td>
+                        <td className={`num ${up ? "up" : "down"}`}>{row.ret == null ? "–" : pct(row.ret, true)}{!row.live && row.ret != null && <span className="muted" style={{ fontSize: 11 }}> bt</span>}</td>
+                        <td className="num">{row.v?.win == null ? "–" : row.v.win + "%"}</td>
+                        <td className="num muted">{row.v?.closed ?? "–"}</td>
+                        <td className={s.left}>{row.v ? <Spark data={row.v.curve.map((c) => c[1])} w={120} h={28} up={up} /> : <span className="muted">–</span>}</td>
                         <td><button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button></td>
                       </tr>
                     );

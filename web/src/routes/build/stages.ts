@@ -27,20 +27,21 @@ export function withBot(path: string, bot: string | null): string {
   return bot ? `${path}?bot=${encodeURIComponent(bot)}` : path;
 }
 
-/** Where to resume a bot given the rung it's on. */
-export function resumePath(stage: Stage, name: string): string {
+/** Where to resume a bot given the rung it's on. Drafts and builds carry the
+ *  immutable bot id; only a deployed bot is addressed by its public name. */
+export function resumePath(stage: Stage, botId: string, name: string): string {
   switch (stage) {
     case "deployed":
       return "/bot/" + encodeURIComponent(name);
     case "ready":
-      return withBot("/build/deploy", name);
+      return withBot("/build/deploy", botId);
     case "weather":
-      return withBot("/build/weather", name);
+      return withBot("/build/weather", botId);
     case "trials":
-      return withBot("/build/trials", name);
+      return withBot("/build/trials", botId);
     case "training":
-      return withBot("/build/training", name);
+      return withBot("/build/training", botId);
     default:
-      return withBot("/build/compose", name);
+      return withBot("/build/compose", botId);
   }
 }

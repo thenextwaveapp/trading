@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useData } from "../api/context";
 import { useAuth, useCurrentHandle } from "../auth";
-import { ago, pct, START } from "../lib/format";
 import s from "./Sidebar.module.css";
 
 const icons = {
@@ -45,15 +43,10 @@ export default function Sidebar({
   onToggle: () => void;
   mobileOpen?: boolean;
 }) {
-  const d = useData();
   const nav = useNavigate();
   const loc = useLocation();
   const { user } = useAuth();
   const myHandle = useCurrentHandle();
-  const N = d.variants.length;
-  const fleetRet = (d.hero.fleet_pnl / (N * START)) * 100;
-  const liveOk = d.running && !d.paused;
-
   // Replay the plane fly animation each time the sidebar opens.
   const [flyKey, setFlyKey] = useState(0);
   const wasCollapsed = useRef(collapsed);
@@ -62,9 +55,12 @@ export default function Sidebar({
     wasCollapsed.current = collapsed;
   }, [collapsed]);
 
-  const onFleet = loc.pathname.startsWith("/fleet") || loc.pathname.startsWith("/bot");
-  const statusTxt = liveOk ? "Fleet is live" : d.paused ? "Fleet paused" : "Fleet is down";
-  const home = { label: "Home", path: "/", icon: "fleet" as const, active: loc.pathname === "/" };
+  const home = {
+    label: "Home",
+    path: user ? "/fleet" : "/",
+    icon: "fleet" as const,
+    active: user ? loc.pathname.startsWith("/fleet") : loc.pathname === "/",
+  };
   const board = { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard" as const, active: loc.pathname.startsWith("/leaderboard") };
   const navItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = user
     ? [
@@ -87,22 +83,7 @@ export default function Sidebar({
         </button>
       </div>
 
-      <div>
-        <div className={s.cap}>YOUR FLEETS</div>
-        <button className={`${s.fl} ${onFleet ? s.on : ""}`} onClick={() => nav("/fleet")} title="Paper Fleet">
-          <span className={s.sq} />
-          <span className={`${s.flBody} ${s.txt}`}>
-            <span className={s.flName}>Paper Fleet</span>
-            <span className={`num ${s.flSub}`}>{N} bots</span>
-          </span>
-          <span className={`num ${s.txt} ${fleetRet >= 0 ? s.up : s.dn}`} style={{ fontSize: 12 }}>
-            {pct(fleetRet, true)}
-          </span>
-        </button>
-      </div>
-
       <nav className={s.nav}>
-        <div className={s.cap}>PAPER FLEET</div>
         {navItems.map((it) => (
           <button
             key={it.path}
@@ -117,7 +98,7 @@ export default function Sidebar({
         {!user && (
           <button
             className={s.ni}
-            onClick={() => nav("/signin")}
+            onClick={() => nav("/?auth=signup")}
             title="Start free"
             style={{ background: "var(--accent, #5e8fd8)", color: "#fff", justifyContent: "center", marginTop: 8 }}
           >
@@ -128,17 +109,9 @@ export default function Sidebar({
 
       <div className={s.spacer} />
 
-      <div className={s.status} title={`${statusTxt} · updated ${ago(d.state_age_s)}`}>
-        <div className={s.statusRow}>
-          <span className={liveOk ? s.live : s.down} />
-          <span className={s.txt}>{statusTxt}</span>
-        </div>
-        <div className={`${s.updated} ${s.txt}`}>Updated {ago(d.state_age_s)}</div>
-      </div>
-
       <button
-        className={`${s.ni} ${loc.pathname === "/signin" ? s.on : ""}`}
-        onClick={() => nav(user ? "/settings" : "/signin")}
+        className={s.ni}
+        onClick={() => nav(user ? "/settings" : "/?auth=signin")}
         title={user ? `@${myHandle ?? "account"}` : "Sign in"}
       >
         <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">

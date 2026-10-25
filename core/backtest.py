@@ -108,11 +108,13 @@ def summarize(trades, cfg):
     for t in trades:
         kinds[t["kind"]] = kinds.get(t["kind"], 0) + 1
     # compound a risk-sized equity curve ordered by exit time (pooled
-    # multi-instrument runs compound in the sequence trades closed)
+    # multi-instrument runs compound in the sequence trades closed). Start at
+    # the earliest signal across instruments so the series is chronological
+    # even when the first trade in the pooled list belongs to another ticker.
     eq = cfg["start_equity"]
     peak = eq
     max_dd = 0.0
-    curve = [[trades[0]["t_sig"], round(eq, 2)]]
+    curve = [[min(t["t_sig"] for t in trades), round(eq, 2)]]
     for t in sorted(trades, key=lambda x: x["exit_t"]):
         sl_dist = t["stop"] / t["entry"] - 1
         notional = min(cfg["risk"] * eq / max(abs(sl_dist), 0.005),
@@ -120,7 +122,10 @@ def summarize(trades, cfg):
         eq += notional * t["net"]
         peak = max(peak, eq)
         max_dd = min(max_dd, eq / peak - 1)
-        curve.append([t["exit_t"], round(eq, 2)])
+        if curve[-1][0] == t["exit_t"]:
+            curve[-1][1] = round(eq, 2)
+        else:
+            curve.append([t["exit_t"], round(eq, 2)])
     return {
         "n": n,
         "net_pct_per_trade": sum(nets) / n * 100,

@@ -76,9 +76,15 @@ def _placebo(strategy, uni, real_trades, rounds=100, seed=7):
                        "placebo_p95": round(p95, 4), "rounds": len(means)}}
 
 
-def run_checks(strategy, candles_by_ticker):
-    """Run the battery. `candles_by_ticker` = {ticker: [candles]}."""
-    base = backtest_universe(strategy, candles_by_ticker)
+def run_checks(strategy, candles_by_ticker, base=None):
+    """Run the battery. `candles_by_ticker` = {ticker: [candles]}.
+
+    `base` may be a backtest already run over the same data; callers that need
+    both the backtest and the checks (the Build worker) pass it to avoid
+    replaying the whole universe twice.
+    """
+    if base is None:
+        base = backtest_universe(strategy, candles_by_ticker)
     base_npt = _net_per_trade(base)
     checks = [
         _cost_stress(strategy, candles_by_ticker, base_npt),

@@ -13,16 +13,20 @@ candles from Binance.
 Run:  python3 -m core.service [--port 8099]
 Test: curl -s localhost:8099/v1/healthz
 """
+import csv
+import gzip
 import json
 import os
 import sys
 import time
 import urllib.request
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .strategy import parse, StrategyError
 from .backtest import backtest, backtest_universe
 from .checks import run_checks
+from .conditions import conditions_breakdown
 from .mapping import variant_to_spec
 from . import db
 from . import presets as _presets
@@ -30,12 +34,27 @@ from .export_catalog import build as build_catalog
 
 BINANCE = "https://fapi.binance.com/fapi/v1/klines"
 
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DAY_MS = 86_400_000
 
 # ---- data ----
 MAX_SYMBOLS = 60        # safety cap
+MAX_BARS = 200_000      # per-symbol safety cap when paging Binance
+_UNIT_MS = {"m": 60_000, "h": 3_600_000, "d": DAY_MS}
 
 
-def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
+def _interval_ms(interval):
+    try:
+        return int(interval[:-1]) * _UNIT_MS[interval[-1]]
+    except (KeyError, ValueError, IndexError):
+        return 900_000
+
+
+def _iso_date(ms):
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
+
+
+def _fetch_page(symbol, interval, limit, start, end):
     url = (f"{BINANCE}?symbol={symbol}&interval={interval}"
            f"&limit={min(int(limit), 1500)}")
     if start:
@@ -50,20 +69,92 @@ def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
             for x in rows if int(x[6]) <= now]
 
 
-def _resolve_universe(body):
-    """-> {ticker: candles}. Resolves universe->symbols and fetches candles:
-    callers send a `universe` slug (fleet-60 / majors), or `symbols`, or inline
-    `candles`/`candles_by_ticker`. Optional `window` = {start, end} in ms.
-    Candles are fetched live from Binance (no cache yet), so big universes over
-    long windows are slow."""
-    if body.get("candles_by_ticker"):
-        return body["candles_by_ticker"]
-    if body.get("candles"):
-        return {body.get("symbol", "SERIES"): body["candles"]}
-    interval = body.get("interval", "15m")
-    limit = int(body.get("limit", 1500))
+def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
+    """Closed candles from Binance. With a `start` we page forward 1,500 bars
+    at a time so a multi-year window is possible; without one this is the
+    original single-request path."""
+    if start is None:
+        return _fetch_page(symbol, interval, limit, start, end)
+
+    step = _interval_ms(interval)
+    out, cursor = [], int(start)
+    while True:
+        batch = _fetch_page(symbol, interval, 1500, cursor, end)
+        if not batch:
+            break
+        out.extend(batch)
+        if len(out) >= MAX_BARS or len(batch) < 1500:
+            break
+        nxt = batch[-1]["t"] + step
+        if nxt <= cursor or (end and nxt > int(end)):
+            break
+        cursor = nxt
+    return out[:MAX_BARS]
+
+
+def _cache_path(interval):
+    base = os.environ.get("PAPERFLEET_CANDLE_CACHE")
+    path = (os.path.join(base, f"bn_candles_{interval}.csv.gz") if base
+            else os.path.join(_ROOT, "lab", "bn", f"bn_candles_{interval}.csv.gz"))
+    return path if os.path.exists(path) else None
+
+
+def _read_cache(symbols, interval, start, end):
+    """Read the local bn/ pull for just the requested symbols.
+
+    -> ({ticker: candles}, seen_symbols). `seen_symbols` is every requested
+    symbol present in the cache file, even if it has no bars inside the
+    window, so we don't re-fetch a delisted coin from Binance.
+    """
+    path = _cache_path(interval)
+    if not path:
+        return {}, set()
+    want = {sym: tk for tk, sym in symbols.items()}
+    out = {tk: [] for tk in symbols}
+    seen = set()
+    with gzip.open(path, "rt", newline="") as f:
+        for x in csv.DictReader(f):
+            sym = x.get("symbol")
+            if sym not in want:
+                continue
+            seen.add(sym)
+            t = int(x["t"])
+            if start and t < int(start):
+                continue
+            if end and t > int(end):
+                continue
+            out[want[sym]].append({
+                "t": t, "o": float(x["o"]), "h": float(x["h"]),
+                "l": float(x["l"]), "c": float(x["c"]), "v": float(x["v"]),
+            })
+    return {tk: rows for tk, rows in out.items() if rows}, seen
+
+
+def _window(body):
     win = body.get("window") or {}
     start, end = win.get("start"), win.get("end")
+    days = body.get("days")
+    if start is None and days:
+        end = int(end or time.time() * 1000)
+        start = int(end - float(days) * DAY_MS)
+    return (int(start) if start else None, int(end) if end else None)
+
+
+def _resolve_universe(body):
+    """-> ({ticker: candles}, meta). Resolves a universe slug (fleet-60 /
+    majors), `symbols`, or inline `candles`; optional `window` = {start, end}
+    in ms or `days`. Prefers the local multi-year bn/ cache when available and
+    only pages Binance for symbols the cache doesn't cover."""
+    if body.get("candles_by_ticker"):
+        uni = body["candles_by_ticker"]
+        return uni, {"source": "inline", "bars": sum(len(v) for v in uni.values())}
+    if body.get("candles"):
+        uni = {body.get("symbol", "SERIES"): body["candles"]}
+        return uni, {"source": "inline", "bars": len(body["candles"])}
+
+    interval = body.get("interval", "15m")
+    limit = int(body.get("limit", 1500))
+    start, end = _window(body)
 
     uni = None
     slug = body.get("universe")
@@ -76,9 +167,55 @@ def _resolve_universe(body):
     if not uni:
         raise ValueError(
             "provide universe, symbols, candles, or candles_by_ticker")
-    items = list(uni.items())[:MAX_SYMBOLS]
-    return {tk: fetch_candles(sym, interval, limit, start, end)
-            for tk, sym in items}
+    items = dict(list(uni.items())[:MAX_SYMBOLS])
+
+    cached, seen = _read_cache(items, interval, start, end)
+    missing = {tk: sym for tk, sym in items.items() if sym not in seen}
+    for tk, sym in missing.items():
+        cached[tk] = fetch_candles(sym, interval, limit, start, end)
+
+    if not cached:
+        raise ValueError("no candles for this universe/window")
+    source = ("cache" if not missing else
+              "binance" if not seen else "cache+binance")
+    return cached, {"source": source, "bars": sum(len(v) for v in cached.values())}
+
+
+def _window_meta(uni, meta):
+    ts = [k["t"] for rows in uni.values() for k in (rows[0], rows[-1])]
+    return {
+        "start": _iso_date(min(ts)),
+        "end": _iso_date(max(ts)),
+        "bars": meta.get("bars", 0),
+        "symbols": len(uni),
+        "source": meta.get("source", "unknown"),
+    }
+
+
+def _gap_recovery(trades, curve):
+    """Honest extras for the report: longest time between signals and the
+    longest peak-to-recovery stretch of the equity curve."""
+    gap_days = None
+    ts = sorted(t["t_sig"] for t in trades if t.get("t_sig") is not None)
+    if len(ts) > 1:
+        gap_days = round(max(b - a for a, b in zip(ts, ts[1:])) / DAY_MS, 1)
+
+    recovery = None
+    if curve:
+        peak, peak_t = curve[0][1], curve[0][0]
+        dd_depth, dd_peak_t, dd_peak = 0.0, None, None
+        for t, eq in curve[1:]:
+            if eq >= peak:
+                if dd_peak_t is not None and dd_peak is not None and eq >= dd_peak:
+                    recovery = round((t - dd_peak_t) / DAY_MS, 1)
+                    dd_peak_t = None
+                peak, peak_t = eq, t
+            else:
+                depth = eq / peak - 1 if peak else 0.0
+                if depth < dd_depth:
+                    dd_depth, dd_peak_t, dd_peak = depth, peak_t, peak
+    return {"longest_gap_days": gap_days,
+            "drawdown_recovery_days": recovery}
 
 
 # ---- endpoint functions (HTTP/MCP adapters call these) ----
@@ -105,13 +242,14 @@ def ep_backtest(body):
     except (StrategyError, KeyError, TypeError) as e:
         return 400, {"ok": False, "error": str(e)}
     try:
-        uni = _resolve_universe(body)
+        uni, meta = _resolve_universe(body)
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
     res = (backtest(s, next(iter(uni.values())))
            if len(uni) == 1 else backtest_universe(s, uni))
     return 200, {"ok": True, "stats": res["stats"],
-                 "trades": res["trades"][:1000]}
+                 "trades": res["trades"][:1000],
+                 "window": _window_meta(uni, meta)}
 
 
 def ep_checks(body):
@@ -120,10 +258,41 @@ def ep_checks(body):
     except (StrategyError, KeyError, TypeError) as e:
         return 400, {"ok": False, "error": str(e)}
     try:
-        uni = _resolve_universe(body)
+        uni, _meta = _resolve_universe(body)
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
     return 200, {"ok": True, **run_checks(s, uni)}
+
+
+def ep_evaluate(body):
+    """One universe load -> backtest + Trials + Weather.
+
+    The Build worker's single call. Loading the candles once is not just a
+    speed-up: the backtest, the stress tests and the condition breakdown all
+    see exactly the same tape, so the numbers cannot disagree."""
+    try:
+        s = parse(body["spec"])
+    except (StrategyError, KeyError, TypeError) as e:
+        return 400, {"ok": False, "error": str(e)}
+    try:
+        uni, meta = _resolve_universe(body)
+    except (ValueError, KeyError) as e:
+        return 400, {"ok": False, "error": str(e)}
+
+    res = backtest_universe(s, uni)
+    checks = run_checks(s, uni, base=res)
+    conditions = conditions_breakdown(res["trades"], uni)
+    return 200, {
+        "ok": True,
+        "stats": res["stats"],
+        "trades": res["trades"][:1000],
+        "window": _window_meta(uni, meta),
+        "checks": checks["checks"],
+        "checks_passed": checks["passed"],
+        "checks_total": checks["total"],
+        "conditions": conditions,
+        **_gap_recovery(res["trades"], res["stats"].get("equity_curve") or []),
+    }
 
 
 def ep_presets(_body=None):
@@ -151,6 +320,7 @@ ENDPOINTS = {
     ("POST", "/v1/validate"): ep_validate,
     ("POST", "/v1/backtest"): ep_backtest,
     ("POST", "/v1/checks"): ep_checks,
+    ("POST", "/v1/evaluate"): ep_evaluate,
     ("POST", "/v1/map"): ep_map,
 }
 

@@ -11,7 +11,7 @@ Run:  python3 -m core.selftest_backtest
 import sys
 
 from core import parse
-from core.backtest import backtest, DEFAULTS
+from core.backtest import backtest, summarize, DEFAULTS
 from core.presets import RULE_P, CAPIT
 from .selftest import (legacy_signal, legacy_signal_capit,
                            gen_random, craft_pump, craft_capit)
@@ -115,6 +115,23 @@ def main():
         for label, _, _, (nk, rk) in bad:
             print(f"\n  {label} diverged:\n    new={nk[:6]}\n    ref={rk[:6]}")
         return 1
+
+    # Pooled runs can list trades per ticker, not per exit time. The equity
+    # curve must still be chronological — the dashboard charts assert on it.
+    pooled = [
+        {"t_sig": 5_000, "entry": 100, "stop": 95,
+         "exit_t": 9_000, "kind": "time", "net": 0.01},
+        {"t_sig": 1_000, "entry": 100, "stop": 95,
+         "exit_t": 2_000, "kind": "time", "net": -0.01},
+        {"t_sig": 2_000, "entry": 100, "stop": 95,
+         "exit_t": 3_000, "kind": "time", "net": 0.02},
+    ]
+    curve = summarize(pooled, DEFAULTS)["equity_curve"]
+    if not all(a[0] < b[0] for a, b in zip(curve, curve[1:])):
+        print(f"\nFAIL: pooled equity curve is not chronological: {curve}")
+        return 1
+    print("  [OK ] pooled equity curve is chronological")
+
     print("\nPASS: backtest engine reproduces the legacy entry+exit ledger "
           "(signal time, exit time, kind, net) trade-for-trade.")
     return 0

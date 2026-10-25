@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../../auth";
-import { setConditionFilter, useBuildData, useMyBots } from "../../db/queries";
+import { saveWeatherGate, setConditionFilter, useBuildData, useMyBot } from "../../db/queries";
 import type { DbCondition } from "../../db/types";
 import { pct } from "../../lib/format";
 import p from "../pages.module.css";
@@ -25,22 +24,40 @@ const cellKey = (vol: string, trend: string) => `${vol}:${trend}`;
 
 export default function Weather() {
   const nav = useNavigate();
-  const { user } = useAuth();
   const [sp] = useSearchParams();
-  const name = sp.get("bot") ?? "";
-  const { data: bots, loading: botsLoading } = useMyBots(user?.id ?? null);
-  const bot = bots?.find((b) => b.name === name) ?? null;
-  const { loading, backtest, checks, conditions } = useBuildData(bot?.id ?? null);
+  const botId = sp.get("bot") ?? "";
+  const [nonce, setNonce] = useState(0);
+  const { data: bot, loading: botLoading } = useMyBot(botId || null, nonce);
+  const { loading, backtest, checks, conditions } = useBuildData(bot?.id ?? null, nonce);
 
   const [restrict, setRestrict] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [seeded, setSeeded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const current = bot && bot.stage !== "draft" ? backtest : null;
+  const done = current?.status === "done";
+
+  useEffect(() => {
+    if (!current || current.status === "done" || current.status === "error") return;
+    const t = setInterval(() => setNonce((n) => n + 1), 4000);
+    return () => clearInterval(t);
+  }, [current?.status]);
 
   const byCell = useMemo(() => {
     const m = new Map<string, DbCondition>();
     for (const c of conditions) m.set(cellKey(c.volatility, c.btc_trend), c);
     return m;
   }, [conditions]);
+  // The gate must carry the training-window terciles so the live fleet can
+  // classify today's regime on the same scale.
+  const volLo = conditions[0]?.vol_lo ?? null;
+  const volHi = conditions[0]?.vol_hi ?? null;
+  const gate = (cells: Set<string>, restrict: boolean) =>
+    restrict && cells.size
+      ? { restrict: true, cells: [...cells], vol_lo: volLo, vol_hi: volHi }
+      : null;
 
   // Seed the gate once: from the bot's saved filter, else from the winning cells.
   useEffect(() => {
@@ -53,54 +70,85 @@ export default function Weather() {
     } else if (conditions.length) {
       setSel(new Set(conditions.filter((c) => (c.return_per_trade ?? 0) > 0).map((c) => cellKey(c.volatility, c.btc_trend))));
       setSeeded(true);
+    } else if (done) {
+      setSeeded(true);
     }
-  }, [bot, conditions, seeded]);
+  }, [bot, conditions, done, seeded]);
 
-  if (botsLoading || (bot && loading)) return <StepLoading step={4} />;
+  if (botLoading || (bot && loading)) return <StepLoading step={4} />;
   if (!bot) return <MissingBot step={4} />;
 
-  const persist = (next: Set<string>, nextRestrict: boolean) => {
+  const persist = async (next: Set<string>, nextRestrict: boolean) => {
     if (!bot) return;
-    setConditionFilter(bot.id, nextRestrict ? { restrict: true, cells: [...next] } : null);
+    setErr(null);
+    const { error } = await setConditionFilter(bot.id, gate(next, nextRestrict));
+    if (error) setErr(error.message);
   };
   const toggleCell = (k: string) => {
     const next = new Set(sel);
     next.has(k) ? next.delete(k) : next.add(k);
     setSel(next);
-    if (restrict) persist(next, true);
+    if (restrict) void persist(next, true);
   };
   const toggleRestrict = () => {
     const next = !restrict;
     setRestrict(next);
-    persist(sel, next);
+    void persist(sel, next);
   };
 
   const inScope = (c: DbCondition) => !restrict || sel.has(cellKey(c.volatility, c.btc_trend));
   const all = summarise(conditions);
   const selected = summarise(conditions.filter(inScope));
   const passed = checks.filter((c) => c.status === "pass").length;
-  const ready = checks.length > 0 && passed === checks.length;
-  const noConditions = !backtest || conditions.length === 0;
+  const noConditions = !done || conditions.length === 0;
+
+  const deploy = async () => {
+    if (!done) return;
+    setErr(null);
+    setBusy(true);
+    const { error } = await saveWeatherGate(bot.id, gate(sel, restrict));
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    nav(withBot("/build/deploy", bot.id));
+  };
 
   return (
     <>
       <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{name}</b>
+        <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{bot.name}</b>
       </div>
       <Steps current={4} />
       <div className={p.body}>
         <section style={{ padding: "32px 0 24px" }}>
           <h1 className={p.title} style={{ fontSize: 34 }}>Market conditions</h1>
-          <div className={p.subtitle} style={{ marginTop: 8 }}>Performance by Bitcoin trend and market volatility.</div>
+          <div className={p.subtitle} style={{ marginTop: 8 }}>Performance by Bitcoin trend and market volatility at entry.</div>
         </section>
 
-        {noConditions ? (
+        {!done ? (
           <div className={r.statusCard}>
             <span className="downDot" style={{ background: "#d29922" }} />
             <div>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>No conditions breakdown yet.</div>
-              <div className="lbl" style={{ marginTop: 4 }}>It's computed from the backtest — finish training and the trials first.</div>
-              <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 14 }} onClick={() => nav(withBot("/build/training", name))}>Go to training</button>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>
+                {current?.status === "error" ? "Training failed — no weather to read." : "Finish training first."}
+              </div>
+              <div className="lbl" style={{ marginTop: 4 }}>
+                {current?.status === "error"
+                  ? (current.cost_note || "The engine couldn't complete this run.")
+                  : "The regime breakdown is computed from the backtest's own trades."}
+              </div>
+              <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 14 }} onClick={() => nav(withBot("/build/training", bot.id))}>
+                Go to training
+              </button>
+            </div>
+          </div>
+        ) : noConditions ? (
+          <div className={r.statusCard}>
+            <span className="downDot" style={{ background: "#d29922" }} />
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>No weather breakdown for this run.</div>
+              <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>
+                The engine reported no regime cells (usually a universe without BTC history). You can still deploy without a gate.
+              </div>
             </div>
           </div>
         ) : (
@@ -129,6 +177,7 @@ export default function Weather() {
                   <Cmp label="Selected only" ret={selected.ret} trades={selected.trades} dim={!restrict} />
                 </div>
               </div>
+              {err && <div className="lbl" style={{ color: "var(--down, #ff5c6c)" }}>{err}</div>}
             </div>
           </section>
         )}
@@ -137,16 +186,26 @@ export default function Weather() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="lbl">Verdict</div>
             <div style={{ fontSize: 22, fontWeight: 500, marginTop: 4 }}>
-              {ready ? `${name} is ready to launch.` : "Keep testing before launch."}
+              {bot.stage === "deployed"
+                ? `${bot.name} is already deployed.`
+                : done
+                ? `${bot.name} is ready to deploy.`
+                : "Keep training before launch."}
             </div>
             <div className="lbl" style={{ marginTop: 4 }}>
-              {checks.length ? `${passed} of ${checks.length} trials passed` : "trials not run"}
+              {checks.length ? `${passed} of ${checks.length} trials passed (advisory)` : "trials not reported"}
               {restrict && sel.size ? ` · ${sel.size} condition${sel.size > 1 ? "s" : ""} only` : ""}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className={p.btn} onClick={() => nav("/build")}>Later</button>
-            <button className={`${p.btn} ${p.pri}`} disabled={!ready} onClick={() => nav(withBot("/build/deploy", name))}>Deploy bot</button>
+            {bot.stage === "deployed" ? (
+              <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/bot/" + encodeURIComponent(bot.name))}>View bot</button>
+            ) : (
+              <button className={`${p.btn} ${p.pri}`} disabled={!done || busy} onClick={deploy}>
+                {busy ? "Saving…" : "Deploy bot"}
+              </button>
+            )}
           </div>
         </section>
       </div>

@@ -9,19 +9,22 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-cp com.trading.paperfleet.plist com.trading.fleetdash.plist ~/Library/LaunchAgents/
+cp com.trading.paperfleet.plist com.trading.fleetdash.plist com.trading.engineworker.plist ~/Library/LaunchAgents/
 
 # stop any ad-hoc fleet/dashboard first (state lives in JSON; restart is safe,
 # open positions replay their exits from candle history)
 pkill -f 'paper_fleet\.py$' 2>/dev/null && echo "stopped ad-hoc fleet" || true
 pkill -f 'fleet_dashboard\.py' 2>/dev/null && echo "stopped ad-hoc dashboard" || true
+pkill -f 'runtime\.engine_worker' 2>/dev/null && echo "stopped ad-hoc engine worker" || true
 sleep 2
 
 uid=$(id -u)
 launchctl bootout "gui/$uid/com.trading.paperfleet" 2>/dev/null || true
 launchctl bootout "gui/$uid/com.trading.fleetdash" 2>/dev/null || true
+launchctl bootout "gui/$uid/com.trading.engineworker" 2>/dev/null || true
 launchctl bootstrap "gui/$uid" ~/Library/LaunchAgents/com.trading.paperfleet.plist
 launchctl bootstrap "gui/$uid" ~/Library/LaunchAgents/com.trading.fleetdash.plist
+launchctl bootstrap "gui/$uid" ~/Library/LaunchAgents/com.trading.engineworker.plist
 
 sleep 3
 echo "---"

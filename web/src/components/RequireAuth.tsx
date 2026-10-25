@@ -7,8 +7,9 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   const loc = useLocation();
   if (loading) return null; // the app shell already shows a splash while auth hydrates
   if (!user) {
+    // No sign-in page — bounce to the landing, which opens the glass auth dialog.
     const next = encodeURIComponent(loc.pathname + loc.search);
-    return <Navigate to={`/signin?next=${next}`} replace />;
+    return <Navigate to={`/?auth=signin&next=${next}`} replace />;
   }
   return <>{children}</>;
 }

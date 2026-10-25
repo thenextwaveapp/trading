@@ -5,7 +5,7 @@ import { useAuth } from "../auth";
 import { ago, clock, TZ } from "../lib/format";
 import p from "./pages.module.css";
 
-const TABS = ["Profile", "System", "Alerts"];
+const TABS = ["Profile", "Sharing", "Defaults", "Alerts", "Plan", "System"];
 
 export default function Settings() {
   const d = useData();
@@ -50,6 +50,41 @@ export default function Settings() {
               <button className={`${p.btn} ${p.sm}`} style={{ width: "fit-content" }} onClick={() => nav("/signin")}>Sign in</button>
             </div>
           )
+        )}
+
+        {tab === "Sharing" && (
+          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>Default visibility</div>
+              <div className="lbl" style={{ marginTop: 6, lineHeight: 1.5 }}>New bots land in your roster private. Choose what to expose when you deploy.</div>
+              <Field label="Default bot visibility" value={profile?.default_bot_visibility ?? "results"} />
+              <Field label="Show on leaderboard" value={profile?.bots_on_leaderboard ? "Yes" : "No"} />
+            </div>
+          </div>
+        )}
+
+        {tab === "Defaults" && (
+          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>Bot defaults</div>
+              <div className="lbl" style={{ marginTop: 6, lineHeight: 1.5 }}>Starting capital, concurrency and drawdown thresholds for new bots.</div>
+              <Field label="Starting capital" value="$10,000" />
+              <Field label="Max concurrent" value="6" />
+              <Field label="Drawdown threshold" value="-5%" />
+            </div>
+          </div>
+        )}
+
+        {tab === "Plan" && (
+          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>Your plan</div>
+              <div className="lbl" style={{ marginTop: 6, lineHeight: 1.5 }}>Paper Fleet is free to start. Upgrade for live capital and higher limits.</div>
+              <Field label="Plan" value="Free" />
+              <Field label="Fleets" value="1" />
+              <Field label="Bots" value="Unlimited (paper)" />
+            </div>
+          </div>
         )}
 
         {tab === "System" && (

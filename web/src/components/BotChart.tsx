@@ -71,13 +71,15 @@ export default function BotChart({
       avg = avgRef.current,
       line = lineRef.current;
     if (!chart || !avg || !line) return;
-    const ts = variant.curve.map((c) => c[0]);
-    const avgData = ts
-      .map((t) => ({
-        time: lt(t) as UTCTimestamp,
-        value: +(variants.reduce((a, x) => a + curveAt(x.curve, t), 0) / variants.length).toFixed(2),
-      }))
-      .filter((p, i, a) => i === 0 || (p.time as number) > (a[i - 1].time as number));
+    const avgData: { time: UTCTimestamp; value: number }[] = [];
+    if (variants.length) {
+      for (const [t] of variant.curve) {
+        const time = lt(t) as UTCTimestamp;
+        if (avgData.length && time <= avgData[avgData.length - 1].time) continue;
+        const value = +(variants.reduce((a, x) => a + curveAt(x.curve, t), 0) / variants.length).toFixed(2);
+        avgData.push({ time, value });
+      }
+    }
     avg.setData(avgData);
     line.setData(lineData(variant.curve));
 
@@ -101,10 +103,7 @@ export default function BotChart({
       });
     line.setMarkers(mk);
 
-    if (!drew.current) {
-      applyRange(chart, range);
-      drew.current = true;
-    }
+    if (!drew.current && applyRange(chart, range)) drew.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant, variants, trades]);
 

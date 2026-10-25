@@ -1,9 +1,11 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../api/context";
 import type { Position, Trade, Variant } from "../api/types";
+import { useAuth } from "../auth";
 import {
   DIRLBL,
   REASON,
+  START,
   TZ,
   clock,
   dol,
@@ -18,10 +20,13 @@ import {
 import DataTable, { type Column } from "../components/DataTable";
 import FleetChart from "../components/FleetChart";
 import { BotLink, Coin } from "../components/cells";
+import { useMyBots } from "../db/queries";
+import { variantFromBot } from "../lib/variant";
 import s from "./FleetView.module.css";
 
 type Status = { txt: string; cls: "" | "trade" | "rest" };
-function statusOf(v: Variant): Status {
+function statusOf(v: Variant, live: boolean): Status {
+  if (!live) return { txt: "Awaiting live data", cls: "" };
   if (v.kill) return { txt: "Paused · loss limit", cls: "rest" };
   if (v.open.length)
     return { txt: "In a trade · " + v.open.map((o) => o.ticker).join(", "), cls: "trade" };
@@ -48,6 +53,8 @@ const TILE_SHADES = ["#3a81d7", "#6FA2E8", "#A9C8F2", "#5E8FD8", "#8BB4E8"];
 
 export default function FleetView() {
   const d = useData();
+  const { user } = useAuth();
+  const { data: roster } = useMyBots(user?.id ?? null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"cards" | "rows">(() =>
     localStorage.getItem("fleetview") === "rows" ? "rows" : "cards",
@@ -94,26 +101,57 @@ export default function FleetView() {
     }
   };
 
-  const v = d.variants;
+  // The page is the signed-in Builder's own fleet: their deployed bots, as
+  // created in Build. The live engine feed is shared by every account, so only
+  // match it by name — never append variants the user doesn't own.
+  const deployed = useMemo(
+    () => (roster ?? []).filter((b) => b.stage === "deployed"),
+    [roster],
+  );
+  const v = useMemo(() => {
+    const live = new Map(d.variants.map((x) => [x.name, x]));
+    return deployed.map((b) => live.get(b.name) ?? variantFromBot(b));
+  }, [deployed, d.variants]);
+  const liveNames = useMemo(() => {
+    const feed = new Set(d.variants.map((x) => x.name));
+    return new Set(deployed.map((b) => b.name).filter((n) => feed.has(n)));
+  }, [deployed, d.variants]);
+  const names = useMemo(() => new Set(v.map((x) => x.name)), [v]);
   const N = v.length;
-  const h = d.hero;
-  const open = d.positions;
+  const open = useMemo(() => v.flatMap((x) => x.open), [v]);
+  const trades = useMemo(
+    () => d.trades.filter((t) => names.has(t.variant)),
+    [d.trades, names],
+  );
   const now = d.now;
-  const totalProfit = h.fleet_pnl + h.unreal; // marked-to-market
+  const unreal = open.reduce((a, o) => a + (o.upnl || 0), 0);
+  const totalProfit = v.reduce((a, x) => a + x.equity - START, 0) + unreal;
+  const closedCount = v.reduce((a, x) => a + x.closed, 0);
   const liveOk = d.running && !d.paused;
   const errs = d.log.filter((l) => /error|exception|traceback|kill/i.test(l));
 
   const todayPnl = useMemo(() => {
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);
-    return d.trades.filter((t) => t.exit_t >= start.getTime()).reduce((a, t) => a + t.pnl, 0);
-  }, [d.trades, now]);
+    return trades.filter((t) => t.exit_t >= start.getTime()).reduce((a, t) => a + t.pnl, 0);
+  }, [trades, now]);
+
+  const weekPnl = useMemo(
+    () => trades.filter((t) => t.exit_t >= now - 7 * 86_400_000).reduce((a, t) => a + t.pnl, 0),
+    [trades, now],
+  );
 
   const top = useMemo(() => [...v].sort((a, b) => b.ret - a.ret)[0], [v]);
 
   const bots = useMemo(
-    () => [...v].sort((a, b) => b.ret - a.ret).map((x) => ({ v: x, st: statusOf(x) })),
-    [v],
+    () =>
+      [...v]
+        .sort((a, b) => b.ret - a.ret)
+        .map((x) => {
+          const live = liveNames.has(x.name);
+          return { v: x, live, st: statusOf(x, live) };
+        }),
+    [v, liveNames],
   );
   const inTrade = bots.filter((b) => b.st.cls === "trade").length;
   const paused = bots.filter((b) => b.st.cls === "rest").length;
@@ -121,7 +159,7 @@ export default function FleetView() {
 
   const fOpen = filtering ? open.filter((o) => selected.has(o.variant)) : open;
   const fOpenUnreal = fOpen.reduce((a, o) => a + (o.upnl || 0), 0);
-  const fClosed = filtering ? d.trades.filter((t) => selected.has(t.variant)) : d.trades;
+  const fClosed = filtering ? trades.filter((t) => selected.has(t.variant)) : trades;
 
   const filterChip = filtering && (
     <span className="chip lk" style={{ height: 22, marginLeft: 8 }} onClick={clearLeg}>
@@ -192,6 +230,7 @@ export default function FleetView() {
           </span>
           {d._source === "local-stale" && <span className="chip danger">⚠ upstream down · local copy</span>}
           {d._source === "local" && <span className="chip">local data</span>}
+          {N > 0 && liveNames.size === 0 && <span className="chip">awaiting live feed</span>}
           {errs.length > 0 && <span className="chip danger">⚠ {errs.length} in log</span>}
         </div>
       </header>
@@ -203,7 +242,7 @@ export default function FleetView() {
             <div className={`num gradtext ${s.heroBig}`}>{usd(totalProfit, true)}</div>
             <div className={s.heroSub}>
               <span className={`num ${todayPnl >= 0 ? "up" : "down"}`}>{usd(todayPnl, true)} today</span>
-              <span className="muted">{h.closed} closed trades · since {dstr(d.start)}</span>
+              <span className="muted">{closedCount} closed trades · since {dstr(d.start)}</span>
             </div>
           </div>
           <div className={s.heroCards}>
@@ -222,13 +261,13 @@ export default function FleetView() {
             )}
             <div className={`card ${s.statCard}`}>
               <div className="lbl">Open · unrealized</div>
-              <div className={`num ${h.unreal >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(h.unreal, true)}</div>
+              <div className={`num ${unreal >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(unreal, true)}</div>
               <div className="lbl" style={{ marginTop: 2 }}>{open.length} open position{open.length === 1 ? "" : "s"}</div>
             </div>
             <div className={`card ${s.statCard}`}>
               <div className="lbl">Last 7 days</div>
-              <div className={`num ${h.week_pnl >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(h.week_pnl, true)}</div>
-              <div className="lbl" style={{ marginTop: 2 }}>closed P&L, all bots</div>
+              <div className={`num ${weekPnl >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(weekPnl, true)}</div>
+              <div className="lbl" style={{ marginTop: 2 }}>closed P&L, your fleet</div>
             </div>
           </div>
         </section>
@@ -261,7 +300,7 @@ export default function FleetView() {
               {shownBots.map((b, i) => {
                 const pos = b.v.ret >= 0;
                 const shade = b.st.cls === "rest" ? "#3A4250" : TILE_SHADES[i % 5];
-                const col = b.st.cls === "rest" ? "#6B717B" : pos ? "#3DDC97" : "#FF5C6C";
+                const col = !b.live ? "var(--muted-2)" : b.st.cls === "rest" ? "#6B717B" : pos ? "#3DDC97" : "#FF5C6C";
                 const cls = `${s.tile} ${b.st.cls === "trade" ? s.tileTrade : b.st.cls === "rest" ? s.tileRest : ""}`;
                 return (
                   <div key={b.v.name} className={cls} title={b.v.params} onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(b.v.name))}>
@@ -283,9 +322,11 @@ export default function FleetView() {
           )}
         </section>
 
-        <div ref={anchorRef}>
-          <FleetChart variants={v} selected={selected} onToggle={toggleLeg} onClear={clearLeg} />
-        </div>
+        {v.length > 0 && (
+          <div ref={anchorRef}>
+            <FleetChart variants={v} selected={selected} onToggle={toggleLeg} onClear={clearLeg} />
+          </div>
+        )}
 
         <section className={s.section48}>
           <div className={s.closedHead}>
@@ -301,7 +342,7 @@ export default function FleetView() {
         <section className={s.section48}>
           <div className={s.closedHead}>
             <h2 className={s.h2}>
-              Closed trades <span className={`num ${s.count}`} style={{ fontSize: 14, marginLeft: 4 }}>{filtering ? fClosed.length : h.closed}</span>
+              Closed trades <span className={`num ${s.count}`} style={{ fontSize: 14, marginLeft: 4 }}>{filtering ? fClosed.length : closedCount}</span>
               {filterChip}
             </h2>
           </div>

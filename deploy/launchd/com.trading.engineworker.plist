@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>SUPABASE_ANON_KEY</key>
+		<string>sb_publishable_kfHyh2qFGsT0eJ077SxeAQ_s-kuI-kA</string>
+		<key>SUPABASE_SERVICE_KEY</key>
+		<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aXpkZnVoenh3dmtibmppZGR4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDUxOTI3OSwiZXhwIjoyMTAwMDk1Mjc5fQ.FJN0a-1wWcdEBL7oJLxRl2wHujI_FtCqVBphjtrgp_g</string>
+		<key>SUPABASE_URL</key>
+		<string>https://otizdfuhzxwvkbnjiddx.supabase.co</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.trading.engineworker</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+		<string>-m</string>
+		<string>runtime.engine_worker</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/mayowarosanwo/Downloads/trading/paper/fleet/engineworker.err.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/mayowarosanwo/Downloads/trading/paper/fleet/engineworker.out.log</string>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/mayowarosanwo/Downloads/trading</string>
+</dict>
+</plist>

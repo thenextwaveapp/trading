@@ -11,8 +11,10 @@ import type {
   DbPlan,
   DbProfile,
   DbStrategyCondition,
+  DbUniverse,
   DbUniverseFilter,
   DbUniverseWithCoins,
+  Stage,
   Visibility,
 } from "./types";
 
@@ -62,12 +64,40 @@ export const fetchMyBots = (owner: string) =>
     .eq("owner", owner)
     .order("created_at", { ascending: false });
 
+/** One bot by id — the Build wizard's handle on what it is editing. */
+export const fetchMyBot = (id: string) =>
+  supabase
+    .from("pf_bots")
+    .select("*, builder:pf_profiles(handle, avatar_color)")
+    .eq("id", id)
+    .single();
+
+/** Names are the public identity and unique per Builder. */
+export const botNameTaken = async (
+  owner: string,
+  name: string,
+  excludeId?: string,
+) => {
+  let q = supabase
+    .from("pf_bots")
+    .select("id")
+    .eq("owner", owner)
+    .eq("name", name)
+    .limit(1);
+  if (excludeId) q = q.neq("id", excludeId);
+  const { data, error } = await q;
+  return { taken: !!data?.length, error };
+};
+
 export const fetchUniverse = (slug: string) =>
   supabase
     .from("pf_universes")
     .select("*, pf_universe_coins(coin_symbol)")
     .eq("slug", slug)
     .single();
+
+export const fetchUniverses = () =>
+  supabase.from("pf_universes").select("*").order("slug");
 
 export const fetchUniverseFilters = (universeId: string) =>
   supabase.from("pf_universe_filters").select("*").eq("universe_id", universeId).order("position");
@@ -119,9 +149,53 @@ export const useMyBots = (owner: string | null) =>
     () => (owner ? fetchMyBots(owner) : Promise.resolve({ data: [], error: null })),
     [owner],
   );
+
+/** One bot by id. Keeps its row while a poll refreshes it, but never leaks a
+ *  previous bot's row when the id changes. */
+export function useMyBot(id: string | null, nonce = 0): {
+  data: DbBot | null;
+  error: string | null;
+  loading: boolean;
+} {
+  const [state, setState] = useState<{
+    id: string | null;
+    data: DbBot | null;
+    error: string | null;
+    loading: boolean;
+  }>({ id: null, data: null, error: null, loading: !!id });
+
+  useEffect(() => {
+    let alive = true;
+    if (!id) {
+      setState({ id: null, data: null, error: null, loading: false });
+      return;
+    }
+    setState((s) =>
+      s.id === id
+        ? { ...s, loading: s.data === null }
+        : { id, data: null, error: null, loading: true },
+    );
+    fetchMyBot(id).then(({ data, error }) => {
+      if (!alive) return;
+      setState({
+        id,
+        data: (data as DbBot) ?? null,
+        error: error?.message ?? null,
+        loading: false,
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id, nonce]);
+
+  return { data: state.data, error: state.error, loading: state.loading };
+}
 export const useBot = (name: string) => useQuery<DbBot>(() => fetchBot(name), [name]);
 export const useUniverse = (slug: string) =>
   useQuery<DbUniverseWithCoins>(() => fetchUniverse(slug), [slug]);
+export const useUniverses = () =>
+  useQuery<DbUniverse[]>(() => fetchUniverses());
 export const useUniverseFilters = (universeId: string | null) =>
   useQuery<DbUniverseFilter[]>(
     () => (universeId ? fetchUniverseFilters(universeId) : Promise.resolve({ data: [], error: null })),
@@ -222,6 +296,7 @@ export const createDraftBot = (input: {
   universe_id: string | null;
   direction: string | null;
   params: Record<string, unknown>;
+  spec?: Record<string, unknown> | null;
 }) =>
   supabase
     .from("pf_bots")
@@ -232,11 +307,79 @@ export const createDraftBot = (input: {
       universe_id: input.universe_id,
       direction: input.direction,
       params: input.params,
+      spec: input.spec ?? null,
       stage: "draft",
       market: "crypto",
-      visibility: "results",
+      visibility: "private", // private by default — you choose when to publish
     })
     .select("id, name")
+    .single();
+
+/** Edit a composed bot. The old backtest and weather gate no longer describe
+ *  this Setup, so clear them and send the bot back to Draft until re-trained.
+ *  RLS (pf_bots_rw) requires owner = auth.uid(). */
+export const updateDraftBot = (input: {
+  id: string;
+  name: string;
+  family_slug: string | null;
+  universe_id: string | null;
+  direction: string | null;
+  params: Record<string, unknown>;
+  spec?: Record<string, unknown> | null;
+}) =>
+  supabase
+    .from("pf_bots")
+    .update({
+      name: input.name,
+      family_slug: input.family_slug,
+      universe_id: input.universe_id,
+      direction: input.direction,
+      params: input.params,
+      spec: input.spec === undefined ? null : input.spec,
+      stage: "draft",
+      bt: null,
+      validated_at: null,
+      condition_filter: null,
+    })
+    .eq("id", input.id)
+    .select("id, name")
+    .single();
+
+/** Move a bot along the ladder (training -> trials -> weather -> ready). */
+export const setBotStage = (bot_id: string, stage: Stage) =>
+  supabase.from("pf_bots").update({ stage }).eq("id", bot_id);
+
+/** Close the Weather step: persist the regime gate and graduate to Ready. */
+export const saveWeatherGate = (
+  bot_id: string,
+  filter: Record<string, unknown> | null,
+) =>
+  supabase
+    .from("pf_bots")
+    .update({
+      condition_filter: filter,
+      stage: "ready",
+      validated_at: new Date().toISOString(),
+    })
+    .eq("id", bot_id);
+
+/** A Builder needs at least one fleet to deploy into. The signup trigger seeds
+ *  one; this is the fallback if it is missing. */
+export const createFleet = (owner: string, name = "My Fleet") =>
+  supabase
+    .from("pf_fleets")
+    .insert({
+      owner,
+      name,
+      color: "#3a81d7",
+      budget_per_bot: 10_000,
+      market: "crypto",
+      check_interval_min: 15,
+      status: "active",
+      kill_switch_pct: -5,
+      benchmark_pct: 2,
+    })
+    .select("*")
     .single();
 
 /** Enqueue a backtest for a bot: the engine worker drains pending rows,

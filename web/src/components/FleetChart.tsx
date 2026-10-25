@@ -30,7 +30,7 @@ export const LW_OPTS = {
 export function lineData(curve: [number, number][]) {
   let last = -1;
   const out: { time: UTCTimestamp; value: number }[] = [];
-  for (const [t, v] of curve) {
+  for (const [t, v] of [...curve].sort((a, b) => a[0] - b[0])) {
     const x = lt(t);
     if (x <= last) continue;
     last = x;
@@ -47,16 +47,21 @@ export function pctData(curve: [number, number][]) {
 const USD_FMT = { type: "price", precision: 2, minMove: 0.01 } as const;
 const PCT_FMT = { type: "custom", minMove: 0.01, formatter: (x: number) => x.toFixed(1) + "%" } as const;
 
-export function applyRange(chart: IChartApi, days: number | null) {
+/** Returns false (and does nothing) while the chart has no points, since
+ *  setVisibleRange throws on an empty time scale. */
+export function applyRange(chart: IChartApi, days: number | null): boolean {
+  const ts = chart.timeScale();
+  if (ts.getVisibleLogicalRange() === null) return false;
   if (days == null) {
-    chart.timeScale().fitContent();
+    ts.fitContent();
   } else {
     const now = lt(Date.now());
-    chart.timeScale().setVisibleRange({
+    ts.setVisibleRange({
       from: (now - days * 86400) as UTCTimestamp,
       to: now as UTCTimestamp,
     });
   }
+  return true;
 }
 
 const RANGES: [string, number | null][] = [
@@ -123,10 +128,7 @@ export default function FleetChart({
       });
       ser.setData(mode === "pct" ? pctData(v.curve) : lineData(v.curve));
     });
-    if (!drewRef.current) {
-      applyRange(chart, range);
-      drewRef.current = true;
-    }
+    if (!drewRef.current && applyRange(chart, range)) drewRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variants, selected, mode]);
 

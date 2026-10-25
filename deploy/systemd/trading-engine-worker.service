@@ -1,0 +1,14 @@
+[Unit]
+Description=Paper Fleet engine backtest worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=trading
+WorkingDirectory=/opt/trading
+ExecStart=/opt/engine-venv/bin/python -m runtime.engine_worker
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

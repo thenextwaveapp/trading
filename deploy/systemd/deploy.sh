@@ -42,14 +42,15 @@ rsync -az assets "$HOST:$DEST/"
 rsync -az --delete web/dist/ "$HOST:$DEST/web_dist/"
 rsync -az --ignore-existing paper/fleet/ "$HOST:$DEST/paper/fleet/"
 rsync -az deploy/systemd/trading-paperfleet.service \
-          deploy/systemd/trading-fleetdash.service "$HOST:/etc/systemd/system/"
+          deploy/systemd/trading-fleetdash.service \
+          deploy/systemd/trading-engine-worker.service "$HOST:/etc/systemd/system/"
 
 ssh "$HOST" "chown -R trading: $DEST
              systemctl daemon-reload
-             systemctl enable --now trading-paperfleet trading-fleetdash
-             systemctl restart trading-paperfleet trading-fleetdash
+             systemctl enable --now trading-paperfleet trading-fleetdash trading-engine-worker
+             systemctl restart trading-paperfleet trading-fleetdash trading-engine-worker
              sleep 3
-             systemctl is-active trading-paperfleet trading-fleetdash"
+             systemctl is-active trading-paperfleet trading-fleetdash trading-engine-worker"
 
 echo "---"
 echo "dashboard:  https://fleet.presencenet.io   (React UI + API, served by fleet_dashboard.py)"

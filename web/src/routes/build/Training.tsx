@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../../auth";
-import { createBacktest, useBuildData, useMyBots } from "../../db/queries";
+import { createBacktest, setBotStage, useBuildData, useMyBot } from "../../db/queries";
 import type { DbBacktest } from "../../db/types";
 import { dol, pct } from "../../lib/format";
 import p from "../pages.module.css";
@@ -12,24 +11,51 @@ import { withBot } from "./stages";
 
 export default function Training() {
   const nav = useNavigate();
-  const { user } = useAuth();
   const [sp] = useSearchParams();
-  const name = sp.get("bot") ?? "";
-  const { data: bots, loading: botsLoading } = useMyBots(user?.id ?? null);
-  const bot = bots?.find((b) => b.name === name) ?? null;
+  const botId = sp.get("bot") ?? "";
   const [nonce, setNonce] = useState(0);
+  const { data: bot, loading: botLoading } = useMyBot(botId || null, nonce);
   const { loading, backtest } = useBuildData(bot?.id ?? null, nonce);
   const [queuing, setQueuing] = useState(false);
+  const [queueErr, setQueueErr] = useState<string | null>(null);
+  const [queued, setQueued] = useState(false);
 
-  if (botsLoading || (bot && loading)) return <StepLoading step={2} />;
+  // A Draft's old done backtest describes an older Setup, but a pending or
+  // running one is live work — show it even before the stage flip lands.
+  const liveRun = !!backtest && (backtest.status === "pending" || backtest.status === "running");
+  const current = backtest && (liveRun || (bot && (bot.stage !== "draft" || queued))) ? backtest : null;
+
+  useEffect(() => {
+    if (!current || current.status === "done" || current.status === "error") return;
+    const t = setInterval(() => setNonce((n) => n + 1), 4000);
+    return () => clearInterval(t);
+  }, [current?.status]);
+
+  if (botLoading || (bot && loading)) return <StepLoading step={2} />;
   if (!bot) return <MissingBot step={2} />;
 
   const queue = async () => {
+    setQueueErr(null);
     setQueuing(true);
-    await createBacktest({ bot_id: bot.id, universe_id: bot.universe_id });
+    const { error: stageErr } = await setBotStage(bot.id, "training");
+    if (stageErr) {
+      setQueuing(false);
+      setQueueErr(stageErr.message);
+      return;
+    }
+    const { error } = await createBacktest({ bot_id: bot.id, universe_id: bot.universe_id });
     setQueuing(false);
+    if (error) {
+      await setBotStage(bot.id, "draft");
+      setQueueErr(error.message);
+      return;
+    }
+    setQueued(true);
     setNonce((n) => n + 1);
   };
+
+  const name = bot.name;
+  const edit = () => nav(withBot("/build/compose", bot.id));
 
   return (
     <>
@@ -38,19 +64,46 @@ export default function Training() {
       </div>
       <Steps current={2} />
       <div className={p.body}>
-        {backtest && backtest.status === "done" ? (
-          <Result bt={backtest} onTrials={() => nav(withBot("/build/trials", name))} onEdit={() => nav(withBot("/build/compose", name))} />
-        ) : backtest ? (
-          <Running onRefresh={() => setNonce((n) => n + 1)} failed={backtest.status === "error"} />
+        {current && current.status === "done" ? (
+          <Result
+            bt={current}
+            onTrials={() => nav(withBot("/build/trials", bot.id))}
+            onEdit={edit}
+            onRetrain={queue}
+            retraining={queuing}
+          />
+        ) : current ? (
+          <Running
+            onRefresh={() => setNonce((n) => n + 1)}
+            onEdit={edit}
+            onRetry={queue}
+            retrying={queuing}
+            status={current.status}
+            note={current.cost_note ?? null}
+          />
         ) : (
-          <NotRun onQueue={queue} queuing={queuing} />
+          <NotRun
+            onQueue={queue}
+            queuing={queuing}
+            error={queueErr}
+            note={backtest ? "The Setup changed since the last run — train again to test the new rules." : undefined}
+          />
+        )}
+        {queueErr && current && (
+          <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13, marginTop: 12 }}>{queueErr}</div>
         )}
       </div>
     </>
   );
 }
 
-function Result({ bt, onTrials, onEdit }: { bt: DbBacktest; onTrials: () => void; onEdit: () => void }) {
+function Result({ bt, onTrials, onEdit, onRetrain, retraining }: {
+  bt: DbBacktest;
+  onTrials: () => void;
+  onEdit: () => void;
+  onRetrain: () => void;
+  retraining: boolean;
+}) {
   const start = bt.initial_capital ?? 10_000;
   const end = bt.final_value ?? start;
   const up = end >= start;
@@ -69,10 +122,13 @@ function Result({ bt, onTrials, onEdit }: { bt: DbBacktest; onTrials: () => void
             <span className="muted" style={{ fontSize: 28 }}>→</span>
             <span className={`num ${r.big} ${up ? "up" : "down"}`}>{dol(end)}</span>
           </div>
-          <div className="lbl" style={{ marginTop: 8 }}>Includes fees and funding, with conservative fill prices.</div>
+          <div className="lbl" style={{ marginTop: 8 }}>{bt.cost_note || "Includes taker fees and slippage."}</div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className={p.btn} onClick={onEdit}>Edit strategy</button>
+          <button className={p.btn} onClick={onRetrain} disabled={retraining}>
+            {retraining ? "Queuing…" : "Train again"}
+          </button>
           <button className={`${p.btn} ${p.pri}`} onClick={onTrials}>Run the trials</button>
         </div>
       </section>
@@ -81,7 +137,7 @@ function Result({ bt, onTrials, onEdit }: { bt: DbBacktest; onTrials: () => void
         <Stat label="Trades" value={bt.trades == null ? "–" : String(bt.trades)} sub={perWeek ? `about ${perWeek < 2 ? perWeek.toFixed(1) : Math.round(perWeek)} a week` : "after fees"} />
         <Stat label="Win rate" value={win == null ? "–" : Math.round(win) + "%"} sub={bt.wins != null && bt.losses != null ? `${bt.wins} won · ${bt.losses} lost` : ""} />
         <Stat label="Average trade" value={pct(avg, true)} cls={(avg ?? 0) >= 0 ? "up" : "down"} sub="after costs" />
-        <Stat label="Max drawdown" value={pct(bt.max_drawdown)} cls={(bt.max_drawdown ?? 0) < 0 ? "down" : ""} sub={bt.drawdown_recovery_days != null ? `recovered in ${bt.drawdown_recovery_days} days` : "peak-to-trough"} />
+        <Stat label="Max drawdown" value={pct(bt.max_drawdown == null ? null : bt.max_drawdown * 100)} cls={(bt.max_drawdown ?? 0) < 0 ? "down" : ""} sub={bt.drawdown_recovery_days != null ? `recovered in ${bt.drawdown_recovery_days} days` : "peak-to-trough"} />
         <Stat label="Longest gap" value={bt.longest_gap_days != null ? `${bt.longest_gap_days} days` : "–"} sub="between trades" />
       </section>
 
@@ -98,30 +154,68 @@ function Result({ bt, onTrials, onEdit }: { bt: DbBacktest; onTrials: () => void
   );
 }
 
-function Running({ onRefresh, failed }: { onRefresh: () => void; failed: boolean }) {
+function Running({ onRefresh, onEdit, onRetry, retrying, status, note }: {
+  onRefresh: () => void;
+  onEdit: () => void;
+  onRetry: () => void;
+  retrying: boolean;
+  status: string;
+  note?: string | null;
+}) {
+  const failed = status === "error";
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    if (status !== "pending") { setStalled(false); return; }
+    const t = setTimeout(() => setStalled(true), 15000);
+    return () => clearTimeout(t);
+  }, [status]);
+  const label = status === "pending" ? "Queued — waiting for the engine worker" : status === "running" ? "Running the backtest…" : "Processing…";
   return (
     <section className={r.statusCard} style={{ marginTop: 36 }}>
       <span className={failed ? "downDot" : r.spin} />
       <div>
-        <div style={{ fontSize: 15, fontWeight: 500 }}>{failed ? "The backtest hit an error." : "Running the backtest…"}</div>
+        <div style={{ fontSize: 15, fontWeight: 500 }}>{failed ? "The backtest hit an error." : label}</div>
         <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>
           {failed
-            ? "The engine couldn't complete this run. Edit the strategy and try again."
+            ? (note ? `The engine couldn't complete this run. ${note}` : "The engine couldn't complete this run. Edit the strategy and try again.")
+            : status === "pending"
+            ? "Your bot is queued. The engine worker picks it up and runs it over years of history."
             : "The engine is replaying years of market history — equity curve, win rate and drawdown, all after fees."}
         </div>
-        <button className={p.btn} style={{ marginTop: 14 }} onClick={onRefresh}>Refresh</button>
+        {stalled && status === "pending" && (
+          <div className="lbl" style={{ marginTop: 8, color: "var(--down, #ff5c6c)" }}>
+            No worker has picked this up. Start `python -m runtime.engine_worker` with SUPABASE_SERVICE_KEY, or check pf_backtests.status.
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+          <button className={p.btn} onClick={onRefresh}>Refresh</button>
+          <button className={p.btn} onClick={onEdit}>Edit strategy</button>
+          {failed && (
+            <button className={p.btn} onClick={onRetry} disabled={retrying}>
+              {retrying ? "Queuing…" : "Try again"}
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-function NotRun({ onQueue, queuing }: { onQueue: () => void; queuing: boolean }) {
+function NotRun({ onQueue, queuing, error, note }: {
+  onQueue: () => void;
+  queuing: boolean;
+  error?: string | null;
+  note?: string;
+}) {
   return (
     <section className={r.statusCard} style={{ marginTop: 36 }}>
       <span className="downDot" style={{ background: "#d29922" }} />
       <div>
-        <div style={{ fontSize: 15, fontWeight: 500 }}>This bot hasn't been trained yet.</div>
-        <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>Queue a backtest and the engine will run it over years of history.</div>
+        <div style={{ fontSize: 15, fontWeight: 500 }}>This bot hasn't been trained on this Setup.</div>
+        <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>
+          {note || "Queue a backtest and the engine will run it over years of history."}
+        </div>
+        {error && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13, marginTop: 8 }}>{error}</div>}
         <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 14 }} disabled={queuing} onClick={onQueue}>
           {queuing ? "Queuing…" : "Start training"}
         </button>

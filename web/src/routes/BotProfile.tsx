@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
+import { useAuth } from "../auth";
+import { useBot, useLatestBacktest } from "../db/queries";
 import type { Position, Trade } from "../api/types";
+import { variantFromBot } from "../lib/variant";
 import {
   DIRLBL,
   REASON,
@@ -25,9 +28,19 @@ const isOpen = (r: Row): r is OpenRow => "_open" in r;
 
 export default function BotProfile() {
   const d = useData();
+  const { user } = useAuth();
   const nav = useNavigate();
   const { name = "" } = useParams();
-  const v = d.variants.find((x) => x.name === name);
+  const liveV = d.variants.find((x) => x.name === name);
+  // The live feed carries params for every running bot; honor the DB's
+  // visibility model before showing a bot's strategy — public, or its owner.
+  const { data: bot, loading: botLoading } = useBot(name);
+  const { data: bt } = useLatestBacktest(bot?.id ?? null);
+  // Pages must render even when the engine feed omits the bot: fall back to
+  // the DB row + latest backtest results.
+  const v = liveV ?? (bot ? variantFromBot(bot, bt) : null);
+  const canSeeStrategy =
+    bot?.visibility === "public" || (!!user && bot?.owner === user.id);
 
   const stats = useMemo(() => {
     if (!v) return null;
@@ -59,6 +72,7 @@ export default function BotProfile() {
   }, [v, d.trades, name]);
 
   if (!v || !stats) {
+    if (botLoading) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
     return (
       <>
         <div className={s.crumb}>
@@ -86,7 +100,11 @@ export default function BotProfile() {
   const grp = DIRLBL[v.group ?? ""] ?? v.group ?? "";
   const pos = v.ret >= 0;
 
-  const statusChip = v.kill ? (
+  const statusChip = !liveV ? (
+    <span className="chip">
+      <span className={s.dot} style={{ background: "var(--muted-2)" }} />Awaiting live feed
+    </span>
+  ) : v.kill ? (
     <span className="chip">
       <span className={s.dot} style={{ background: "#FF5C6C" }} />Paused · loss limit
     </span>
@@ -183,13 +201,21 @@ export default function BotProfile() {
             <h2 className={s.h2}>Strategy</h2>
             {v.note && <p className={s.strategyText}>{v.note}</p>}
             <div className={s.blk}><span className={s.tag}>Direction</span>{grp || "–"}</div>
-            <div className={s.blk}><span className={s.tag}>Params</span><span className="num" style={{ fontWeight: 400, fontSize: 12, lineHeight: 1.5 }}>{v.params || "–"}</span></div>
-            {Object.entries(v.cfg ?? {}).map(([k, val]) => (
-              <div className={s.blk} key={k}>
-                <span className={s.tag}>{k}</span>
-                <span className="num" style={{ fontWeight: 400, fontSize: 12 }}>{JSON.stringify(val)}</span>
+            {canSeeStrategy ? (
+              <>
+                <div className={s.blk}><span className={s.tag}>Params</span><span className="num" style={{ fontWeight: 400, fontSize: 12, lineHeight: 1.5 }}>{v.params || "–"}</span></div>
+                {Object.entries(v.cfg ?? {}).map(([k, val]) => (
+                  <div className={s.blk} key={k}>
+                    <span className={s.tag}>{k}</span>
+                    <span className="num" style={{ fontWeight: 400, fontSize: 12 }}>{JSON.stringify(val)}</span>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="lbl" style={{ marginTop: 8, lineHeight: 1.5 }}>
+                This bot shares results only — its strategy stays private.
               </div>
-            ))}
+            )}
           </div>
         </section>
       </div>

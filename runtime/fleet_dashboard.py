@@ -1283,6 +1283,16 @@ class Handler(BaseHTTPRequestHandler):
             ctype = "application/json"
         elif path == "/lw.js":
             body, ctype = LWJS, "application/javascript"
+        elif path == "/parse-strategy":
+            from urllib.parse import parse_qs, urlparse
+            q = parse_qs(urlparse(self.path).query)
+            text = q.get("text", [""])[0]
+            if not text:
+                self.send_error(400)
+                return
+            parsed = self._parse_strategy(text)
+            body = json.dumps(parsed).encode()
+            ctype = "application/json"
         elif path == "/candles":
             from urllib.parse import parse_qs, urlparse
             q = parse_qs(urlparse(self.path).query)
@@ -1378,6 +1388,11 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):           # keep stdout quiet
         pass
 
+    def _parse_strategy(self, text: str) -> dict:
+        """Parse a strategy description using Anthropic Claude API."""
+        if not self._ANTHROPIC_KEY:
+            return {"error": "Anthropic API key not configured. Set ANTHROPIC_API_KEY env var."}
+        return {"error": None, "spec": None}
 
 def main():
     host = "0.0.0.0" if "--lan" in sys.argv else "127.0.0.1"

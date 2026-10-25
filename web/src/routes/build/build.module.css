@@ -143,6 +143,7 @@
   padding: 10px 14px;
   border-radius: 10px;
   background: #0f1319;
+  color: var(--fg);
   font-size: 13px;
 }
 .tag {

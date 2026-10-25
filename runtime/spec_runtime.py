@@ -15,6 +15,10 @@ buf2/vol3/veto/wick30) and capit_long.
 Exits are unchanged: paper_fleet.run_exits() drives check_exit() over the
 position dict built here, and check_exit == core.exit_trade.
 
+The Weather gate (`pf_bots.condition_filter`) is applied at entry: the current
+BTC volatility/trend cell must be one the Builder selected, using the terciles
+persisted from the training window (core.conditions.cell_at).
+
 Sizing & account logic (kill-switch, concurrency, dedupe) are reproduced from
 run_signals verbatim so the equity math is identical; they live here, not core,
 because they are live-account concerns, not strategy logic.
@@ -23,6 +27,7 @@ import time
 
 from core import parse, entry_signal
 from core.backtest import build_position, exit_trade
+from core.conditions import cell_at
 from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
                           TAKER, SLIP, KILL_DD, KILL_LOOKBACK, KILL_PAUSE)
 
@@ -89,8 +94,31 @@ def _filters_ok(spec, tk, gate):
     return True, None
 
 
+def _weather_ok(weather, btc, t_sig):
+    """Apply the bot's Weather gate: only enter when the current BTC regime is
+    one of the cells selected at deploy time. Older gates without persisted
+    terciles cannot be reproduced and are treated as open (none are live)."""
+    if not weather or not weather.get("restrict"):
+        return True, None
+    cells = weather.get("cells") or []
+    if not cells:
+        return True, None
+    lo, hi = weather.get("vol_lo"), weather.get("vol_hi")
+    if lo is None or hi is None:
+        return True, None
+    if not btc:
+        return False, "weather gate: no BTC data"
+    cell = cell_at(btc, t_sig, lo, hi)
+    if cell is None:
+        return False, "weather gate: BTC history too short"
+    key = f"{cell[0]}:{cell[1]}"
+    if key not in cells:
+        return False, f"weather gate: {key} not selected"
+    return True, None
+
+
 def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
-                     log=lambda *_: None, notes=None):
+                     weather=None, btc=None, log=lambda *_: None, notes=None):
     """Entry pass for one spec-driven bot. Mutates `st` (positions, equity
     bookkeeping, kill-switch, last_sig_t) exactly as run_signals does. `notes`
     is the shared feed-event list; `log` the fleet logger. Exits are handled
@@ -119,6 +147,10 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
         if not ok:
             if why:
                 log(f"[{name}] SKIP {tk}: {why}")
+            continue
+        ok, why = _weather_ok(weather, btc, sig["t_sig"])
+        if not ok:
+            log(f"[{name}] SKIP {tk}: {why}")
             continue
         if tk in open_tk:
             log(f"[{name}] SKIP {tk}: position already open")
@@ -202,6 +234,7 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
     `candles` is {ticker: series} fetched for the union. A bot whose universe
     didn't resolve ({} / missing) manages open positions only, opens none."""
     notes = notes if notes is not None else []
+    btc = candles.get("BTC")
     for bot in bots:
         st = states.setdefault(bot["id"], new_state())
         run_exits_spec(bot["name"], st, fetch, notes=notes, log=log)
@@ -212,5 +245,6 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
         if covered(bot["spec"]):
             scoped = {tk: candles[tk] for tk in uni if candles.get(tk)}
             run_spec_signals(bot["name"], bot["spec"], st, uni, scoped,
-                             gate=gate, log=log, notes=notes)
+                             gate=gate, weather=bot.get("condition_filter"),
+                             btc=btc, log=log, notes=notes)
     return notes

@@ -1,4 +1,4 @@
-"""Studio backtest worker — runs users' backtests.
+"""Studio build worker — trains, trials and maps a user's bot.
 
 The web enqueues work by inserting a pf_backtests row with status='pending'.
 This worker drains those rows and runs each through the same core/ engine the
@@ -6,42 +6,84 @@ lab and live fleet use (core.service) for backtest<->live parity, then writes
 results back to the DB (the single source of truth the web reads). The web
 never calls the engine directly.
 
-    pending pf_backtests  ->  core.service.ep_backtest / ep_checks  ->  DB  ->  web
+    pending pf_backtests
+        -> ep_evaluate (candles -> backtest + trials + weather)
+        -> pf_backtests / pf_checks / pf_conditions / pf_bots.spec
+        -> stage 'trials' (or 'draft' on error) -> web
 
 Run:  python -m runtime.engine_worker            # poll loop
       python -m runtime.engine_worker --once     # drain once and exit
+
+Env:  SUPABASE_URL, SUPABASE_SERVICE_KEY (required)
+      BUILD_TRAIN_DAYS  training window (default 730 days)
+      PAPERFLEET_CANDLE_CACHE  optional bn/ cache directory (default lab/bn)
 """
+import os
 import sys
 import time
+from datetime import datetime, timezone
 
-from core.service import ep_backtest, ep_checks, ep_map
+from core.service import ep_evaluate, ep_map
 from . import pf_db
 
 POLL_SECONDS = 10
+TRAIN_DAYS = int(os.environ.get("BUILD_TRAIN_DAYS", "730"))
+DAY_MS = 86_400_000
 
 
-def _spec_for(bot: dict):
+def _spec_for(bot: dict, universe_slug: str):
     """The bot's canonical spec. pf_bots.spec is the source of truth; until it's
     backfilled, derive it from family+params via the engine's weld (ep_map),
     the same derivation used everywhere."""
     if bot.get("spec"):
-        return bot["spec"]
-    code, out = ep_map({
-        "family": bot.get("family_slug"),
-        "params": bot.get("params") or {},
-        "name": bot.get("name", ""),
-    })
-    if code != 200 or not out.get("ok"):
-        raise ValueError(out.get("error", "cannot derive a spec for this bot"))
-    return out["spec"]
+        spec = dict(bot["spec"])
+    else:
+        code, out = ep_map({
+            "family": bot.get("family_slug"),
+            "params": bot.get("params") or {},
+            "name": bot.get("name", ""),
+        })
+        if code != 200 or not out.get("ok"):
+            raise ValueError(out.get("error", "cannot derive a spec for this bot"))
+        spec = out["spec"]
+    if spec.get("engine"):
+        raise ValueError(
+            f"the {spec['engine']} family is engine-specific and can't train in Build yet")
+    # The spec is what the live fleet runs; make its universe match the bot.
+    spec["universe"] = universe_slug
+    spec["name"] = bot.get("name") or spec.get("name", "")
+    return spec
 
 
 def _universe_slug(bot: dict):
     uid = bot.get("universe_id")
     if not uid:
-        return None
+        return "fleet-60"
     rows = pf_db.get("pf_universes", f"id=eq.{uid}&select=slug")
-    return rows[0]["slug"] if rows else None
+    return rows[0]["slug"] if rows else "fleet-60"
+
+
+def _window():
+    end = int(time.time() * 1000)
+    return {"start": end - TRAIN_DAYS * DAY_MS, "end": end}
+
+
+def _whole_days(x):
+    """The DB stores gap/recovery days as integers; the engine reports 1dp."""
+    return None if x is None else round(x)
+
+
+def _cost_note(out: dict):
+    w = out.get("window") or {}
+    bits = []
+    if w.get("start") and w.get("end"):
+        bits.append(f"{w['start']} to {w['end']}")
+    if w.get("symbols"):
+        bits.append(f"{w['symbols']} symbols")
+    if w.get("source"):
+        bits.append(f"data: {w['source']}")
+    bits.append("taker fees + slippage")
+    return " · ".join(bits)
 
 
 def process(bt: dict):
@@ -58,18 +100,28 @@ def process(bt: dict):
     pf_db.patch("pf_bots", f"id=eq.{bot['id']}", {"stage": "training"})
 
     try:
-        body = {"spec": _spec_for(bot), "universe": _universe_slug(bot)}
+        universe_slug = _universe_slug(bot)
+        spec = _spec_for(bot, universe_slug)
+        # Persist the derived spec: Deploy and the live runtime read it.
+        pf_db.patch("pf_bots", f"id=eq.{bot['id']}", {"spec": spec})
 
-        code, out = ep_backtest(body)
+        body = {"spec": spec, "universe": universe_slug, "window": _window()}
+        code, out = ep_evaluate(body)
         if code != 200 or not out.get("ok"):
-            raise ValueError(out.get("error", "backtest failed"))
+            raise ValueError(out.get("error", "evaluation failed"))
+
         st = out["stats"]
+        w = out.get("window") or {}
         n = st["n"]
         wr = st["win_rate"]
         wins = round(wr * n)
         npt = round(st["net_pct_per_trade"], 4)
+
         pf_db.patch("pf_backtests", f"id=eq.{bt['id']}", {
-            "status": "done",
+            "status": "running",
+            "window_start": w.get("start") or None,
+            "window_end": w.get("end") or None,
+            "initial_capital": 10_000,
             "trades": n,
             "win_rate": round(wr, 4),
             "wins": wins,
@@ -79,27 +131,47 @@ def process(bt: dict):
             "total_return": round(st["total_net_pct"], 4),
             "final_value": st["final_equity"],
             "max_drawdown": st["max_drawdown"],
+            "drawdown_recovery_days": _whole_days(out.get("drawdown_recovery_days")),
+            "longest_gap_days": _whole_days(out.get("longest_gap_days")),
             "equity_curve": st["equity_curve"],
+            "params": spec,
+            "cost_note": _cost_note(out),
         })
 
-        # checks -> pf_checks
-        ccode, cout = ep_checks(body)
-        if ccode == 200 and cout.get("ok"):
-            for i, c in enumerate(cout["checks"]):
-                pf_db.insert("pf_checks", {
-                    "backtest_id": bt["id"],
-                    "bot_id": bot["id"],
-                    "key": c.get("key", f"check_{i}"),
-                    "label": c.get("label"),
-                    "status": "pass" if c.get("passed") else "fail",
-                    "stat": c.get("stat"),
-                    "threshold": c.get("threshold"),
-                    "detail": c,
-                    "position": i,
-                })
+        for i, c in enumerate(out.get("checks") or []):
+            pf_db.insert("pf_checks", {
+                "backtest_id": bt["id"],
+                "bot_id": bot["id"],
+                "key": c.get("key", f"check_{i}"),
+                "label": c.get("label"),
+                "status": "pass" if c.get("passed") else "fail",
+                "stat": c.get("stat"),
+                "threshold": c.get("threshold"),
+                "detail": c,
+                "position": i,
+            })
 
-        pf_db.patch("pf_bots", f"id=eq.{bot['id']}",
-                    {"stage": "trials", "bt": npt})
+        for c in out.get("conditions") or []:
+            pf_db.insert("pf_conditions", {
+                "backtest_id": bt["id"],
+                "bot_id": bot["id"],
+                "volatility": c["volatility"],
+                "btc_trend": c["btc_trend"],
+                "return_per_trade": c.get("return_per_trade"),
+                "trades": c.get("trades", 0),
+                "vol_lo": c.get("vol_lo"),
+                "vol_hi": c.get("vol_hi"),
+                "is_current": bool(c.get("is_current")),
+            })
+
+        # Every run lands on Trials. Trials are advisory, so the worker does
+        # not stop the ladder when a check fails; Weather decides the gate.
+        pf_db.patch("pf_bots", f"id=eq.{bot['id']}", {
+            "stage": "trials",
+            "bt": npt,
+            "validated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        pf_db.patch("pf_backtests", f"id=eq.{bt['id']}", {"status": "done"})
     except Exception as e:  # record a failed run as a result, not a crash
         pf_db.patch("pf_backtests", f"id=eq.{bt['id']}",
                     {"status": "error", "cost_note": str(e)[:500]})

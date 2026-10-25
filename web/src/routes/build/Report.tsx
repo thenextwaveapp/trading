@@ -2,11 +2,12 @@ import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { useData } from "../../api/context";
-import { useMyBots, useFamilies } from "../../db/queries";
+import { useLatestBacktest, useMyBots, useFamilies } from "../../db/queries";
 import DataTable, { type Column } from "../../components/DataTable";
 import BotChart from "../../components/BotChart";
 import { Coin } from "../../components/cells";
 import type { Trade } from "../../api/types";
+import { variantFromBot } from "../../lib/variant";
 import { DIRLBL, REASON, START, clock, dol, dstr, held, identicon, pct, usd, windowReturn } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
@@ -20,7 +21,11 @@ export default function Report() {
   const { data: families } = useFamilies();
 
   const bot = bots?.find((b) => b.name === name);
-  const v = live.variants.find((x) => x.name === name);
+  const { data: bt } = useLatestBacktest(bot?.id ?? null);
+  const liveV = live.variants.find((x) => x.name === name);
+  // The report must work before the engine picks the bot up: fall back to the
+  // DB row and its latest backtest, exactly like the bot profile does.
+  const v = liveV ?? (bot ? variantFromBot(bot, bt) : null);
   const famLabel = useMemo(() => new Map((families ?? []).map((f) => [f.slug, f.label])), [families]);
 
   if (!bots) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
@@ -66,9 +71,9 @@ export default function Report() {
 
         <section className={p.statgrid} style={{ gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))" }}>
           <Stat label="Backtest net / trade" value={bot.bt == null ? "–" : pct(bot.bt, true)} cls={(bot.bt ?? 0) >= 0 ? "up" : "down"} sub="pre-registered" />
-          <Stat label="Live return" value={pct(liveRet, true)} cls={liveRet >= 0 ? "up" : "down"} sub={"since launch"} />
+          <Stat label={liveV ? "Live return" : "Backtest return"} value={pct(liveRet, true)} cls={liveRet >= 0 ? "up" : "down"} sub={liveV ? "since launch" : "over the test window"} />
           <Stat label="Trades" value={String(v.closed)} sub={v.win == null ? "" : `${v.win}% win`} />
-          <Stat label="Avg trade (live)" value={pct(v.avg, true)} cls={(v.avg ?? 0) >= 0 ? "up" : "down"} sub="after costs" />
+          <Stat label={liveV ? "Avg trade (live)" : "Avg trade (backtest)"} value={pct(v.avg, true)} cls={(v.avg ?? 0) >= 0 ? "up" : "down"} sub="after costs" />
           <Stat label="Max drawdown" value={pct(dd * 100)} cls={dd < 0 ? "down" : ""} sub="peak-to-trough" />
           <Stat label="Equity" value={dol(v.equity)} sub={`of ${dol(START)}`} />
         </section>

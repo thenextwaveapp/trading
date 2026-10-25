@@ -139,12 +139,14 @@ Every bot climbs the same ladder; `pf_bots.stage` is the rung it's on.
 |---|---|---|
 | **Draft** | composed, never fought | — |
 | **Training** | run over years of history | `core.backtest` → `pf_backtests` |
-| **Trials** | the honesty gauntlet (below) | `core.checks` → `pf_checks` |
-| **Weather** | regime gate — rules of engagement | `core.regime` |
-| **Ready** | passed everything, awaiting orders | — |
+| **Trials** | advisory stress tests (below) | `core.checks` → `pf_checks` |
+| **Weather** | regime breakdown → rules of engagement | `core.conditions` → `pf_conditions` |
+| **Ready** | weather gate closed, awaiting orders | — |
 | **Deployed** | battling in the Fleet | `runtime/` |
 
-**Trials — the honesty gauntlet.** A bot proves its edge is real, not luck:
+**Trials — the honesty gauntlet.** Trials show whether the edge looks real, not
+luck. They are advisory: every completed run lands on Trials, and Weather is
+where the gate is set.
 
 1. **Survives 3× costs** — edge holds at triple fees + slippage.
 2. **Survives a late fill** — edge holds entered one bar late.
@@ -165,7 +167,7 @@ to the DB, the single source of truth the web reads.
 
 | Dir | What |
 |---|---|
-| `core/` | the engine library — indicators (211, full TA-Lib + ROC/VOL_RATIO/WICK_FRAC), `expr`/`strategy`/`evaluator`, `backtest`, `checks`, `regime`, `markets` (capability model, `inputs ⊆ provides`), `universe`, `service` (endpoints), `db` |
+| `core/` | the engine library — indicators (211, full TA-Lib + ROC/VOL_RATIO/WICK_FRAC), `expr`/`strategy`/`evaluator`, `backtest`, `checks`, `conditions`, `regime`, `markets` (capability model, `inputs ⊆ provides`), `universe`, `service` (endpoints), `db` |
 | `runtime/` | the services — `paper_fleet`, `fleet_dashboard`, `engine_worker` (the Build worker), `fleet_source`, `pf_db` (service-key DB helper), `spec_runtime` |
 | `db/` | version-controlled Supabase schema: `schema.sql` + `policies.sql` (RLS, owner-scoped) + `functions.sql` (signup trigger, event emitters). Apply order in `db/README.md` |
 | `web/` | the React SPA (Vite, HashRouter) — live at fleet.presencenet.io |
@@ -185,8 +187,10 @@ execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
   fleet, `pf_events` emits trade/copy/follow events. See `db/README.md`.
 - **Web** reads the catalog, Markets model, and live Leaderboard; the first real
   write landed — Build saves a Draft bot the signed-in Builder owns.
-- **Build worker** (`runtime/engine_worker.py`) drains pending backtests → writes
-  results + Trials → flips stage. Has a `--once` drain mode.
+- **Build worker** (`runtime/engine_worker.py`) drains pending backtests →
+  runs `ep_evaluate` once → writes results, Trials and Weather, persists the
+  deployable `spec`, flips stage to `trials` (or `draft` on error). Has a
+  `--once` drain mode.
 
 - **Lexicon reconciled** — schema obeys the words: `pf_bots` dropped `status`
   and `engine`, folded the sizing knobs into `params`; `stage` values are
@@ -194,13 +198,12 @@ execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
   `Build` (`routes/build/`, `/build`). tsc + vite green. Not yet applied to the
   live Supabase DB.
 
-**Next — close the Build loop:**
+**Next:**
 
-1. Wire the enqueue — Build's run button inserts `pf_backtests` (status=pending)
-   so a Draft bot starts Training.
-2. Replace the stub Training / Trials screens with real DB reads.
-3. Deploy the worker as a service.
-4. Apply the schema reconciliation to the live Supabase DB.
+1. Apply `db/migrations/20261024_build_flow.sql`,
+   `db/migrations/20261024_weather_thresholds.sql` and
+   `db/migrations/20261025_checks_lexicon.sql` to the live Supabase DB.
+2. Run `runtime.engine_worker` as a service (units live in `deploy/`).
 
 ## Feature map
 
@@ -214,13 +217,14 @@ Every line resolves to a page, a field, or the editable-vs-locked line. Tagged
   (editable params, `pf_bots.params`), and a direction. Saves as a Draft in `pf_bots`.
 - **Train → Trials → Weather** *[have]* — the Build ladder. **Training**
   `/build/training` runs the backtest over years of history (`pf_backtests`).
-  **Trials** `/build/trials` runs the honesty gauntlet — beats random entries,
+  **Trials** `/build/trials` runs the advisory gauntlet — beats random entries,
   survives triple costs, survives a late fill (`pf_checks`). **Weather**
-  `/build/weather` maps performance across BTC trend × volatility and sets the
-  regime gate (`pf_conditions` → `pf_bots.condition_filter`).
-- **Deploy** *[have]* — `/build/deploy`. A Ready Bot graduates: pick Fleet +
-  visibility, it joins on a $10k paper budget and starts battling (stage `deployed`,
-  real P&L).
+  `/build/weather` maps performance across BTC trend × volatility and saves the
+  gate (`pf_conditions` → `pf_bots.condition_filter`), which
+  `runtime/spec_runtime.py` enforces on live entries.
+- **Deploy** *[have]* — `/build/deploy`. A Ready Bot with a complete spec
+  graduates: pick Fleet + visibility, it joins on a $10k paper budget and starts
+  battling (stage `deployed`, real P&L). Partial specs are blocked.
 - **Report** *[have]* — `/build/report/:name`. A Bot's full record: backtest vs
   live, equity curve, every trade, the Trials it passed.
 - **Versions** *[partial]* — each Setup change writes a row to `pf_bot_versions`;

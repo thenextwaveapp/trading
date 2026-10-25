@@ -4,7 +4,7 @@ import { useAuth } from "../../auth";
 import { useData } from "../../api/context";
 import { useMyBots, useFamilies } from "../../db/queries";
 import type { DbBot, Stage } from "../../db/types";
-import { DIRLBL, dol, pct, windowReturn } from "../../lib/format";
+import { DIRLBL, dol, identicon, pct, windowReturn } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
 import { STAGES, resumePath } from "./stages";
@@ -15,9 +15,9 @@ const STAGE_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 const START = [
-  ["describe", "Describe it", "Write the strategy in plain language and we'll turn it into rules."],
-  ["template", "Use a template", "Start from a proven family — a pump fade, a capitulation buy."],
-  ["blank", "Start blank", "Build the entry and exit rules yourself from scratch."],
+  ["pump_short", "Fade a pump", "Short the first red bar after a parabolic move."],
+  ["capit_long", "Buy a capitulation", "Buy a sharp 24h crash and time the exit."],
+  ["momo_long", "Ride momentum", "Buy a high-volume breakout that closes strong."],
 ];
 
 export default function Hub() {
@@ -83,7 +83,7 @@ export default function Hub() {
           <h1 className={p.title}>Build</h1>
           <div className={p.subtitle}>Compose, train and deploy bots.</div>
         </div>
-        <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/build/compose?start=describe")}>
+        <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/build/compose")}>
           New bot
         </button>
       </div>
@@ -92,7 +92,7 @@ export default function Hub() {
         {loading ? (
           <div className="muted" style={{ padding: 40 }}>Loading your bots…</div>
         ) : (bots ?? []).length === 0 ? (
-          <EmptyBuild onStart={(mode) => nav(`/build/compose?start=${mode}`)} />
+          <EmptyBuild onStart={(family) => nav(family ? `/build/compose?family=${family}` : "/build/compose")} />
         ) : (
         <>
         <section className={p.statgrid} style={{ gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", marginBottom: 32 }}>
@@ -108,55 +108,45 @@ export default function Hub() {
           <Stat label="Paper equity" value={dol(paperEquity)} sub="across the fleet" />
         </section>
 
-        {/* pipeline kanban */}
-        <div className={p.sectionHead} style={{ marginBottom: 14 }}>
+        {/* roster, grouped by stage */}
+        <div className={p.sectionHead} style={{ marginBottom: 18 }}>
           <div>
-            <h2 className={p.h2}>Pipeline</h2>
-            <div className="lbl" style={{ marginTop: 4 }}>Every bot, by where it is in the journey.</div>
+            <h2 className={p.h2}>Your bots</h2>
+            <div className="lbl" style={{ marginTop: 4 }}>Every bot you've made, by where it is.</div>
           </div>
         </div>
-        <div className={r.kanban} style={{ marginBottom: 44 }}>
-          {PIPELINE.map((s) => {
+        <div style={{ display: "flex", flexDirection: "column", gap: 28, marginBottom: 44 }}>
+          {STAGES.map((s) => {
             const items = columns.get(s.key) ?? [];
-            const shown = items.slice(0, 6);
+            if (items.length === 0) return null;
             return (
-              <div className={r.col} key={s.key}>
-                <div className={r.colHead}>
-                  <span>{s.label}</span>
+              <div key={s.key}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
+                  <h2 className={p.h2}>{s.label}</h2>
                   <span className="num muted">{items.length}</span>
+                  <span className="lbl">{s.blurb}</span>
                 </div>
-                {shown.map((b) => {
-                  const ret = liveRet(b);
-                  return (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 12 }}>
+                  {items.map((b) => (
                     <div
                       key={b.id}
-                      className={`${r.kcard} ${s.key === "ready" ? r.ready : ""}`}
+                      className={r.kcard}
                       style={{ cursor: "pointer" }}
-                      onClick={() => nav(b.stage === "deployed" ? "/build/report/" + encodeURIComponent(b.name) : resumePath(b.stage, b.name))}
+                      onClick={() => nav(resumePath(b.stage, b.id, b.name))}
                     >
-                      <div className={r.kName}>{b.name}</div>
-                      <div className={r.kDesc}>{b.note || famLabel.get(b.family_slug ?? "") || s.blurb}</div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 10 }}>
-                        <span className="num lbl">{b.bt == null ? "" : pct(b.bt, true) + "/trade"}</span>
-                        {s.key === "deployed" && ret != null && (
-                          <span className={`num ${ret >= 0 ? "up" : "down"}`} style={{ fontSize: 12 }}>{pct(ret, true)}</span>
-                        )}
-                        {s.key === "ready" && <span className="lk lbl" style={{ color: "#8BB4E8" }}>Deploy →</span>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <svg width="34" height="34" viewBox="0 0 34 34"><rect width="34" height="34" rx="9" fill="#12161D" /><path d={identicon(b.name, 22)} fill={b.builder?.avatar_color || "#3a81d7"} transform="translate(6 6)" /></svg>
+                        <div style={{ minWidth: 0 }}>
+                          <div className={r.kName}>{b.name}</div>
+                          <div className="lbl">{DIRLBL[b.direction ?? ""] ?? b.direction ?? "—"}</div>
+                        </div>
                       </div>
+                      {b.bt != null && (
+                        <div className="num lbl" style={{ marginTop: 10 }}>{pct(b.bt, true)}/trade backtest</div>
+                      )}
                     </div>
-                  );
-                })}
-                {items.length > shown.length && (
-                  <div className="lbl" style={{ padding: "2px 2px" }}>+{items.length - shown.length} more</div>
-                )}
-                {items.length === 0 && (
-                  <div
-                    className={`${r.kcard} ${r.dashed}`}
-                    onClick={() => nav("/build/compose?start=blank&stage=" + s.key)}
-                  >
-                    + New
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             );
           })}
@@ -195,7 +185,7 @@ export default function Hub() {
           <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: 12 }}>
             <div className={p.sectionHead} style={{ margin: "0 0 4px" }}><h2 className={p.h2}>Start a new bot</h2></div>
             {START.map(([mode, t, d]) => (
-              <div key={mode} className="card" style={{ padding: 18, display: "flex", gap: 14, alignItems: "center", cursor: "pointer" }} onClick={() => nav(`/build/compose?start=${mode}`)}>
+              <div key={mode} className="card" style={{ padding: 18, display: "flex", gap: 14, alignItems: "center", cursor: "pointer" }} onClick={() => nav("/build/compose?family=" + mode)}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{t}</div>
                   <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>{d}</div>
@@ -212,12 +202,12 @@ export default function Hub() {
   );
 }
 
-function EmptyBuild({ onStart }: { onStart: (mode: string) => void }) {
+function EmptyBuild({ onStart }: { onStart: (family?: string) => void }) {
   return (
     <section style={{ maxWidth: 560, padding: "48px 0" }}>
       <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>You haven't built a bot yet.</h2>
       <p className={p.subtitle} style={{ marginTop: 10, lineHeight: 1.6 }}>
-        Compose a strategy, send it through the gym — training, the honesty trials, the weather gate —
+        Compose a strategy, send it through training, the stress tests, the weather gate —
         and track every one you test right here. Your pipeline and reports fill in as you go.
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
@@ -228,7 +218,7 @@ function EmptyBuild({ onStart }: { onStart: (mode: string) => void }) {
           </div>
         ))}
       </div>
-      <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 20, height: 46 }} onClick={() => onStart("describe")}>
+      <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 20, height: 46 }} onClick={() => onStart()}>
         Build your first bot →
       </button>
     </section>

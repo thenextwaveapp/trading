@@ -3,6 +3,7 @@ Server-side and trusted: bypasses RLS (RLS is the web app's concern).
 """
 import json
 import os
+import urllib.error
 import urllib.request
 
 URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -20,11 +21,21 @@ def _headers(extra=None):
     return h
 
 
+def _open(req):
+    """Open a request, surfacing PostgREST's error body instead of a bare
+    'HTTP Error 400' — the worker writes it to pf_backtests.cost_note."""
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.read()
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace").strip()
+        raise RuntimeError(f"{e.code} {e.reason}: {detail[:500]}") from None
+
+
 def get(table: str, query: str = ""):
     """GET rows. `query` is a raw PostgREST query string (select=…&foo=eq.x)."""
     req = urllib.request.Request(f"{URL}/rest/v1/{table}?{query}", headers=_headers())
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())
+    return json.loads(_open(req))
 
 
 def insert(table: str, row: dict):
@@ -33,7 +44,7 @@ def insert(table: str, row: dict):
         data=json.dumps(row).encode(),
         method="POST",
         headers=_headers({"Content-Type": "application/json", "Prefer": "return=minimal"}))
-    urllib.request.urlopen(req, timeout=20)
+    _open(req)
 
 
 def patch(table: str, query: str, changes: dict):
@@ -42,4 +53,4 @@ def patch(table: str, query: str, changes: dict):
         data=json.dumps(changes).encode(),
         method="PATCH",
         headers=_headers({"Content-Type": "application/json", "Prefer": "return=minimal"}))
-    urllib.request.urlopen(req, timeout=20)
+    _open(req)

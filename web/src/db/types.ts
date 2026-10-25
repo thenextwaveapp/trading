@@ -24,6 +24,7 @@ export interface DbBot {
   direction: Direction | null;
   params: Record<string, unknown>;
   condition_filter: Record<string, unknown> | null;
+  spec: Record<string, unknown> | null;
   bt: number | null;
   note: string | null;
   description: string | null;
@@ -166,6 +167,8 @@ export interface DbCondition {
   btc_trend: "falling" | "flat" | "rising";
   return_per_trade: number | null;
   trades: number | null;
+  vol_lo: number | null;
+  vol_hi: number | null;
   is_current: boolean;
   selected: boolean;
 }

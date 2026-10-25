@@ -16,6 +16,8 @@ SUITES = [
     "selftest_momo",        # momentum entry
     "selftest_universe",    # universe resolution from market data
     "selftest_db_universe",  # universe resolution against the DB (mocked)
+    "selftest_conditions",   # weather buckets from a trade ledger
+    "selftest_worker",       # worker DB write-back + stage transitions
 ]
 
 

@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS public.pf_conditions (
     btc_trend text NOT NULL,
     return_per_trade numeric,
     trades integer,
+    vol_lo numeric,
+    vol_hi numeric,
     is_current boolean NOT NULL DEFAULT false,
     selected boolean NOT NULL DEFAULT false,
     created_at timestamp with time zone NOT NULL DEFAULT now()
@@ -324,6 +326,7 @@ ALTER TABLE public.pf_bot_defaults        ADD CONSTRAINT pf_bot_defaults_pkey PR
 ALTER TABLE public.pf_bot_versions        ADD CONSTRAINT pf_bot_versions_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_bot_versions        ADD CONSTRAINT pf_bot_versions_bot_id_version_key UNIQUE (bot_id, version);
 ALTER TABLE public.pf_bots                ADD CONSTRAINT pf_bots_pkey PRIMARY KEY (id);
+ALTER TABLE public.pf_bots                ADD CONSTRAINT pf_bots_owner_name_key UNIQUE (owner, name);
 ALTER TABLE public.pf_checks              ADD CONSTRAINT pf_checks_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_checks              ADD CONSTRAINT pf_checks_backtest_id_key_key UNIQUE (backtest_id, key);
 ALTER TABLE public.pf_coins               ADD CONSTRAINT pf_coins_pkey PRIMARY KEY (symbol);
