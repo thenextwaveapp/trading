@@ -29,6 +29,38 @@ Three references fused:
 **The invariant that makes it not "Pokémon with charts": the bots are real.**
 Every stat is a verified track record, never flavor. Backtest == live.
 
+## The bigger idea
+
+Paper Fleet turns trading strategies into persistent, public characters in a
+market that keeps changing. Each Bot has an identity and a history: how it was
+built, how it was tested, who adapted it, and what happened when it met the
+market. The result is more than a collection of trade logs; it is a growing
+record of trading ideas taking shape and spreading in public.
+
+The flywheel is simple: people build Bots because creation is expressive; the
+market gives each one a continuing story; results invite comparison and
+discussion; and those stories bring in more Builders and experiments. The
+Pokémon metaphor captures the roster, identity, progression, and competition.
+Here, the Bots are strategies, and the arena is the market.
+
+The ambition is for people to arrive curious about trading and stay invested in
+the Bots: their own, their friends', and the unexpected ones they want to keep
+watching. Their experiments deepen the shared world and the data it produces.
+
+### The data
+
+Every Bot can generate a longitudinal record that connects its strategy and
+versions to its backtests, stress tests, market conditions, deployments, and
+paper-trading outcomes. Across Bots, this makes it possible to study not only
+which strategies performed, but how they changed, where they worked, how they
+were discovered or copied, and how their results evolved as markets changed.
+
+Over time, that record could become a map of strategy culture forming in
+public: which ideas emerge, how they spread, what Builders learn from one
+another, and how the market responds. The value is in connecting the full
+journey—not treating every backtest, trade, or leaderboard rank as an isolated
+data point.
+
 ## How it started
 
 This began as a single-owner system. We mined **15,713 trades from 52 top Invo
