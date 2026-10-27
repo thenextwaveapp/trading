@@ -13,9 +13,11 @@ Entries come from entry_signal, exits from exit_trade. Fees and slippage are
 always applied. No look-ahead: a trade's exit only uses candles at or after
 its signal bar. Exit modes implemented: `hh` (stop at the signal-window high
 + buffer), `none` (no stop), `dstop` (disaster stop), `sig` (momo
-signal-window stop), take-profit (intrabar or close-cross), short trailing
-stop.
+signal-window stop), take-profit (intrabar or close-cross), and trailing
+stops on either side.
 """
+from bisect import bisect_left
+
 from .evaluator import entry_signal, M15
 
 DEFAULTS = {
@@ -36,26 +38,35 @@ def build_position(strategy, candles, i, sig):
     stopspec = ex.get("stop", {"mode": "none", "param": 0.0})
     mode, param = stopspec.get("mode", "none"), stopspec.get("param", 0.0)
 
-    if mode == "hh":                      # stop at the signal-window high
+    if mode == "hh":                      # signal-window extreme + buffer
         w = stopspec.get("window", 16)
-        hh = max(c["h"] for c in candles[i - w:i + 1])
-        level = hh * (1 + param)
-    elif mode == "dstop":                 # disaster stop below entry
-        level = entry * (1 - param)
+        seg = candles[max(0, i - w + 1):i + 1]
+        if side > 0:
+            level = min(c["l"] for c in seg) * (1 - param)
+        else:
+            level = max(c["h"] for c in seg) * (1 + param)
+    elif mode == "dstop":                 # % stop on the correct side
+        level = entry * (1 - side * param)
     elif mode == "none":                  # no stop (level 0 never hit)
         level = 0.0
-    elif mode == "sig":                   # momo: signal-window computed stop
-        w = stopspec.get("window", 16)    # max(window low, midpoint) - buffer
+    elif mode == "sig":                   # signal-window midpoint + buffer
+        w = stopspec.get("window", 16)
         buf = stopspec.get("param", 0.001)
-        seg = candles[i - w + 1:i + 1]
-        ll = min(c["l"] for c in seg)
-        o0 = seg[0]["o"]
-        level = max(ll, (o0 + candles[i]["c"]) / 2) * (1 - buf)
+        seg = candles[max(0, i - w + 1):i + 1]
+        mid = (seg[0]["o"] + candles[i]["c"]) / 2
+        if side > 0:
+            level = max(min(c["l"] for c in seg), mid) * (1 - buf)
+        else:
+            level = min(max(c["h"] for c in seg), mid) * (1 + buf)
     else:
-        level = stopspec.get("level", 0.0)
+        raise ValueError(
+            f"stop mode {mode!r} is not implemented; use exit.trailing "
+            "for a trailing stop")
 
     pos = {"entry": entry, "hold": ex.get("time_bars"), "side": side,
-           "stop": level, "t_sig": sig["t_sig"]}
+           "stop": level, "t_sig": sig["t_sig"],
+           "interval_ms": strategy.get("_interval_ms", M15),
+           "i": sig.get("i", i) + 1}
 
     tp = ex.get("take_profit")
     if tp:
@@ -63,36 +74,46 @@ def build_position(strategy, candles, i, sig):
         if ex.get("tp_close"):
             pos["tp_close"] = True
     tr = ex.get("trailing")
-    if tr and side < 0:
+    if tr:
         pos["trail_k"], pos["natr"] = tr.get("k"), tr.get("natr")
     return pos
 
 
 def exit_trade(pos, candles, taker, slip):
     """Resolve a position to (net, exit_t, kind). Order: stop breach, then
-    take-profit, then (short) trailing ratchet, then time exit at `hold`. net
-    is the side-signed return minus both-leg taker fees + slippage. None if
-    candles run out first."""
+    take-profit, then trailing ratchet, then time exit at `hold`. net is the
+    side-signed return minus both-leg taker fees + slippage. None if candles
+    run out first."""
     entry, hold, side = pos["entry"], pos["hold"], pos.get("side", -1)
-    level, low_min = pos["stop"], entry
+    step = pos.get("interval_ms", M15)
+    level, extreme = pos["stop"], entry
     trail_k, natr, tp = pos.get("trail_k"), pos.get("natr"), pos.get("tp")
     fee = 2 * taker + slip
-    post = [k for k in candles if k["t"] >= pos["t_sig"]][:hold]
+    start = pos.get("i")
+    if start is None:
+        start = bisect_left(candles, pos["t_sig"], key=lambda c: c["t"])
+    post = candles[start:start + hold]
     for n, k in enumerate(post, 1):
         # level 0 = "no stop" sentinel (never breached, either side), else a
         # short with stop mode "none" would instant-stop at level 0.
         if level and ((k["h"] > level) if side < 0 else (k["l"] < level)):
-            return side * (level / entry - 1) - fee, k["t"] + M15, "sl"
+            return side * (level / entry - 1) - fee, k["t"] + step, "sl"
         if tp and pos.get("tp_close"):
             if (k["c"] <= tp) if side < 0 else (k["c"] >= tp):
-                return side * (k["c"] / entry - 1) - fee, k["t"] + M15, "tp"
+                return side * (k["c"] / entry - 1) - fee, k["t"] + step, "tp"
         elif tp and ((k["l"] <= tp) if side < 0 else (k["h"] >= tp)):
             return side * (tp / entry - 1) - fee, k["t"] + M15, "tp"
-        if side < 0 and trail_k and natr:
-            low_min = min(low_min, k["l"])
-            level = min(level, low_min * (1 + trail_k * natr))
+        if trail_k and natr:
+            if side < 0:
+                extreme = min(extreme, k["l"])
+                trail = extreme * (1 + trail_k * natr)
+                level = min(level, trail) if level else trail
+            else:
+                extreme = max(extreme, k["h"])
+                trail = extreme * (1 - trail_k * natr)
+                level = max(level, trail) if level else trail
         if n == hold:
-            return side * (k["c"] / entry - 1) - fee, k["t"] + M15, "time"
+            return side * (k["c"] / entry - 1) - fee, k["t"] + step, "time"
     return None
 
 
@@ -158,7 +179,9 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
         if fi >= len(candles):
             continue
         fsig = sig if entry_delay == 0 else {
-            **sig, "entry": candles[fi]["c"], "t_sig": candles[fi]["t"] + M15}
+            **sig, "entry": candles[fi]["c"],
+            "t_sig": candles[fi]["t"] + strategy.get("_interval_ms", M15),
+            "i": fi}
         pos = build_position(strategy, candles, i, fsig)  # i -> stop window
         ex = exit_trade(pos, candles, taker, slip)
         if ex is None:

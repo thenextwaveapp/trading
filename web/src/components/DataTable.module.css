@@ -4,6 +4,7 @@
 .table {
   border-collapse: collapse;
   width: 100%;
+  table-layout: fixed;
 }
 .th {
   font-weight: 400;

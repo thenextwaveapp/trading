@@ -11,10 +11,13 @@ import type {
   DbPlan,
   DbProfile,
   DbStrategyCondition,
+  DbSweep,
+  DbSweepRun,
   DbUniverse,
   DbUniverseFilter,
   DbUniverseWithCoins,
   Stage,
+  SweepAxis,
   Visibility,
 } from "./types";
 
@@ -64,6 +67,16 @@ export const fetchMyBots = (owner: string) =>
     .eq("owner", owner)
     .order("created_at", { ascending: false });
 
+/** Bots currently moving through Compose -> Ready. Deployed bots leave this
+ *  list; the sidebar shows the rung each in-progress build is standing on. */
+export const fetchBuildBots = (owner: string) =>
+  supabase
+    .from("pf_bots")
+    .select("*")
+    .eq("owner", owner)
+    .in("stage", ["draft", "training", "trials", "weather", "ready"])
+    .order("created_at", { ascending: false });
+
 /** One bot by id — the Build wizard's handle on what it is editing. */
 export const fetchMyBot = (id: string) =>
   supabase
@@ -71,6 +84,13 @@ export const fetchMyBot = (id: string) =>
     .select("*, builder:pf_profiles(handle, avatar_color)")
     .eq("id", id)
     .single();
+
+/** Latest mark per deployed bot (one row per bot). */
+export const fetchLatestMarks = () =>
+  supabase
+    .from("pf_bot_marks")
+    .select("*")
+    .order("t", { ascending: false });
 
 /** Names are the public identity and unique per Builder. */
 export const botNameTaken = async (
@@ -125,6 +145,35 @@ export const fetchLatestBacktest = (botId: string) =>
     .limit(1)
     .maybeSingle();
 
+export const fetchLatestDoneBacktest = async (botId: string) => {
+  const { data, error } = await supabase
+    .from("pf_backtests")
+    .select("*")
+    .eq("bot_id", botId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) return { data: null, error };
+  const rows = (data as DbBacktest[]) ?? [];
+  const chosen =
+    rows.find((r) => r.status === "done" && (r.equity_curve?.length ?? 0) > 0) ??
+    rows.find((r) => r.status === "done") ??
+    rows[0] ??
+    null;
+  return { data: chosen, error: null };
+};
+
+export const fetchLatestSweep = (botId: string) =>
+  supabase
+    .from("pf_sweeps")
+    .select("*")
+    .eq("bot_id", botId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+export const fetchSweepRuns = (sweepId: string) =>
+  supabase.from("pf_sweep_runs").select("*").eq("sweep_id", sweepId).order("position");
+
 export const fetchChecks = (backtestId: string) =>
   supabase.from("pf_checks").select("*").eq("backtest_id", backtestId).order("position");
 
@@ -148,6 +197,11 @@ export const useMyBots = (owner: string | null) =>
   useQuery<DbBot[]>(
     () => (owner ? fetchMyBots(owner) : Promise.resolve({ data: [], error: null })),
     [owner],
+  );
+export const useBuildBots = (owner: string | null, nonce = 0) =>
+  useQuery<DbBot[]>(
+    () => (owner ? fetchBuildBots(owner) : Promise.resolve({ data: [], error: null })),
+    [owner, nonce],
   );
 
 /** One bot by id. Keeps its row while a poll refreshes it, but never leaks a
@@ -217,7 +271,7 @@ export const useBacktests = (botId: string | null) =>
   );
 export const useLatestBacktest = (botId: string | null) =>
   useQuery<DbBacktest | null>(
-    () => (botId ? fetchLatestBacktest(botId) : Promise.resolve({ data: null, error: null })),
+    () => (botId ? fetchLatestDoneBacktest(botId) : Promise.resolve({ data: null, error: null })),
     [botId],
   );
 export const useChecks = (backtestId: string | null) =>
@@ -265,7 +319,7 @@ export function useBuildData(botId: string | null, nonce = 0): BuildData {
       setState({ loading: false, backtest: null, checks: [], conditions: [] });
       return;
     }
-    setState((s) => ({ ...s, loading: true }));
+    // keep previous data visible while refreshing — no loading flash on poll
     (async () => {
       const { data: bt } = await fetchLatestBacktest(botId);
       let checks: DbCheck[] = [];
@@ -283,6 +337,53 @@ export function useBuildData(botId: string | null, nonce = 0): BuildData {
     };
   }, [botId, nonce]);
   return state;
+}
+
+export interface SweepData {
+  loading: boolean;
+  sweep: DbSweep | null;
+  runs: DbSweepRun[];
+}
+
+/** The latest sweep for a bot plus its result rows. Poll `nonce` while the
+ *  worker is running; a bot change clears the previous bot's grid. */
+export function useSweepData(botId: string | null, nonce = 0): SweepData {
+  const [state, setState] = useState<
+    SweepData & { botId: string | null }
+  >({ botId: null, loading: !!botId, sweep: null, runs: [] });
+
+  useEffect(() => {
+    let alive = true;
+    if (!botId) {
+      setState({ botId: null, loading: false, sweep: null, runs: [] });
+      return;
+    }
+    setState((s) =>
+      s.botId === botId
+        ? { ...s, loading: s.sweep === null }
+        : { botId, loading: true, sweep: null, runs: [] },
+    );
+    (async () => {
+      const { data: sweep } = await fetchLatestSweep(botId);
+      let runs: DbSweepRun[] = [];
+      if (sweep) {
+        const { data } = await fetchSweepRuns(sweep.id);
+        runs = (data as DbSweepRun[]) ?? [];
+      }
+      if (!alive) return;
+      setState({
+        botId,
+        loading: false,
+        sweep: (sweep as DbSweep) ?? null,
+        runs,
+      });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [botId, nonce]);
+
+  return { loading: state.loading, sweep: state.sweep, runs: state.runs };
 }
 
 // ---- writes ----
@@ -391,6 +492,28 @@ export const createBacktest = (input: { bot_id: string; universe_id: string | nu
     .select("id")
     .single();
 
+/** Enqueue a parameter grid. The engine worker expands it and writes one
+ *  pf_sweep_runs row per point; RLS follows the parent bot's owner. */
+export const createSweep = (input: {
+  bot_id: string;
+  universe_id: string | null;
+  universe_slug: string;
+  spec: Record<string, unknown>;
+  axes: SweepAxis[];
+}) =>
+  supabase
+    .from("pf_sweeps")
+    .insert({
+      bot_id: input.bot_id,
+      universe_id: input.universe_id,
+      universe_slug: input.universe_slug,
+      spec: input.spec,
+      axes: input.axes,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
 /** Persist the weather gate — the conditions a bot is allowed to fight in. */
 export const setConditionFilter = (bot_id: string, filter: Record<string, unknown> | null) =>
   supabase.from("pf_bots").update({ condition_filter: filter }).eq("id", bot_id);
@@ -415,3 +538,7 @@ export const deployBot = (input: {
     .eq("id", input.bot_id)
     .select("id, name")
     .single();
+
+/** Permanently delete a bot owned by the signed-in user (cascades to child rows). */
+export const deleteBot = (bot_id: string) =>
+  supabase.from("pf_bots").delete().eq("id", bot_id);

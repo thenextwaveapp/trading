@@ -76,6 +76,15 @@
   cursor: not-allowed;
   box-shadow: none;
 }
+.dangerBtn {
+  border-color: rgba(255, 92, 108, 0.35);
+  color: #FF5C6C;
+  cursor: pointer;
+}
+.dangerBtn:hover:not(:disabled) {
+  background: rgba(255, 92, 108, 0.1);
+  border-color: rgba(255, 92, 108, 0.6);
+}
 .dot {
   width: 7px;
   height: 7px;

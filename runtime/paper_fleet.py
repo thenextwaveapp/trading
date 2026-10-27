@@ -35,7 +35,10 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+import core.env  # noqa: F401 — loads .env
 from core import regime
+from core.strategy import parse as parse_spec
+from core.timeframes import DEFAULT_TIMEFRAME
 from .paper_trader import klines, M15, TAKER, SLIP, RISK, NOTIONAL_CAP, \
     MAX_CONC, KILL_DD, KILL_LOOKBACK, KILL_PAUSE, START_EQUITY, API
 
@@ -1168,12 +1171,29 @@ def _resolve_universes(bots):
     return out
 
 
+def _bot_timeframe(spec):
+    try:
+        return parse_spec(spec).get("_timeframe", DEFAULT_TIMEFRAME)
+    except Exception:
+        return None
+
+
+def _bot_bars(spec):
+    """Bars a live cycle must fetch to cover the strategy's lookback and hold."""
+    try:
+        s = parse_spec(spec)
+    except Exception:
+        return 110
+    hold = int((s.get("exit") or {}).get("time_bars", 16))
+    return min(1500, max(110, s["_lookback"] + 2, hold + 8))
+
+
 def cycle_db(states):
     """One live cycle over the DB fleet. Replaces the fleet_config/VARIANTS
     dispatch: load bots from pf_bots, resolve each bot's own universe, fetch
-    candles for the union, and run exits+entries for each through spec_runtime
-    (which calls the same core functions the backtester uses). State is one
-    paper account per bot id."""
+    candles for each candle size, and run exits+entries for each through
+    spec_runtime (which calls the same core functions the backtester uses).
+    State is one paper account per bot id."""
     from . import fleet_source
     from . import spec_runtime
 
@@ -1182,16 +1202,39 @@ def cycle_db(states):
         log("no runnable bots in pf_bots — idle cycle")
         return
     universes = _resolve_universes(bots)
-    union = {tk: sym for uni in universes.values() for tk, sym in uni.items()}
-    if not union:
+    by_interval = {}
+    bars_by_interval = {}
+    for b in bots:
+        iv = _bot_timeframe(b.get("spec") or {})
+        if not iv:
+            log(f"[{b['name']}] SKIP: spec has an unsupported candle size")
+            continue
+        by_interval.setdefault(iv, {})
+        bars_by_interval[iv] = max(bars_by_interval.get(iv, 0),
+                                   _bot_bars(b.get("spec") or {}))
+        by_interval[iv].update(universes.get(b["id"]) or {})
+    if not any(by_interval.values()):
         log("no bot universe resolved — nothing to fetch this cycle")
         return
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        candles = dict(zip(union, ex.map(
-            lambda tk: klines(union[tk], limit=110), union)))
-    n_ok = sum(1 for c in candles.values() if c)
-    if n_ok < len(union) * 0.8:
-        log(f"WARN: only {n_ok}/{len(union)} tickers fetched, skipping cycle")
+    # Weather uses BTC's 15m tape regardless of the bot's execution candle.
+    by_interval.setdefault(DEFAULT_TIMEFRAME, {})["BTC"] = "BTCUSDT"
+    candles_by_interval = {}
+    for iv, symbols in by_interval.items():
+        if not symbols:
+            continue
+        limit = bars_by_interval.get(iv, 110)
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            candles = dict(zip(symbols, ex.map(
+                lambda tk: klines(symbols[tk], limit=limit, interval=iv),
+                symbols)))
+        n_ok = sum(1 for c in candles.values() if c)
+        if n_ok < len(symbols) * 0.8:
+            log(f"WARN: only {n_ok}/{len(symbols)} {iv} tickers fetched; "
+                "skipping that candle size this cycle")
+            continue
+        candles_by_interval[iv] = candles
+    if not candles_by_interval:
+        log("no candle size fetched — skipping cycle")
         return
     gate = dict(bear=btc_bear())
     paused = os.path.exists(PAUSE)
@@ -1202,13 +1245,52 @@ def cycle_db(states):
         _pause_state[0] = paused
 
     for b in bots:
-        states.setdefault(b["id"], load_state(b["id"]))
-    fetch = lambda sym, start, limit: klines(sym, limit=limit, start=start)
+        if b["id"] not in states:
+            st = load_state(b["id"])
+            if not st.get("eq_hist") and not st.get("trades") and not st.get("positions"):
+                legacy = load_state(b["name"])
+                if legacy.get("eq_hist") or legacy.get("trades") or legacy.get("positions") or legacy.get("equity", START_EQUITY) != START_EQUITY:
+                    st = legacy
+            states[b["id"]] = st
+    prev_counts = {b["id"]: len(states[b["id"]].get("trades", []))
+                   for b in bots}
+    fetch = lambda sym, start, limit, iv: klines(
+        sym, limit=limit, start=start, interval=iv)
     # paused -> no entry scan (empty candle set), but exits still resolve
-    spec_runtime.run_fleet(bots, states, {} if paused else candles, universes,
-                           fetch=fetch, gate=gate, notes=NOTES, log=log)
+    spec_runtime.run_fleet(
+        bots, states, {} if paused else candles_by_interval, universes,
+        fetch=fetch, gate=gate, notes=NOTES, log=log)
     for b in bots:
-        save_state(b["id"], states[b["id"]])
+        st = states[b["id"]]
+        try:
+            from . import pf_db
+            for tr in st.get("trades", [])[prev_counts[b["id"]]:]:
+                pf_db.save_trade({"bot_id": b["id"], "t_sig": tr.get("t_sig"),
+                                  "exit_t": tr.get("exit_t"),
+                                  "ticker": tr.get("ticker"),
+                                  "side": tr.get("side", b.get("direction") or "long"),
+                                  "kind": tr.get("kind"),
+                                  "net": tr.get("net"), "pnl": tr.get("pnl"),
+                                  "notional": tr.get("notional"),
+                                  "entry": tr.get("entry"),
+                                  "exit_px": None})
+            trs = st.get("trades", [])
+            closed_n = max(len(st.get("eq_hist", [])), len(trs))
+            win_pct = round(sum(1 for t in trs if float(t.get("pnl", t.get("net", 0)) or 0) > 0) / len(trs) * 100, 1) if trs else None
+            pf_db.save_mark({
+                "bot_id": b["id"],
+                "t": int(time.time() * 1000),
+                "equity": st.get("equity", START_EQUITY),
+                "ret": st.get("equity", START_EQUITY) / START_EQUITY - 1,
+                "open_json": st.get("positions", []),
+                "closed": closed_n,
+                "win": win_pct,
+                "kill": bool(st.get("kill_until", 0) > time.time() * 1000),
+                "paused": os.path.exists(PAUSE),
+            })
+        except Exception:
+            pass
+        save_state(b["id"], st)
     flush_notes()
 
 

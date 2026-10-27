@@ -40,6 +40,7 @@ BIN = "https://fapi.binance.com/fapi/v1/klines"
 # ---- DB fleet (pf_bots) ----
 # Read the DB fleet + the pickable coin set for /candles validation. Cached so
 # a 10s /api poll doesn't hammer the DB. Service env supplies SUPABASE_*.
+import core.env  # noqa: F401 — loads .env
 import urllib.parse as _uparse
 _SB_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 _SB_KEY = (os.environ.get("SUPABASE_SERVICE_KEY")

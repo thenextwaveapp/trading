@@ -1,29 +1,3 @@
-.top {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px var(--gutter);
-  border-bottom: 1px solid var(--line);
-}
-.titleRow {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.sq {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  background: var(--accent);
-}
-.h1 {
-  font-size: 20px;
-  font-weight: 500;
-}
-
 .body {
   padding: 0 var(--gutter);
 }
@@ -161,9 +135,29 @@
   transform: translateY(-2px);
   border-color: #2a313c;
 }
+@keyframes tilePulse {
+  0%,
+  100% {
+    border-color: rgba(94, 155, 230, 0.45);
+    box-shadow: 0 0 0 1px rgba(139, 180, 232, 0.2), 0 0 14px rgba(94, 155, 230, 0.12);
+  }
+  50% {
+    border-color: rgba(139, 180, 232, 0.95);
+    box-shadow: 0 0 0 2px rgba(139, 180, 232, 0.55), 0 0 22px rgba(94, 155, 230, 0.32);
+  }
+}
+
 .tileTrade {
-  animation: glow 2.4s infinite;
+  animation: tilePulse 2s ease-in-out infinite;
   background: linear-gradient(180deg, #132338 0%, #0b111a 100%);
+}
+.tileDragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+.tileDragOver {
+  border-color: var(--trade);
+  transform: scale(1.02);
 }
 .tileRest {
   background: transparent;

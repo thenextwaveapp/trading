@@ -1,15 +1,19 @@
-"""Studio build worker — trains, trials and maps a user's bot.
+"""Studio build worker — trains, trials, sweeps and maps a user's bot.
 
-The web enqueues work by inserting a pf_backtests row with status='pending'.
-This worker drains those rows and runs each through the same core/ engine the
-lab and live fleet use (core.service) for backtest<->live parity, then writes
-results back to the DB (the single source of truth the web reads). The web
-never calls the engine directly.
+The web enqueues work by inserting a pf_backtests or pf_sweeps row with
+status='pending'. This worker drains those rows and runs each through the same
+core/ engine the lab and live fleet use (core.service) for backtest<->live
+parity, then writes results back to the DB (the single source of truth the web
+reads). The web never calls the engine directly.
 
     pending pf_backtests
         -> ep_evaluate (candles -> backtest + trials + weather)
         -> pf_backtests / pf_checks / pf_conditions / pf_bots.spec
         -> stage 'trials' (or 'draft' on error) -> web
+
+    pending pf_sweeps
+        -> ep_sweep (one backtest per grid point, shared candle tape)
+        -> pf_sweep_runs -> pf_sweeps status/done
 
 Run:  python -m runtime.engine_worker            # poll loop
       python -m runtime.engine_worker --once     # drain once and exit
@@ -23,7 +27,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from core.service import ep_evaluate, ep_map
+from core.service import ep_evaluate, ep_map, ep_sweep
 from . import pf_db
 
 POLL_SECONDS = 10
@@ -186,19 +190,84 @@ def drain() -> int:
     return len(pending)
 
 
+def _sweep_body(sweep: dict):
+    spec = dict(sweep.get("spec") or {})
+    slug = sweep.get("universe_slug") or spec.get("universe")
+    body = {"spec": spec, "axes": sweep.get("axes") or [], "window": _window()}
+    if slug:
+        body["universe"] = slug
+    return body
+
+
+def process_sweep(sweep: dict):
+    """Run one queued sweep; every grid point lands in pf_sweep_runs."""
+    now = datetime.now(timezone.utc).isoformat()
+    pf_db.patch("pf_sweeps", f"id=eq.{sweep['id']}",
+                {"status": "running", "updated_at": now})
+    try:
+        code, out = ep_sweep(_sweep_body(sweep))
+        if code != 200 or not out.get("ok"):
+            raise ValueError(out.get("error", "sweep failed"))
+        runs = out.get("runs") or []
+        for i, run in enumerate(runs):
+            pf_db.insert("pf_sweep_runs", {
+                "sweep_id": sweep["id"],
+                "position": i,
+                "label": run.get("label") or f"run {i + 1}",
+                "changes": run.get("changes") or {},
+                "stats": run.get("stats"),
+                "issues": run.get("issues"),
+                "error": run.get("error"),
+            })
+        w = out.get("window") or {}
+        success = int(out.get("completed") or 0)
+        plural = "" if len(runs) == 1 else "s"
+        pf_db.patch("pf_sweeps", f"id=eq.{sweep['id']}", {
+            "status": "done" if success else "error",
+            "error": None if success else (
+                f"all {len(runs)} grid point{plural} failed"),
+            "run_count": int(out.get("count") or len(runs)),
+            "completed_count": len(runs),
+            "window_start": w.get("start") or None,
+            "window_end": w.get("end") or None,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:  # one bad sweep must not stop the worker
+        pf_db.patch("pf_sweeps", f"id=eq.{sweep['id']}", {
+            "status": "error",
+            "error": str(e)[:500],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+
+def drain_sweeps() -> int:
+    pending = pf_db.get(
+        "pf_sweeps",
+        "status=eq.pending&select=id,spec,axes,universe_id,universe_slug"
+        "&order=created_at.asc")
+    for sweep in pending:
+        process_sweep(sweep)
+    return len(pending)
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not pf_db.enabled():
         sys.exit("SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
     once = "--once" in argv
     while True:
+        n = m = 0
         try:
             n = drain()
-            if once:
-                print(f"drained {n} pending backtest(s)")
-                return 0
         except Exception as e:
-            print(f"worker error: {e}", file=sys.stderr)
+            print(f"backtest worker error: {e}", file=sys.stderr)
+        try:
+            m = drain_sweeps()
+        except Exception as e:
+            print(f"sweep worker error: {e}", file=sys.stderr)
+        if once:
+            print(f"drained {n} pending backtest(s), {m} sweep(s)")
+            return 0
         time.sleep(POLL_SECONDS)
 
 

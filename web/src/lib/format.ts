@@ -1,3 +1,4 @@
+import { FLEET_SLOTS } from "./brand";
 // Shared formatters.
 
 export const START = 10_000;
@@ -137,9 +138,5 @@ export function windowReturn(curve: [number, number][], days: number | null, now
 
 /** Chart line colour by variant index (12-colour cycle). */
 export function vcolor(i: number): string {
-  const palette = [
-    "#58a6ff", "#3fb950", "#f85149", "#d29922", "#bc8cff", "#39c5cf",
-    "#ff7b72", "#7ee787", "#ffa657", "#79c0ff", "#d2a8ff", "#56d4dd",
-  ];
-  return palette[((i % palette.length) + palette.length) % palette.length];
+  return FLEET_SLOTS[((i % FLEET_SLOTS.length) + FLEET_SLOTS.length) % FLEET_SLOTS.length];
 }

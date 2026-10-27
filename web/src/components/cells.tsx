@@ -24,7 +24,9 @@ export function Coin(p: {
 }) {
   const open = useCandle();
   const d = useData();
-  const sym = d.symbols[p.ticker] || "";
+  const sym =
+    d.symbols[p.ticker] ||
+    (p.ticker ? (p.ticker.endsWith("USDT") ? p.ticker : `${p.ticker}USDT`) : "");
   const title = `${p.ticker}${p.variant ? " · " + p.variant : ""}${
     p.exit_t ? " (closed " + (p.kind || "") + ")" : " (open)"
   }`;

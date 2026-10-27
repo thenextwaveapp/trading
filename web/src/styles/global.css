@@ -96,6 +96,21 @@ button {
   animation: pulse 2s infinite;
   flex: none;
 }
+.blueDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--trade);
+  animation: pulse 2s infinite;
+  flex: none;
+}
+.pulseCard {
+  animation: pulseCard 2s infinite;
+}
+@keyframes pulseCard {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(139, 180, 232, 0.25); }
+  50% { box-shadow: 0 0 0 1px rgba(139, 180, 232, 0.65); }
+}
 .downDot {
   width: 7px;
   height: 7px;

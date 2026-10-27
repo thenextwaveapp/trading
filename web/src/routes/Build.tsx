@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import Hub from "./build/Hub";
 import Compose from "./build/Compose";
 import Training from "./build/Training";
+import Sweep from "./build/Sweep";
 import Trials from "./build/Trials";
 import Weather from "./build/Weather";
 import Deploy from "./build/Deploy";
@@ -13,6 +14,7 @@ export default function Build() {
       <Route index element={<Hub />} />
       <Route path="compose" element={<Compose />} />
       <Route path="training" element={<Training />} />
+      <Route path="sweep" element={<Sweep />} />
       <Route path="trials" element={<Trials />} />
       <Route path="weather" element={<Weather />} />
       <Route path="deploy" element={<Deploy />} />

@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { botColor } from "../lib/brand";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth, useCurrentHandle } from "../auth";
+import { useBuildBots } from "../db/queries";
+import { resumePath, STAGES } from "../routes/build/stages";
 import s from "./Sidebar.module.css";
 
 const icons = {
@@ -47,6 +50,18 @@ export default function Sidebar({
   const loc = useLocation();
   const { user } = useAuth();
   const myHandle = useCurrentHandle();
+  const [buildNonce, setBuildNonce] = useState(0);
+  const { data: buildBots } = useBuildBots(user?.id ?? null, buildNonce);
+  const activeBotId = new URLSearchParams(loc.search).get("bot");
+  const stageLabel = new Map(STAGES.map((x) => [x.key, x.label]));
+  useEffect(() => {
+    setBuildNonce((n) => n + 1);
+  }, [loc.pathname, loc.search]);
+  useEffect(() => {
+    if (!user) return;
+    const t = setInterval(() => setBuildNonce((n) => n + 1), 10_000);
+    return () => clearInterval(t);
+  }, [user]);
   // Replay the plane fly animation each time the sidebar opens.
   const [flyKey, setFlyKey] = useState(0);
   const wasCollapsed = useRef(collapsed);
@@ -85,15 +100,37 @@ export default function Sidebar({
 
       <nav className={s.nav}>
         {navItems.map((it) => (
-          <button
-            key={it.path}
-            className={`${s.ni} ${it.active ? s.on : ""}`}
-            onClick={() => nav(it.path)}
-            title={it.label}
-          >
-            {icons[it.icon]}
-            <span className={s.txt}>{it.label}</span>
-          </button>
+          <Fragment key={it.path}>
+            <button
+              className={`${s.ni} ${it.active ? s.on : ""}`}
+              onClick={() => nav(it.path)}
+              title={it.label}
+            >
+              {icons[it.icon]}
+              <span className={s.txt}>{it.label}</span>
+            </button>
+            {it.label === "Build" && !!buildBots?.length && (
+              <div className={s.buildList}>
+                {buildBots.map((b) => (
+                  <button
+                    key={b.id}
+                    className={`${s.buildItem} ${activeBotId === b.id ? s.buildOn : ""}`}
+                    onClick={() => nav(resumePath(b.stage, b.id, b.name))}
+                    title={`${b.name} — ${stageLabel.get(b.stage) ?? b.stage}`}
+                  >
+                    <span
+                      className={s.buildDot}
+                      style={{ background: botColor(b) }}
+                    />
+                    <span className={s.buildName}>{b.name}</span>
+                    <span className={s.buildStage}>
+                      {stageLabel.get(b.stage) ?? b.stage}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Fragment>
         ))}
         {!user && (
           <button

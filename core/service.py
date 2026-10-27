@@ -1,9 +1,9 @@
 """The engine service — API-first.
 
 Everything the product needs from the engine is a plain function in ENDPOINTS
-(validate / backtest / checks / catalog / health). The HTTP server below is a
-thin adapter over them; an MCP server or a direct Python/API caller would be
-the same thin adapter over the same functions.
+(validate / backtest / checks / evaluate / sweep / catalog / health). The
+HTTP server below is a thin adapter over them; an MCP server or a direct
+Python/API caller would be the same thin adapter over the same functions.
 
 Data: endpoints accept candles inline — `candles` (one series) or
 `candles_by_ticker` ({ticker: [...]}) — for offline deterministic compute. If
@@ -28,6 +28,9 @@ from .backtest import backtest, backtest_universe
 from .checks import run_checks
 from .conditions import conditions_breakdown
 from .mapping import variant_to_spec
+from .params import spec_issues
+from .sweep import SweepError, expand_prepared, label_for, prepare_axes
+from .timeframes import interval_ms as _timeframe_ms
 from . import db
 from . import presets as _presets
 from .export_catalog import build as build_catalog
@@ -40,14 +43,6 @@ DAY_MS = 86_400_000
 # ---- data ----
 MAX_SYMBOLS = 60        # safety cap
 MAX_BARS = 200_000      # per-symbol safety cap when paging Binance
-_UNIT_MS = {"m": 60_000, "h": 3_600_000, "d": DAY_MS}
-
-
-def _interval_ms(interval):
-    try:
-        return int(interval[:-1]) * _UNIT_MS[interval[-1]]
-    except (KeyError, ValueError, IndexError):
-        return 900_000
 
 
 def _iso_date(ms):
@@ -76,7 +71,7 @@ def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
     if start is None:
         return _fetch_page(symbol, interval, limit, start, end)
 
-    step = _interval_ms(interval)
+    step = _timeframe_ms(interval)
     out, cursor = [], int(start)
     while True:
         batch = _fetch_page(symbol, interval, 1500, cursor, end)
@@ -138,6 +133,13 @@ def _window(body):
         end = int(end or time.time() * 1000)
         start = int(end - float(days) * DAY_MS)
     return (int(start) if start else None, int(end) if end else None)
+
+
+def _with_interval(body, strategy):
+    """The strategy's candle size is the source of truth for its data."""
+    out = dict(body)
+    out["interval"] = strategy.get("_timeframe", "15m")
+    return out
 
 
 def _resolve_universe(body):
@@ -227,13 +229,34 @@ def ep_catalog(_body=None):
     return 200, build_catalog()
 
 
+def _capability_gate(s, target="backtest"):
+    """Block a run when the target engine cannot execute the spec. Warnings
+    (partial / ignored features) are returned but do not block."""
+    issues = spec_issues(s, target)
+    blocking = [i for i in issues if i["blocking"]]
+    if not blocking:
+        return None, issues
+    first = blocking[0]
+    return {
+        "ok": False,
+        "error": f"{first['label']} is not supported: {first['reason']}",
+        "issues": issues,
+    }, issues
+
+
 def ep_validate(body):
     try:
         s = parse(body["spec"])
     except (StrategyError, KeyError, TypeError) as e:
         return 200, {"ok": False, "error": str(e)}
+    blocked, issues = _capability_gate(s, "backtest")
+    if blocked:
+        return 200, {**blocked, "lookback": s["_lookback"], "side": s["side"],
+                     "market": s.get("market"),
+                     "fresh": s.get("fresh", False)}
     return 200, {"ok": True, "lookback": s["_lookback"], "side": s["side"],
-                 "market": s.get("market"), "fresh": s.get("fresh", False)}
+                 "market": s.get("market"), "fresh": s.get("fresh", False),
+                 "timeframe": s.get("_timeframe"), "issues": issues}
 
 
 def ep_backtest(body):
@@ -241,15 +264,19 @@ def ep_backtest(body):
         s = parse(body["spec"])
     except (StrategyError, KeyError, TypeError) as e:
         return 400, {"ok": False, "error": str(e)}
+    blocked, issues = _capability_gate(s, "backtest")
+    if blocked:
+        return 400, blocked
     try:
-        uni, meta = _resolve_universe(body)
+        uni, meta = _resolve_universe(_with_interval(body, s))
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
     res = (backtest(s, next(iter(uni.values())))
            if len(uni) == 1 else backtest_universe(s, uni))
     return 200, {"ok": True, "stats": res["stats"],
                  "trades": res["trades"][:1000],
-                 "window": _window_meta(uni, meta)}
+                 "window": _window_meta(uni, meta),
+                 "issues": issues}
 
 
 def ep_checks(body):
@@ -257,11 +284,14 @@ def ep_checks(body):
         s = parse(body["spec"])
     except (StrategyError, KeyError, TypeError) as e:
         return 400, {"ok": False, "error": str(e)}
+    blocked, issues = _capability_gate(s, "backtest")
+    if blocked:
+        return 400, blocked
     try:
-        uni, _meta = _resolve_universe(body)
+        uni, _meta = _resolve_universe(_with_interval(body, s))
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
-    return 200, {"ok": True, **run_checks(s, uni)}
+    return 200, {"ok": True, **run_checks(s, uni), "issues": issues}
 
 
 def ep_evaluate(body):
@@ -274,14 +304,18 @@ def ep_evaluate(body):
         s = parse(body["spec"])
     except (StrategyError, KeyError, TypeError) as e:
         return 400, {"ok": False, "error": str(e)}
+    blocked, issues = _capability_gate(s, "backtest")
+    if blocked:
+        return 400, blocked
     try:
-        uni, meta = _resolve_universe(body)
+        uni, meta = _resolve_universe(_with_interval(body, s))
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
 
     res = backtest_universe(s, uni)
     checks = run_checks(s, uni, base=res)
-    conditions = conditions_breakdown(res["trades"], uni)
+    conditions = conditions_breakdown(res["trades"], uni,
+                                      bar_ms=s.get("_interval_ms", 900_000))
     return 200, {
         "ok": True,
         "stats": res["stats"],
@@ -291,8 +325,101 @@ def ep_evaluate(body):
         "checks_passed": checks["passed"],
         "checks_total": checks["total"],
         "conditions": conditions,
+        "issues": issues,
         **_gap_recovery(res["trades"], res["stats"].get("equity_curve") or []),
     }
+
+
+def _sweep_stats(stats):
+    return {k: stats.get(k) for k in (
+        "n", "win_rate", "net_pct_per_trade", "total_net_pct",
+        "final_equity", "max_drawdown")}
+
+
+def ep_sweep(body):
+    """Run one backtest per point in a parameter grid.
+
+    Every run reports its own result/error, so an unsupported value or an
+    unknown universe fails that row instead of aborting the whole sweep. The
+    candle tape is loaded once per universe and reused across variants."""
+    try:
+        base = parse(body["spec"])
+    except (StrategyError, KeyError, TypeError) as e:
+        return 400, {"ok": False, "error": str(e)}
+    blocked, base_issues = _capability_gate(base, "backtest")
+    if blocked:
+        return 400, blocked
+    try:
+        prepared = prepare_axes(body.get("axes") or [])
+    except SweepError as e:
+        return 400, {"ok": False, "error": str(e)}
+
+    count = 1
+    for _path, values in prepared:
+        count *= len(values)
+
+    inline = bool(body.get("candles") or body.get("candles_by_ticker"))
+    data_cache = {}
+    runs = []
+    window = None
+    completed = 0
+    for variant, changes in expand_prepared(base, prepared):
+        row = {"label": label_for(changes), "changes": changes,
+               "stats": None, "error": None}
+        try:
+            s = parse(variant)
+        except (StrategyError, KeyError, TypeError) as e:
+            row["error"] = str(e)
+            runs.append(row)
+            continue
+        blocked, issues = _capability_gate(s, "backtest")
+        if blocked:
+            row["error"] = blocked["error"]
+            row["issues"] = blocked["issues"]
+            runs.append(row)
+            continue
+
+        try:
+            iv = s.get("_timeframe", base.get("_timeframe", "15m"))
+            if inline and iv != base.get("_timeframe", "15m"):
+                raise ValueError(
+                    "inline candles are fixed to the base candle size; "
+                    "use a market universe/symbols for a timeframe sweep")
+            data_body = _with_interval(body, s)
+            if inline:
+                key = ("inline",)
+                if key not in data_cache:
+                    data_cache[key] = _resolve_universe(data_body)
+            elif body.get("symbols"):
+                key = ("symbols", iv)
+                if key not in data_cache:
+                    data_cache[key] = _resolve_universe(data_body)
+            else:
+                slug = s.get("universe") or body.get("universe")
+                if not slug:
+                    raise ValueError(
+                        "provide universe, symbols, candles, or candles_by_ticker")
+                key = (iv, slug)
+                if key not in data_cache:
+                    data_cache[key] = _resolve_universe(
+                        {**data_body, "universe": slug, "symbols": None})
+            uni, meta = data_cache[key]
+            res = backtest_universe(s, uni)
+        except (ValueError, KeyError, TypeError) as e:
+            row["error"] = f"data: {e}"
+            runs.append(row)
+            continue
+
+        row["stats"] = _sweep_stats(res["stats"])
+        if issues:
+            row["issues"] = issues
+        if window is None:
+            window = _window_meta(uni, meta)
+        completed += 1
+        runs.append(row)
+
+    return 200, {"ok": True, "count": count, "completed": completed,
+                 "window": window, "runs": runs, "issues": base_issues}
 
 
 def ep_presets(_body=None):
@@ -321,6 +448,7 @@ ENDPOINTS = {
     ("POST", "/v1/backtest"): ep_backtest,
     ("POST", "/v1/checks"): ep_checks,
     ("POST", "/v1/evaluate"): ep_evaluate,
+    ("POST", "/v1/sweep"): ep_sweep,
     ("POST", "/v1/map"): ep_map,
 }
 

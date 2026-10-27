@@ -18,6 +18,7 @@ import urllib.request
 from . import universe as _uni
 from . import marketdata as _md
 
+from . import env as _env  # noqa: F401 — loads .env
 URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 _TTL = 300

@@ -21,7 +21,12 @@ export const LW_OPTS = {
     vertLines: { color: "#141920" },
     horzLines: { color: "#141920" },
   },
-  timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#1B212A" },
+  timeScale: {
+    timeVisible: true,
+    secondsVisible: false,
+    borderColor: "#1B212A",
+    minBarSpacing: 0.001,
+  },
   rightPriceScale: { borderColor: "#1B212A" },
   crosshair: { mode: CrosshairMode.Normal },
   autoSize: true,
@@ -32,11 +37,40 @@ export function lineData(curve: [number, number][]) {
   const out: { time: UTCTimestamp; value: number }[] = [];
   for (const [t, v] of [...curve].sort((a, b) => a[0] - b[0])) {
     const x = lt(t);
-    if (x <= last) continue;
+    if (x <= last) {
+      if (out.length && x === last) out[out.length - 1].value = v;
+      continue;
+    }
     last = x;
     out.push({ time: x as UTCTimestamp, value: v });
   }
-  return out;
+  if (out.length <= 1200) return out;
+  // Downsample dense curves (e.g. 60k-trade backtests) while preserving
+  // start, end, and each bucket's min/max so fitContent() shows the whole span.
+  const buckets = 600;
+  const size = out.length / buckets;
+  const sampled: { time: UTCTimestamp; value: number }[] = [out[0]];
+  for (let b = 0; b < buckets; b++) {
+    const lo = Math.max(1, Math.floor(b * size));
+    const hi = Math.min(out.length - 1, Math.floor((b + 1) * size));
+    if (lo >= hi) continue;
+    let minPt = out[lo],
+      maxPt = out[lo];
+    for (let i = lo + 1; i < hi; i++) {
+      if (out[i].value < minPt.value) minPt = out[i];
+      if (out[i].value > maxPt.value) maxPt = out[i];
+    }
+    if (minPt.time < maxPt.time) {
+      sampled.push(minPt);
+      if (maxPt.time !== minPt.time) sampled.push(maxPt);
+    } else {
+      sampled.push(maxPt);
+      if (minPt.time !== maxPt.time) sampled.push(minPt);
+    }
+  }
+  const endPt = out[out.length - 1];
+  if (sampled[sampled.length - 1].time < endPt.time) sampled.push(endPt);
+  return sampled;
 }
 
 /** As % return from the fund (START = 0%). */
@@ -49,16 +83,31 @@ const PCT_FMT = { type: "custom", minMove: 0.01, formatter: (x: number) => x.toF
 
 /** Returns false (and does nothing) while the chart has no points, since
  *  setVisibleRange throws on an empty time scale. */
-export function applyRange(chart: IChartApi, days: number | null): boolean {
+export function applyRange(
+  chart: IChartApi,
+  days: number | null,
+  endSec?: number,
+  startSec?: number,
+): boolean {
   const ts = chart.timeScale();
   if (ts.getVisibleLogicalRange() === null) return false;
   if (days == null) {
+    if (startSec != null && endSec != null && endSec > startSec) {
+      try {
+        ts.setVisibleRange({
+          from: startSec as UTCTimestamp,
+          to: endSec as UTCTimestamp,
+        });
+      } catch {
+        /* ignore */
+      }
+    }
     ts.fitContent();
   } else {
-    const now = lt(Date.now());
+    const to = endSec ?? lt(Date.now());
     ts.setVisibleRange({
-      from: (now - days * 86400) as UTCTimestamp,
-      to: now as UTCTimestamp,
+      from: (to - days * 86400) as UTCTimestamp,
+      to: to as UTCTimestamp,
     });
   }
   return true;
@@ -121,7 +170,7 @@ export default function FleetChart({
       }
       const shown = selected.size === 0 || selected.has(v.name);
       ser.applyOptions({
-        color: vcolor(i),
+        color: v.color || vcolor(i),
         lineWidth: selected.has(v.name) ? 3 : 2,
         visible: shown,
         priceFormat: mode === "pct" ? PCT_FMT : USD_FMT,
@@ -175,7 +224,7 @@ export default function FleetChart({
                 onClick={() => onToggle(v.name)}
                 title="click: show only this · click more: add"
               >
-                <i className={s.sw} style={{ background: vcolor(idx.get(v.name)!) }} />
+                <i className={s.sw} style={{ background: v.color || vcolor(idx.get(v.name)!) }} />
                 {sel ? <b>{v.name}</b> : v.name}{" "}
                 <span className="num" style={{ color: "#B4BAC4" }}>
                   {mode === "pct" ? pct((mkeq(v) / START - 1) * 100, true) : mkeq(v).toFixed(0)}

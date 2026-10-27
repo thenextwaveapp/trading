@@ -18,6 +18,12 @@ SUITES = [
     "selftest_db_universe",  # universe resolution against the DB (mocked)
     "selftest_conditions",   # weather buckets from a trade ledger
     "selftest_worker",       # worker DB write-back + stage transitions
+    "selftest_spec_runtime", # DB-fleet exits on the post-signal tape
+    "selftest_params",       # typed parameter registry + capability map
+    "selftest_timing",       # UTC hour/day signal windows
+    "selftest_exits_side",   # side-aware stops + two-sided trailing
+    "selftest_service",      # service capability gates before data loading
+    "selftest_sweep",        # parameter grid expansion + per-run sweep results
 ]
 
 

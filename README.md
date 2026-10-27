@@ -2,8 +2,6 @@
 
 **Build trading bots, train them until they earn it, and deploy the ones that
 pass to battle — on paper money first, real money when you flip the switch.**
-The structure is Pokémon; the stakes are a verified track record. Expressive
-*and* honest.
 
 Updated: 2026-10-22.
 
@@ -26,8 +24,10 @@ Three references fused:
 - a **military command center** — command a force
 - **Hyperliquid** — real perps, real P&L, don't lie
 
-**The invariant that makes it not "Pokémon with charts": the bots are real.**
-Every stat is a verified track record, never flavor. Backtest == live.
+Every stat is a verified track record. Backtest == live.
+
+Make it fun to raise Bots, keep the scoreboard honest, and let the market write
+the story.
 
 ## The bigger idea
 
@@ -60,6 +60,23 @@ public: which ideas emerge, how they spread, what Builders learn from one
 another, and how the market responds. The value is in connecting the full
 journey—not treating every backtest, trade, or leaderboard rank as an isolated
 data point.
+
+### Product guardrails
+
+- **Make the capital mode unmistakable.** Paper and live trading have different
+  stakes. Paper trading is free. When a Builder deliberately switches to live
+  capital, real money is on the table and the platform takes a small fee per
+  trade, shown clearly alongside P&L. The change must be explicit, clearly
+  signaled throughout the experience, and protected from accidental activation.
+- **Treat copying as a starting point, not a promise of scalable returns.**
+  If many accounts follow the same Bot, crowded entries can change the fills
+  and outcomes that made its record attractive. Make a Bot's setup and
+  constraints visible where appropriate, and give Builders room to adapt and
+  test their own versions rather than treating a leaderboard rank as an
+  instruction to follow blindly.
+- **Make market context legible.** Strategies behave differently as conditions
+  change. When Weather keeps a Bot out of the market, show the conditions and
+  evidence behind that decision so Builders can understand why it is waiting.
 
 ## How it started
 
@@ -176,18 +193,28 @@ Every bot climbs the same ladder; `pf_bots.stage` is the rung it's on.
 | **Ready** | weather gate closed, awaiting orders | — |
 | **Deployed** | battling in the Fleet | `runtime/` |
 
-**Trials — the honesty gauntlet.** Trials show whether the edge looks real, not
-luck. They are advisory: every completed run lands on Trials, and Weather is
-where the gate is set.
+**Trials — the stress tests.** Trials rerun the strategy under less favorable
+assumptions and compare it with random-entry placebos. They help show how
+sensitive the result is, but are advisory: every completed run lands on Trials,
+and Weather is where the gate is set.
 
-1. **Survives 3× costs** — edge holds at triple fees + slippage.
-2. **Survives a late fill** — edge holds entered one bar late.
-3. **Beats random entries** — real net/trade beats the 95th pct of placebo entries.
+**How to read the evidence.** Training is the baseline backtest: how the
+strategy performed on historical data under the configured assumptions. Trials
+stress that same strategy against less favorable assumptions and random-entry
+placebos, to show how sensitive the result is. Weather breaks historical
+performance down by Bitcoin trend and market volatility, helping Builders see
+where the strategy tended to work or struggle and optionally set conditions for
+deployment.
+
+These steps do not prove that a strategy will keep working. They organize
+historical evidence and make its assumptions, sensitivities, and context easier
+to inspect; future market behavior remains unknown. Skill matters, but luck
+does too—that uncertainty is part of the market, not a flaw in the scoreboard.
 
 ## Architecture
 
 ```
-web  ──insert pf_backtests(pending)──▶  DB  ◀──drain & write back──  runtime/engine_worker
+web  ──insert pf_backtests / pf_sweeps (pending)──▶  DB  ◀──drain & write back──  runtime/engine_worker
  ▲                                      │                                    │
  └──────────────── reads ───────────────┘                            core/ (the one engine)
 ```
@@ -221,8 +248,9 @@ execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
   write landed — Build saves a Draft bot the signed-in Builder owns.
 - **Build worker** (`runtime/engine_worker.py`) drains pending backtests →
   runs `ep_evaluate` once → writes results, Trials and Weather, persists the
-  deployable `spec`, flips stage to `trials` (or `draft` on error). Has a
-  `--once` drain mode.
+  deployable `spec`, flips stage to `trials` (or `draft` on error). It also
+  drains `pf_sweeps` → `ep_sweep` → `pf_sweep_runs` for the parameter grid in
+  Build. Has a `--once` drain mode.
 
 - **Lexicon reconciled** — schema obeys the words: `pf_bots` dropped `status`
   and `engine`, folded the sizing knobs into `params`; `stage` values are
@@ -249,8 +277,8 @@ Every line resolves to a page, a field, or the editable-vs-locked line. Tagged
   (editable params, `pf_bots.params`), and a direction. Saves as a Draft in `pf_bots`.
 - **Train → Trials → Weather** *[have]* — the Build ladder. **Training**
   `/build/training` runs the backtest over years of history (`pf_backtests`).
-  **Trials** `/build/trials` runs the advisory gauntlet — beats random entries,
-  survives triple costs, survives a late fill (`pf_checks`). **Weather**
+  **Trials** `/build/trials` runs the advisory stress tests (`pf_checks`).
+  **Weather**
   `/build/weather` maps performance across BTC trend × volatility and saves the
   gate (`pf_conditions` → `pf_bots.condition_filter`), which
   `runtime/spec_runtime.py` enforces on live entries.
@@ -303,33 +331,83 @@ Every line resolves to a page, a field, or the editable-vs-locked line. Tagged
 - **Paper → Live** *[new]* — `/settings`. Flip a Fleet to real capital: the same
   Bots on the same engine trade real money; the logo and banner switch to Live.
 
+## Challenges (the SuitU loop)
+
+The social hook: a constrained competition cycle that turns building into a game.
+Every Challenge is a theme prompt with locked rules, so everyone competes on the
+same footing and the market does the voting.
+
+1. **The "Theme Prompt" = the Challenge Spec.** A new prompt drops on a cadence
+   (e.g. "The Volatility Storm": fixed universe SOL/NEAR/DOGE, fixed 5m
+   timeframe, sizing and exits open; "The Clean Slate": fixed family
+   `pump_short`, universe open, max hold locked to 1h; "No Weather Allowed":
+   regime filters disabled, raw strategy vs pure market chaos).
+2. **The "Submission & Lock" phase.** A 24–48h Build Window to compose, tune,
+   Train → Trial, and submit. Entries can be **sealed** — Setups stay hidden
+   until the market window closes, so no last-minute copycatting.
+3. **The "Market Event" = the voting phase.** Submitted bots deploy into the
+   same live paper arena for a 72h market window; the market itself votes.
+   Everyone watches the Challenge Leaderboard move as candles print, with the
+   Live Feed showing your bot fighting alongside hundreds given the same
+   prompt/constraints.
+4. **The Post-Match breakdown & copy meta.** When the timer hits zero: Setups
+   unseal; the winner's profile shows Win Rate, Max Drawdown, Equity Curve, and
+   a "Fork This Setup" button; top placements earn verified badges (e.g.
+   "Vol Storm #1 Champion").
+
+Why it's a growth engine: it destroys option paralysis (a focused prompt tells
+you exactly what to build today), creates an infinite content cycle (a new
+prompt every week), and fuels pure bragging rights and a strategy "Meta" debated
+on Discord/X. It runs SuitU's core loop — Prompt → Expressive Build → Public
+Arena → Comparison & Meta — on top of real market P&L.
+
 ## The Lab (the proof)
 
-The research behind the origin, in full in `lab/reports/`. Load-bearing findings:
+The research behind the origin, in full in `lab/reports`. These findings come
+from historical tests of strategies derived from the Invo trade data. They
+document that research, not product-wide promises or expected results:
 
-- **The edge is real.** Trader entry timing beats random by +0.55%/4h, ~13σ,
+- Trader entry timing beat random by +0.55%/4h, ~13σ,
   robust across quarters/regimes/traders. The phenomenon: shorting parabolic
   small-cap pumps.
-- **ML extraction failed** out-of-sample twice — the edge is in trade
+- ML extraction failed out-of-sample twice — the edge is in trade
   *selection*, not averaged features.
-- **Rule P** (the frozen pump-short base) passed a pre-registered gate: 74
-  trades, +3.4%/trade, all 7 windows positive, CI [+1.2, +5.9]%.
-- **Regime-dependent.** The same signal lost in 2023–24; regime flipped ~early
+- **Rule P**, the pump-short strategy derived from the Invo data, passed its
+  pre-registered historical test. Its results belong to that research case
+  study, not a general forecast.
+- The signal was regime-dependent: it lost in 2023–24; regime flipped ~early
   2025. The Weather dial exists because of this.
-- **Universe-specific and perishable.** Point-in-time universe rebuild (no
-  hindsight) cuts tuned-sizing results ~1000×, and a 15-min entry delay halves
-  the edge. Lesson baked into the invariant: judge on live Fleet results, PIT
-  universe, fees on, taker entry at close.
+- Point-in-time universe testing showed how strongly results can depend on
+  universe construction and lookahead. The lesson: evaluate strategies with
+  realistic universes and costs, and compare research results with subsequent
+  Fleet performance.
 
-### Rule P — the short book's base rule
+### Rule P — historical Invo-data research example
 
-On 15m candles, short at close when ALL hold: (1) `close/close[16] − 1 ≥ 12%`
-(4h stretch), (2) `close < prev close` (first red), (3) `volume ≥ 2× mean of
-prior 8 bars`, (4) market alive. Stop = max high of the 4h signal window; time
-exit 4h; taker fees + slip (0.045%/leg + 0.05%); size =
-`min(0.75% equity / stop-dist, 20% equity)`; max 6 concurrent, 1/ticker;
-kill-switch −5% equity in 7d → 3d pause. ~+2%/trade, ~2 trades/week, ~53% win.
+Rule P was a pump-short strategy developed from the mined Invo trader data and
+tested against historical market data. Its rule definition and research results
+are preserved in the linked reports as a case study in the project's origins;
+they are not defaults or performance claims for Bots built in Paper Fleet.
 
 `lab/` map: `Invo/` raw scrapes · `bn/` Binance data · `master/` consolidated
 trades + features · `backtest/` candle caches + ledgers · `reports/` timestamped
 analysis · `research/` the scripts (`cd lab && python3 research/<script>.py`).
+
+## The research philosophy
+
+The endless combinations of market mechanics, assets, and parameters mean the
+universe of viable quantitative strategies is virtually infinite. At its core,
+every strategy is built from a simple stack of building blocks: a signal driver
+(like price momentum, volatility spikes, or volume imbalance), an entry and exit
+trigger, and a risk-sizing rule. By adjusting these variables across different
+asset classes, timeframes, and market regimes, you can isolate completely
+distinct behavioral edges — from high-frequency arbitrage and trend-following to
+mean-reversion crashes.
+
+What makes this pursuit so powerful is that market events are constantly
+evolving alongside leverage, liquidity shifts, and trader psychology. Finding an
+edge isn't about uncovering a single "holy grail" formula; it's about
+systematically testing hypotheses, stripping away noise, and defining precise
+rules that turn structural market behavior into repeatable outcomes. The real
+opportunity lies in the infinite variations left to explore — there is always
+another edge waiting to be translated into a clean, actionable model.

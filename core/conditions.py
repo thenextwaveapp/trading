@@ -23,6 +23,13 @@ import math
 
 M15 = 900_000
 VOL_WINDOW = 96          # 24h of 15m bars
+DEFAULT_BAR_MS = M15
+
+
+def _bar_window(bar_ms):
+    """Bars in a 24h lookback for this candle size. Two is the minimum that
+    can define a change; daily bars therefore use a 2-day context."""
+    return max(2, round(24 * 3_600_000 / max(int(bar_ms or M15), 1)))
 TREND_BAND = 0.01        # +-1% 24h return is "flat"
 
 VOLS = ("low", "normal", "high")
@@ -36,8 +43,8 @@ def _prefix(xs):
     return out
 
 
-def _realized_vol(closes):
-    """Population stdev of 15m log returns over the trailing 24h, per bar."""
+def _realized_vol(closes, window=VOL_WINDOW):
+    """Population stdev of log returns over the trailing 24h, per bar."""
     n = len(closes)
     r = [0.0] * n
     for i in range(1, n):
@@ -46,10 +53,10 @@ def _realized_vol(closes):
     p = _prefix(r)
     p2 = _prefix([x * x for x in r])
     out = [None] * n
-    for i in range(VOL_WINDOW, n):
-        lo = i - VOL_WINDOW + 1
-        m = (p[i + 1] - p[lo]) / VOL_WINDOW
-        v = max((p2[i + 1] - p2[lo]) / VOL_WINDOW - m * m, 0.0)
+    for i in range(window, n):
+        lo = i - window + 1
+        m = (p[i + 1] - p[lo]) / window
+        v = max((p2[i + 1] - p2[lo]) / window - m * m, 0.0)
         out[i] = math.sqrt(v)
     return out
 
@@ -75,10 +82,10 @@ def _vol_cat(v, lo, hi):
     return "normal"
 
 
-def _trend_cat(closes, i):
-    if i < VOL_WINDOW:
+def _trend_cat(closes, i, window=VOL_WINDOW):
+    if i < window:
         return "flat"
-    r = closes[i] / closes[i - VOL_WINDOW] - 1
+    r = closes[i] / closes[i - window] - 1
     if r > TREND_BAND:
         return "rising"
     if r < -TREND_BAND:
@@ -102,20 +109,22 @@ def _bar_index(t, ts):
     return lo
 
 
-def conditions_breakdown(trades, candles_by_ticker):
+def conditions_breakdown(trades, candles_by_ticker, bar_ms=DEFAULT_BAR_MS):
     """-> [9 cells] ordered low/normal/high x falling/flat/rising.
 
     `trades` is the engine ledger (each trade carries `t_sig`, `net` as a
     fraction). `candles_by_ticker` must contain BTC for the regime measure;
     without it we return no cells rather than inventing a market state.
+    `bar_ms` is the strategy's candle size, so the 24h context stays 24h.
     """
     btc = candles_by_ticker.get("BTC")
     if not btc:
         return []
 
+    window = _bar_window(bar_ms)
     t = [k["t"] for k in btc]
     c = [k["c"] for k in btc]
-    rv = _realized_vol(c)
+    rv = _realized_vol(c, window)
     lo, hi = _terciles(rv)
 
     cells = {(v, tr): {"volatility": v, "btc_trend": tr,
@@ -127,18 +136,18 @@ def conditions_breakdown(trades, candles_by_ticker):
         entry = trade.get("t_sig")
         if entry is None:
             continue
-        i = _bar_index(t, entry - M15)      # the signal bar, last closed candle
+        i = _bar_index(t, entry - bar_ms)   # the signal bar, last closed candle
         if i < 0:
             continue
         v = _vol_cat(rv[i], lo, hi)
-        tr = _trend_cat(c, i)
+        tr = _trend_cat(c, i, window)
         cell = cells[(v, tr)]
         cell["_sum"] = cell.get("_sum", 0.0) + float(trade.get("net") or 0.0)
         cell["trades"] += 1
 
     now = len(c) - 1
     if now >= 0:
-        cur = ( _vol_cat(rv[now], lo, hi), _trend_cat(c, now) )
+        cur = (_vol_cat(rv[now], lo, hi), _trend_cat(c, now, window))
         if cur in cells:
             cells[cur]["is_current"] = True
 
@@ -157,7 +166,8 @@ def conditions_breakdown(trades, candles_by_ticker):
     return out
 
 
-def cell_at(candles, at_ms=None, vol_lo=None, vol_hi=None):
+def cell_at(candles, at_ms=None, vol_lo=None, vol_hi=None,
+            bar_ms=DEFAULT_BAR_MS):
     """The (volatility, trend) cell at `at_ms` (default: latest bar).
 
     `vol_lo` / `vol_hi` must be the terciles from the training window (stored
@@ -166,10 +176,11 @@ def cell_at(candles, at_ms=None, vol_lo=None, vol_hi=None):
     """
     if not candles or vol_lo is None or vol_hi is None:
         return None
+    window = _bar_window(bar_ms)
     t = [k["t"] for k in candles]
     c = [k["c"] for k in candles]
-    i = _bar_index(t, at_ms - M15) if at_ms is not None else len(c) - 1
+    i = _bar_index(t, at_ms - bar_ms) if at_ms is not None else len(c) - 1
     if i < 0:
         return None
-    rv = _realized_vol(c)
-    return (_vol_cat(rv[i], vol_lo, vol_hi), _trend_cat(c, i))
+    rv = _realized_vol(c, window)
+    return (_vol_cat(rv[i], vol_lo, vol_hi), _trend_cat(c, i, window))

@@ -1,7 +1,9 @@
+import { DEFAULT_BOT_COLOR, botColor } from "../../lib/brand";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createBacktest, setBotStage, useBuildData, useMyBot } from "../../db/queries";
 import type { DbBacktest } from "../../db/types";
+import { blockingIssues } from "../../lib/catalog";
 import { dol, pct } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
@@ -34,8 +36,31 @@ export default function Training() {
   if (botLoading || (bot && loading)) return <StepLoading step={2} />;
   if (!bot) return <MissingBot step={2} />;
 
+  const specBlockers = bot.spec ? blockingIssues(bot.spec, "backtest") : [];
+
   const queue = async () => {
     setQueueErr(null);
+    if (specBlockers.length) {
+      setQueueErr(`${specBlockers[0].label}: ${specBlockers[0].reason}`);
+      return;
+    }
+    const spec = bot.spec as { entry?: { children?: unknown[]; logic?: string } } | null;
+    const validEntry = (node: unknown): boolean => {
+      if (!node || typeof node !== "object") return false;
+      const g = node as { children?: unknown[] };
+      if (!Array.isArray(g.children) || g.children.length === 0) return false;
+      return g.children.every((c) => {
+        if (c && typeof c === "object" && Array.isArray((c as { children?: unknown[] }).children)) {
+          return validEntry(c);
+        }
+        const n = c as { op?: unknown; left?: unknown; right?: unknown };
+        return !!n && typeof n.op === "string" && n.left != null && n.right != null;
+      });
+    };
+    if (!validEntry(spec?.entry)) {
+      setQueueErr("This bot has no valid entry conditions. Edit the strategy first.");
+      return;
+    }
     setQueuing(true);
     const { error: stageErr } = await setBotStage(bot.id, "training");
     if (stageErr) {
@@ -64,10 +89,35 @@ export default function Training() {
       </div>
       <Steps current={2} />
       <div className={p.body}>
+        {specBlockers.length > 0 && (
+          <section className={r.statusCard} style={{ marginTop: 36 }}>
+            <span className="downDot" />
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>This strategy can't train yet.</div>
+              <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>
+                The backtest engine can't execute every selected feature. Resolve these
+                in Compose, then start training again.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+                {specBlockers.map((i) => (
+                  <div key={i.id} style={{ fontSize: 13, lineHeight: 1.5 }}>
+                    <b style={{ color: "var(--down, #ff5c6c)" }}>{i.label}</b>
+                    <div className="lbl">{i.reason}</div>
+                  </div>
+                ))}
+              </div>
+              <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 14 }} onClick={edit}>
+                Edit strategy
+              </button>
+            </div>
+          </section>
+        )}
         {current && current.status === "done" ? (
           <Result
             bt={current}
+            color={botColor(bot)}
             onTrials={() => nav(withBot("/build/trials", bot.id))}
+            onSweep={() => nav(withBot("/build/sweep", bot.id))}
             onEdit={edit}
             onRetrain={queue}
             retraining={queuing}
@@ -80,15 +130,17 @@ export default function Training() {
             retrying={queuing}
             status={current.status}
             note={current.cost_note ?? null}
+            createdAt={current.created_at}
           />
-        ) : (
+        ) : !specBlockers.length ? (
           <NotRun
             onQueue={queue}
+            onSweep={() => nav(withBot("/build/sweep", bot.id))}
             queuing={queuing}
             error={queueErr}
             note={backtest ? "The Setup changed since the last run — train again to test the new rules." : undefined}
           />
-        )}
+        ) : null}
         {queueErr && current && (
           <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13, marginTop: 12 }}>{queueErr}</div>
         )}
@@ -97,9 +149,11 @@ export default function Training() {
   );
 }
 
-function Result({ bt, onTrials, onEdit, onRetrain, retraining }: {
+function Result({ bt, color, onTrials, onSweep, onEdit, onRetrain, retraining }: {
   bt: DbBacktest;
+  color: string;
   onTrials: () => void;
+  onSweep: () => void;
   onEdit: () => void;
   onRetrain: () => void;
   retraining: boolean;
@@ -129,6 +183,7 @@ function Result({ bt, onTrials, onEdit, onRetrain, retraining }: {
           <button className={p.btn} onClick={onRetrain} disabled={retraining}>
             {retraining ? "Queuing…" : "Train again"}
           </button>
+          <button className={p.btn} onClick={onSweep}>Sweep parameters</button>
           <button className={`${p.btn} ${p.pri}`} onClick={onTrials}>Run the trials</button>
         </div>
       </section>
@@ -147,28 +202,35 @@ function Result({ bt, onTrials, onEdit, onRetrain, retraining }: {
             <h2 className={r.h2}>Equity curve</h2>
             <span className="lbl num">{windowLabel(bt)}</span>
           </div>
-          <div style={{ marginTop: 14 }}><Curve pts={bt.equity_curve} /></div>
+          <div style={{ marginTop: 14 }}><Curve pts={bt.equity_curve} color={color} /></div>
         </section>
       )}
     </>
   );
 }
 
-function Running({ onRefresh, onEdit, onRetry, retrying, status, note }: {
+function Running({ onRefresh, onEdit, onRetry, retrying, status, note, createdAt }: {
   onRefresh: () => void;
   onEdit: () => void;
   onRetry: () => void;
   retrying: boolean;
   status: string;
   note?: string | null;
+  createdAt?: string | null;
 }) {
   const failed = status === "error";
   const [stalled, setStalled] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (status !== "pending") { setStalled(false); return; }
     const t = setTimeout(() => setStalled(true), 15000);
     return () => clearTimeout(t);
   }, [status]);
+  useEffect(() => {
+    const start = createdAt ? new Date(createdAt).getTime() : Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [createdAt]);
   const label = status === "pending" ? "Queued — waiting for the engine worker" : status === "running" ? "Running the backtest…" : "Processing…";
   return (
     <section className={r.statusCard} style={{ marginTop: 36 }}>
@@ -181,6 +243,9 @@ function Running({ onRefresh, onEdit, onRetry, retrying, status, note }: {
             : status === "pending"
             ? "Your bot is queued. The engine worker picks it up and runs it over years of history."
             : "The engine is replaying years of market history — equity curve, win rate and drawdown, all after fees."}
+        </div>
+        <div className="lbl" style={{ marginTop: 6, color: "var(--trade)" }}>
+          {status === "running" ? `Running for ${elapsed}s` : status === "pending" ? `Queued for ${elapsed}s` : ""}
         </div>
         {stalled && status === "pending" && (
           <div className="lbl" style={{ marginTop: 8, color: "var(--down, #ff5c6c)" }}>
@@ -201,8 +266,9 @@ function Running({ onRefresh, onEdit, onRetry, retrying, status, note }: {
   );
 }
 
-function NotRun({ onQueue, queuing, error, note }: {
+function NotRun({ onQueue, onSweep, queuing, error, note }: {
   onQueue: () => void;
+  onSweep: () => void;
   queuing: boolean;
   error?: string | null;
   note?: string;
@@ -216,9 +282,12 @@ function NotRun({ onQueue, queuing, error, note }: {
           {note || "Queue a backtest and the engine will run it over years of history."}
         </div>
         {error && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13, marginTop: 8 }}>{error}</div>}
-        <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 14 }} disabled={queuing} onClick={onQueue}>
-          {queuing ? "Queuing…" : "Start training"}
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+          <button className={`${p.btn} ${p.pri}`} disabled={queuing} onClick={onQueue}>
+            {queuing ? "Queuing…" : "Start training"}
+          </button>
+          <button className={p.btn} onClick={onSweep}>Sweep parameters</button>
+        </div>
       </div>
     </section>
   );
@@ -235,7 +304,7 @@ function Stat({ label, value, cls, sub }: { label: string; value: string; cls?: 
 }
 
 /** Filled equity area + line, responsive. */
-function Curve({ pts }: { pts: [number, number][] }) {
+function Curve({ pts, color }: { pts: [number, number][]; color?: string }) {
   const W = 1000, H = 240;
   const xs = pts.map((d) => d[0]);
   const ys = pts.map((d) => d[1]);
@@ -244,8 +313,7 @@ function Curve({ pts }: { pts: [number, number][] }) {
   const Y = (e: number) => H - 6 - ((e - lo) / (hi - lo || 1)) * (H - 12);
   const line = pts.map((d, i) => (i ? "L" : "M") + X(d[0]).toFixed(1) + " " + Y(d[1]).toFixed(1)).join(" ");
   const area = `M${X(pts[0][0]).toFixed(1)} ${H} ` + pts.map((d) => "L" + X(d[0]).toFixed(1) + " " + Y(d[1]).toFixed(1)).join(" ") + ` L${X(pts[pts.length - 1][0]).toFixed(1)} ${H} Z`;
-  const up = pts[pts.length - 1][1] >= pts[0][1];
-  const col = up ? "#3DDC97" : "#FF5C6C";
+  const col = color || DEFAULT_BOT_COLOR;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 240, display: "block" }}>
       <defs>

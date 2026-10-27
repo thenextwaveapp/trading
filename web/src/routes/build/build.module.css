@@ -125,16 +125,19 @@
 
 /* wizard form bits */
 .formRow {
-  padding: 28px 0;
+  padding: 36px 0;
   border-bottom: 1px solid var(--line);
 }
 .label {
-  font-size: 12px;
-  color: var(--muted-2);
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 .h2 {
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .blk {
   display: flex;
@@ -369,16 +372,103 @@
   margin-top: 18px;
 }
 .input {
-  height: 44px;
-  border-radius: 10px;
+  height: 40px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: #0d1117;
   color: var(--fg);
-  padding: 0 14px;
+  padding: 0 12px;
   font: inherit;
   font-size: 14px;
   outline: none;
 }
 .input:focus {
   border-color: var(--border-hover);
+}
+
+/* timing controls */
+.timingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+.timingGrid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.timeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.timeRow .input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.multi {
+  position: relative;
+}
+.multi > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.multi > summary::-webkit-details-marker {
+  display: none;
+}
+.multiMenu {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: #0d1117;
+  padding: 6px;
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.9);
+}
+.multiRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  color: var(--fg-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.multiRow:hover {
+  background: #121821;
+}
+
+/* brand colour swatches */
+.swatchRows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.swatchRow {
+  display: flex;
+  gap: 5px;
+}
+.swatch {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.swatch:hover {
+  transform: scale(1.12);
+}
+.swatchOn {
+  border-color: var(--fg);
+  box-shadow: 0 0 0 2px var(--bg);
 }

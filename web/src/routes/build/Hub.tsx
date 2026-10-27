@@ -1,8 +1,9 @@
-import { useMemo, type CSSProperties } from "react";
+import { botColor } from "../../lib/brand";
+import { useMemo, useState, useEffect, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { useData } from "../../api/context";
-import { useMyBots, useFamilies } from "../../db/queries";
+import { deleteBot, useMyBots, useFamilies, useLatestBacktest } from "../../db/queries";
 import type { DbBot, Stage } from "../../db/types";
 import { DIRLBL, dol, identicon, pct, windowReturn } from "../../lib/format";
 import p from "../pages.module.css";
@@ -24,8 +25,41 @@ export default function Hub() {
   const nav = useNavigate();
   const { user } = useAuth();
   const live = useData();
-  const { data: bots, loading } = useMyBots(user?.id ?? null);
+  const { data: rawBots, loading } = useMyBots(user?.id ?? null);
   const { data: families } = useFamilies();
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [cardOrder, setCardOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("hub_card_order");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const bots = useMemo(
+    () => (rawBots ? rawBots.filter((b) => !deletedIds.has(b.id)) : null),
+    [rawBots, deletedIds],
+  );
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirmId !== id) {
+      setConfirmId(id);
+      return;
+    }
+    setDeletingId(id);
+    const { error } = await deleteBot(id);
+    setDeletingId(null);
+    if (!error) {
+      setDeletedIds((prev) => new Set(prev).add(id));
+      setConfirmId(null);
+    }
+  };
 
   const famLabel = useMemo(
     () => new Map((families ?? []).map((f) => [f.slug, f.label])),
@@ -41,15 +75,44 @@ export default function Hub() {
 
   // Group bots into pipeline columns by stage.
   const columns = useMemo(() => {
+    const orderIdx = new Map(cardOrder.map((id, i) => [id, i]));
     const m = new Map<Stage, DbBot[]>(PIPELINE.map((s) => [s.key, []]));
     for (const b of bots ?? []) {
       (m.get(b.stage) ?? m.get("draft")!).push(b);
     }
-    // Within deployed, sort by live return desc so the best sits on top.
-    m.get("deployed")?.sort((a, b) => (liveRet(b) ?? -1e9) - (liveRet(a) ?? -1e9));
+    for (const [stg, arr] of m.entries()) {
+      arr.sort((a, b) => {
+        const ia = orderIdx.get(a.id);
+        const ib = orderIdx.get(b.id);
+        if (ia != null && ib != null) return ia - ib;
+        if (ia != null) return -1;
+        if (ib != null) return 1;
+        if (stg === "deployed") return (liveRet(b) ?? -1e9) - (liveRet(a) ?? -1e9);
+        return 0;
+      });
+    }
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bots, live.variants, live.now]);
+  }, [bots, live.variants, live.now, cardOrder]);
+
+  const reorderHubCard = (stage: Stage, fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const stageIds = (columns.get(stage) ?? []).map((b) => b.id);
+    const fromIdx = stageIds.indexOf(fromId);
+    const toIdx = stageIds.indexOf(toId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const nextStage = [...stageIds];
+    const [moved] = nextStage.splice(fromIdx, 1);
+    nextStage.splice(toIdx, 0, moved);
+    const otherIds = cardOrder.filter((id) => !stageIds.includes(id));
+    const next = [...otherIds, ...nextStage];
+    setCardOrder(next);
+    try {
+      localStorage.setItem("hub_card_order", JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
 
   const deployedBots = (bots ?? []).filter((b) => b.stage === "deployed");
   const avgEdge = useMemo(() => {
@@ -130,20 +193,68 @@ export default function Hub() {
                   {items.map((b) => (
                     <div
                       key={b.id}
-                      className={r.kcard}
-                      style={{ cursor: "pointer" }}
+                      className={`${r.kcard} ${["training", "trials", "weather"].includes(b.stage) ? "pulseCard" : ""}`}
+                      style={{
+                        cursor: dragId === b.id ? "grabbing" : "grab",
+                        opacity: dragId === b.id ? 0.45 : 1,
+                        borderColor: dragOverId === b.id && dragId !== b.id ? "var(--trade)" : undefined,
+                      }}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragId(b.id);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", b.id);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dragOverId !== b.id) setDragOverId(b.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const src = dragId || e.dataTransfer.getData("text/plain");
+                        if (src) reorderHubCard(s.key, src, b.id);
+                        setDragId(null);
+                        setDragOverId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setDragOverId(null);
+                      }}
                       onClick={() => nav(resumePath(b.stage, b.id, b.name))}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <svg width="34" height="34" viewBox="0 0 34 34"><rect width="34" height="34" rx="9" fill="#12161D" /><path d={identicon(b.name, 22)} fill={b.builder?.avatar_color || "#3a81d7"} transform="translate(6 6)" /></svg>
-                        <div style={{ minWidth: 0 }}>
+                        <svg width="34" height="34" viewBox="0 0 34 34" style={{ flex: "none" }}><rect width="34" height="34" rx="9" fill="#12161D" /><path d={identicon(b.name, 22)} fill={botColor(b)} transform="translate(6 6)" /></svg>
+                        <div style={{ minWidth: 0, flex: 1 }}>
                           <div className={r.kName}>{b.name}</div>
                           <div className="lbl">{DIRLBL[b.direction ?? ""] ?? b.direction ?? "—"}</div>
                         </div>
+                        <button
+                          type="button"
+                          title={confirmId === b.id ? "Click again to permanently delete" : "Delete bot"}
+                          disabled={deletingId === b.id}
+                          onClick={(e) => void handleDelete(b.id, e)}
+                          style={{
+                            background: "transparent",
+                            border: confirmId === b.id ? "1px solid rgba(255, 92, 108, 0.5)" : "none",
+                            borderRadius: 6,
+                            color: confirmId === b.id ? "#FF5C6C" : "var(--muted-2)",
+                            fontSize: 11,
+                            padding: confirmId === b.id ? "2px 6px" : "2px 4px",
+                            cursor: "pointer",
+                            flex: "none",
+                          }}
+                        >
+                          {deletingId === b.id ? "…" : confirmId === b.id ? "Delete?" : "✕"}
+                        </button>
                       </div>
                       {b.bt != null && (
                         <div className="num lbl" style={{ marginTop: 10 }}>{pct(b.bt, true)}/trade backtest</div>
                       )}
+                      {b.created_at && (
+                        <div className="lbl" style={{ marginTop: 6 }}>created {timeAgo(b.created_at)}</div>
+                      )}
+                      {b.stage === "training" && <TrainingElapsed botId={b.id} />}
                     </div>
                   ))}
                 </div>
@@ -168,13 +279,33 @@ export default function Hub() {
                 <tbody>
                   {reports.map(({ b, ret }) => (
                     <tr key={b.id} style={{ cursor: "pointer" }} onClick={() => openReport(b.name)}>
-                      <td style={td("left")}><span className="lk">{b.name}</span></td>
+                      <td style={td("left")}><span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: botColor(b), flex: "none" }} /><span className="lk">{b.name}</span></span></td>
                       <td style={td("left", "muted")}>{famLabel.get(b.family_slug ?? "")?.split("—")[0].trim() ?? b.family_slug ?? "–"}</td>
                       <td style={td("left", "muted")}>{DIRLBL[b.direction ?? ""] ?? b.direction ?? "–"}</td>
                       <td style={td("left")}><span className={stageCls(b.stage)}>{STAGE_LABEL[b.stage] ?? b.stage}</span></td>
                       <td className={`num ${(b.bt ?? 0) >= 0 ? "up" : "down"}`} style={td("right")}>{b.bt == null ? "–" : pct(b.bt, true)}</td>
                       <td className={`num ${(ret ?? 0) >= 0 ? "up" : "down"}`} style={td("right")}>{ret == null ? "–" : pct(ret, true)}</td>
-                      <td style={td("right")}><span className="lk lbl">Report ›</span></td>
+                      <td style={td("right")}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+                          <span className="lk lbl">Report ›</span>
+                          <button
+                            type="button"
+                            disabled={deletingId === b.id}
+                            onClick={(e) => void handleDelete(b.id, e)}
+                            style={{
+                              background: "transparent",
+                              border: confirmId === b.id ? "1px solid rgba(255, 92, 108, 0.5)" : "none",
+                              borderRadius: 6,
+                              color: confirmId === b.id ? "#FF5C6C" : "var(--muted-2)",
+                              fontSize: 11,
+                              padding: confirmId === b.id ? "2px 6px" : "2px 4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {deletingId === b.id ? "…" : confirmId === b.id ? "Confirm" : "Delete"}
+                          </button>
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -222,6 +353,35 @@ function EmptyBuild({ onStart }: { onStart: (family?: string) => void }) {
         Build your first bot →
       </button>
     </section>
+  );
+}
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function TrainingElapsed({ botId }: { botId: string }) {
+  const { data: bt } = useLatestBacktest(botId);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!bt || (bt.status !== "pending" && bt.status !== "running")) return;
+    const start = new Date(bt.created_at).getTime();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [bt?.created_at, bt?.status]);
+  if (!bt || (bt.status !== "pending" && bt.status !== "running")) return null;
+  const mm = Math.floor(elapsed / 60);
+  const ss = elapsed % 60;
+  return (
+    <div className="lbl" style={{ marginTop: 4, color: "var(--trade)" }}>
+      {bt.status === "pending" ? "queued" : "training"} {mm}:{String(ss).padStart(2, "0")}
+    </div>
   );
 }
 

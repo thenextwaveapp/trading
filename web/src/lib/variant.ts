@@ -1,3 +1,4 @@
+import { botColor } from "./brand";
 import type { Variant } from "../api/types";
 import type { DbBacktest, DbBot } from "../db/types";
 import { START } from "./format";
@@ -25,5 +26,6 @@ export function variantFromBot(bot: DbBot, bt?: DbBacktest | null): Variant {
     group: bot.direction,
     note: bot.note,
     cfg: bot.params ?? null,
+    color: botColor(bot),
   };
 }

@@ -24,6 +24,7 @@ export interface Position {
 export interface Trade {
   variant: string;
   ticker: string;
+  side?: Side;
   t_sig: number;
   entry: number;
   stop: number;
@@ -50,6 +51,7 @@ export interface Variant {
   group: Group | null;
   note: string | null;
   cfg: Record<string, unknown> | null;
+  color?: string;
 }
 
 export interface Hero {

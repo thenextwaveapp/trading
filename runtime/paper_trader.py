@@ -66,8 +66,8 @@ def iso(t):
     return datetime.fromtimestamp(t / 1000, timezone.utc).strftime("%m-%d %H:%M")
 
 
-def klines(symbol, limit=25, start=None):
-    url = f"{API}?symbol={symbol}&interval=15m&limit={limit}"
+def klines(symbol, limit=25, start=None, interval="15m"):
+    url = f"{API}?symbol={symbol}&interval={interval}&limit={limit}"
     if start is not None:
         url += f"&startTime={start}"
     for attempt in range(3):

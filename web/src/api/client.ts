@@ -14,12 +14,21 @@ export interface CandleParams {
   end?: number;
 }
 
+const BINANCE_KLINES = "https://fapi.binance.com/fapi/v1/klines";
+
 export async function fetchCandles(p: CandleParams): Promise<Candle[]> {
   const q = new URLSearchParams({ symbol: p.symbol, interval: p.interval });
   if (p.limit != null) q.set("limit", String(p.limit));
-  if (p.start != null) q.set("start", String(p.start));
-  if (p.end != null) q.set("end", String(p.end));
-  const r = await fetch(`/candles?${q}`, { cache: "no-store" });
-  if (!r.ok) throw new Error(`/candles ${r.status}`);
-  return r.json();
+  if (p.start != null) q.set("startTime", String(p.start));
+  if (p.end != null) q.set("endTime", String(p.end));
+  const r = await fetch(`${BINANCE_KLINES}?${q}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`klines ${r.status}`);
+  const rows: unknown[] = await r.json();
+  return rows.map((x: any) => ({
+    t: Number(x[0]),
+    o: Number(x[1]),
+    h: Number(x[2]),
+    l: Number(x[3]),
+    c: Number(x[4]),
+  }));
 }

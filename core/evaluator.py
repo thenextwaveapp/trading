@@ -6,8 +6,10 @@ check) and then the strategy's entry conditions. A `fresh` strategy fires only
 on the bar its entry becomes newly true.
 
 Guards: gapless over the lookback window, nonzero volume over the recent
-window, and a non-flat current bar.
+window, a non-flat current bar, and optional UTC hour/day signal windows.
 """
+from datetime import datetime, timezone
+
 from .expr import eval_node
 
 M15 = 900_000
@@ -18,8 +20,12 @@ def _index_ok(candles, i, L):
     return i - L >= 0 and i - ALIVE_VOL_BARS >= 0
 
 
-def _gapless(candles, i, L):
-    return candles[i]["t"] - candles[i - L]["t"] == L * M15
+def _bar_ms(strategy):
+    return int(strategy.get("_interval_ms") or M15)
+
+
+def _gapless(candles, i, L, step):
+    return candles[i]["t"] - candles[i - L]["t"] == L * step
 
 
 def _alive(candles, i):
@@ -29,13 +35,29 @@ def _alive(candles, i):
                for j in range(i - ALIVE_VOL_BARS, i + 1))
 
 
+def _timing_ok(strategy, candles, j):
+    hours = strategy.get("_timing_hours") or ()
+    days = strategy.get("_timing_days") or ()
+    if not hours and not days:
+        return True
+    close_t = candles[j]["t"] + _bar_ms(strategy)
+    dt = datetime.fromtimestamp(close_t / 1000, tz=timezone.utc)
+    if hours and dt.hour not in hours:
+        return False
+    if days and dt.weekday() not in days:
+        return False
+    return True
+
+
 def _entry_true(strategy, candles, j, cache):
     L = strategy["_lookback"]
     if not _index_ok(candles, j, L):
         return False
-    if not _gapless(candles, j, L):
+    if not _gapless(candles, j, L, _bar_ms(strategy)):
         return False
     if not _alive(candles, j):
+        return False
+    if not _timing_ok(strategy, candles, j):
         return False
     return eval_node(candles, strategy["entry"], j, cache)
 
@@ -50,7 +72,7 @@ def entry_signal(strategy, candles, i, cache=None):
         return None
     if strategy.get("fresh") and _entry_true(strategy, candles, i - 1, cache):
         return None
-    return {"t_sig": candles[i]["t"] + M15,
+    return {"t_sig": candles[i]["t"] + _bar_ms(strategy),
             "entry": candles[i]["c"],
             "i": i,
             "side": strategy["side"]}

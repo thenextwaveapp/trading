@@ -93,6 +93,11 @@ def variant_to_spec(family, params, name="", market="crypto_perp",
                 "exit": {"time_bars": p.get("hold", 48),
                          "stop": {"mode": "sig", "window": 16, "param": 0.001}}}
 
+    if family == "custom":
+        # user-authored spec stored in params["spec"] (canonical shape)
+        spec = p.get("spec") or {}
+        return {**base, **spec, "partial": False, "engine": "custom"}
+
     # super / portfolio / churn / hourly_loser — engine-specific, not yet
     # expressible as pure indicator conditions
     return {**base, "side": "both", "fresh": False,

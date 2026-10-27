@@ -1,3 +1,4 @@
+import { botColor } from "../lib/brand";
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCurrentHandle } from "../auth";
@@ -79,7 +80,7 @@ export default function Builder() {
               return (
                 <div key={b.id} className={`card ${s.bc}`}>
                   <div className={s.bcTop}>
-                    <svg width="44" height="44" viewBox="0 0 44 44"><rect width="44" height="44" rx="11" fill="#12161D" /><path d={identicon(b.name, 28)} fill="#3a81d7" transform="translate(8 8)" /></svg>
+                    <svg width="44" height="44" viewBox="0 0 44 44"><rect width="44" height="44" rx="11" fill="#12161D" /><path d={identicon(b.name, 28)} fill={botColor(b)} transform="translate(8 8)" /></svg>
                     <div>
                       <div style={{ fontSize: 16, fontWeight: 500 }}>{b.name}</div>
                       <div className="lbl" style={{ marginTop: 2 }}>{b.note || DIRLBL[b.direction ?? ""]}</div>

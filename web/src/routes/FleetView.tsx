@@ -1,3 +1,4 @@
+import { botColor } from "../lib/brand";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../api/context";
 import type { Position, Trade, Variant } from "../api/types";
@@ -10,7 +11,6 @@ import {
   clock,
   dol,
   dstr,
-  dur,
   held,
   identicon,
   pct,
@@ -59,6 +59,16 @@ export default function FleetView() {
   const [view, setView] = useState<"cards" | "rows">(() =>
     localStorage.getItem("fleetview") === "rows" ? "rows" : "cards",
   );
+  const [cardOrder, setCardOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("fleet_card_order");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [dragName, setDragName] = useState<string | null>(null);
+  const [dragOverName, setDragOverName] = useState<string | null>(null);
 
   const filtering = selected.size > 0; // legend selection filters the page
 
@@ -110,7 +120,10 @@ export default function FleetView() {
   );
   const v = useMemo(() => {
     const live = new Map(d.variants.map((x) => [x.name, x]));
-    return deployed.map((b) => live.get(b.name) ?? variantFromBot(b));
+    return deployed.map((b) => {
+      const base = live.get(b.name) ?? variantFromBot(b);
+      return { ...base, color: botColor(b) };
+    });
   }, [deployed, d.variants]);
   const liveNames = useMemo(() => {
     const feed = new Set(d.variants.map((x) => x.name));
@@ -127,9 +140,6 @@ export default function FleetView() {
   const unreal = open.reduce((a, o) => a + (o.upnl || 0), 0);
   const totalProfit = v.reduce((a, x) => a + x.equity - START, 0) + unreal;
   const closedCount = v.reduce((a, x) => a + x.closed, 0);
-  const liveOk = d.running && !d.paused;
-  const errs = d.log.filter((l) => /error|exception|traceback|kill/i.test(l));
-
   const todayPnl = useMemo(() => {
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);
@@ -143,19 +153,42 @@ export default function FleetView() {
 
   const top = useMemo(() => [...v].sort((a, b) => b.ret - a.ret)[0], [v]);
 
-  const bots = useMemo(
-    () =>
-      [...v]
-        .sort((a, b) => b.ret - a.ret)
-        .map((x) => {
-          const live = liveNames.has(x.name);
-          return { v: x, live, st: statusOf(x, live) };
-        }),
-    [v, liveNames],
-  );
+  const bots = useMemo(() => {
+    const orderIdx = new Map(cardOrder.map((n, i) => [n, i]));
+    return [...v]
+      .sort((a, b) => {
+        const ia = orderIdx.get(a.name);
+        const ib = orderIdx.get(b.name);
+        if (ia != null && ib != null) return ia - ib;
+        if (ia != null) return -1;
+        if (ib != null) return 1;
+        return b.ret - a.ret;
+      })
+      .map((x) => {
+        const live = liveNames.has(x.name);
+        return { v: x, live, st: statusOf(x, live) };
+      });
+  }, [v, liveNames, cardOrder]);
   const inTrade = bots.filter((b) => b.st.cls === "trade").length;
   const paused = bots.filter((b) => b.st.cls === "rest").length;
   const shownBots = filtering ? bots.filter((b) => selected.has(b.v.name)) : bots;
+
+  const reorderCard = (fromName: string, toName: string) => {
+    if (fromName === toName) return;
+    const current = bots.map((b) => b.v.name);
+    const fromIdx = current.indexOf(fromName);
+    const toIdx = current.indexOf(toName);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const next = [...current];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setCardOrder(next);
+    try {
+      localStorage.setItem("fleet_card_order", JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
 
   const fOpen = filtering ? open.filter((o) => selected.has(o.variant)) : open;
   const fOpenUnreal = fOpen.reduce((a, o) => a + (o.upnl || 0), 0);
@@ -175,10 +208,11 @@ export default function FleetView() {
       sortable: true,
       value: (x) => x.name,
       render: (x) => (
-        <>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          {x.color && <span style={{ width: 8, height: 8, borderRadius: "50%", background: x.color, flex: "none" }} />}
           <BotLink name={x.name} />
           {x.kill && <span className="down" style={{ fontSize: 11 }}> KILL</span>}
-        </>
+        </span>
       ),
     },
     { key: "group", label: "Direction", align: "left", sortable: true, value: (x) => x.group, render: (x) => <span className="muted">{DIRLBL[x.group ?? ""] ?? x.group ?? "–"}</span> },
@@ -192,49 +226,33 @@ export default function FleetView() {
   ];
 
   const openCols: Column<Position>[] = [
-    { key: "variant", label: "Bot", align: "left", sortable: true, value: (o) => o.variant, render: (o) => <BotLink name={o.variant} /> },
-    { key: "ticker", label: "Coin", align: "left", sortable: true, value: (o) => o.ticker, render: (o) => <Coin {...o} /> },
-    { key: "side", label: "Side", align: "left", sortable: true, value: (o) => o.side, render: (o) => <span className={o.side === "short" ? "down" : "up"}>{o.side === "short" ? "Short" : "Long"}</span> },
+    { key: "variant", label: "Bot", sortable: true, value: (o) => o.variant, render: (o) => <BotLink name={o.variant} /> },
+    { key: "ticker", label: "Coin", sortable: true, value: (o) => o.ticker, render: (o) => <Coin {...o} /> },
+    { key: "side", label: "Side", sortable: true, value: (o) => o.side, render: (o) => <span className={o.side === "short" ? "down" : "up"}>{o.side === "short" ? "Short" : "Long"}</span> },
     { key: "entry", label: "Entry", sortable: true, value: (o) => o.entry, render: (o) => <span className="num">{px(o.entry)}</span> },
-    { key: "px", label: "Now", sortable: true, value: (o) => o.px, render: (o) => <span className="num">{px(o.px)}</span> },
-    { key: "upnl", label: "P&L", sortable: true, value: (o) => o.upnl, render: (o) => <span className={`num ${(o.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(o.upnl, true)}</span> },
-    { key: "upct", label: "Net", sortable: true, value: (o) => o.upct, render: (o) => <span className={`num ${(o.upct ?? 0) >= 0 ? "up" : "down"}`}>{pct(o.upct != null ? o.upct * 100 : null, true)}</span> },
-    { key: "stop", label: "Stop", sortable: true, value: (o) => o.stop, render: (o) => <span className="num muted">{o.stop ? px(o.stop) : "–"}</span> },
-    { key: "tp", label: "Target", value: (o) => o.tp, render: (o) => <span className="num">{o.tp != null ? px(o.tp) : "–"}</span> },
-    { key: "room", label: "Room", sortable: true, value: (o) => o.room, render: (o) => <span className="num muted">{o.stop && o.room != null ? pct(o.room * 100) : "–"}</span> },
-    { key: "exits_at", label: "Time exit", sortable: true, value: (o) => o.exits_at, render: (o) => <span className="num muted">{o.exits_at - now > 0 ? dur(o.exits_at - now) : "due"}</span> },
     { key: "notional", label: "Size", sortable: true, value: (o) => o.notional, render: (o) => <span className="num muted">{usd(o.notional)}</span> },
+    { key: "t_sig", label: "Opened", sortable: true, value: (o) => o.t_sig, render: (o) => <span className="num muted">{dstr(o.t_sig)} {clock(o.t_sig)}</span> },
+    { key: "held", label: "Held", sortable: true, value: (o) => now - o.t_sig, render: (o) => <span className="num muted">{held(Math.max(0, now - o.t_sig))}</span> },
+    { key: "kind", label: "Exit", sortable: true, value: () => "Open", render: () => <span className="up">Open</span> },
+    { key: "net", label: "Net", sortable: true, value: (o) => o.upct, render: (o) => <span className={`num ${(o.upct ?? 0) >= 0 ? "up" : "down"}`}>{pct(o.upct != null ? o.upct * 100 : null, true)}</span> },
+    { key: "pnl", label: "P&L", sortable: true, value: (o) => o.upnl, render: (o) => <span className={`num ${(o.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(o.upnl, true)}</span> },
   ];
 
   const closedCols: Column<Trade>[] = [
-    { key: "exit_t", label: "Closed", sortable: true, value: (t) => t.exit_t, render: (t) => <span className="num muted">{clock(t.exit_t)}</span> },
-    { key: "variant", label: "Bot", align: "left", sortable: true, value: (t) => t.variant, render: (t) => <BotLink name={t.variant} /> },
-    { key: "ticker", label: "Coin", align: "left", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
-    { key: "kind", label: "Exit reason", align: "left", sortable: true, value: (t) => t.kind, render: (t) => <span className="muted">{REASON[t.kind] ?? t.kind}</span> },
+    { key: "variant", label: "Bot", sortable: true, value: (t) => t.variant, render: (t) => <BotLink name={t.variant} /> },
+    { key: "ticker", label: "Coin", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
+    { key: "side", label: "Side", sortable: true, value: (t) => t.side ?? "long", render: (t) => <span className={t.side === "short" ? "down" : "up"}>{t.side === "short" ? "Short" : "Long"}</span> },
+    { key: "entry", label: "Entry", sortable: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
+    { key: "notional", label: "Size", sortable: true, value: (t) => t.notional, render: (t) => <span className="num muted">{usd(t.notional)}</span> },
+    { key: "t_sig", label: "Opened", sortable: true, value: (t) => t.t_sig, render: (t) => <span className="num muted">{dstr(t.t_sig)} {clock(t.t_sig)}</span> },
+    { key: "held", label: "Held", sortable: true, value: (t) => t.exit_t - t.t_sig, render: (t) => <span className="num muted">{held(t.exit_t - t.t_sig)}</span> },
+    { key: "kind", label: "Exit", sortable: true, value: (t) => t.kind, render: (t) => <span className="muted">{REASON[t.kind] ?? t.kind}</span> },
     { key: "net", label: "Net", sortable: true, value: (t) => t.net, render: (t) => <span className={`num ${t.pnl >= 0 ? "up" : "down"}`}>{pct(t.net * 100, true)}</span> },
     { key: "pnl", label: "P&L", sortable: true, value: (t) => t.pnl, render: (t) => <span className={`num ${t.pnl >= 0 ? "up" : "down"}`}>{usd(t.pnl, true)}</span> },
-    { key: "notional", label: "Size", sortable: true, value: (t) => t.notional, render: (t) => <span className="num muted">{usd(t.notional)}</span> },
-    { key: "held", label: "Held", sortable: true, value: (t) => t.exit_t - t.t_sig, render: (t) => <span className="num muted">{held(t.exit_t - t.t_sig)}</span> },
   ];
 
   return (
     <>
-      <header className={s.top}>
-        <div className={s.titleRow}>
-          <span className={s.sq} />
-          <h1 className={s.h1}>Paper Fleet</h1>
-          <span className="chip">Crypto · $10k each</span>
-          <span className="chip">
-            <span className={liveOk ? "liveDot" : "downDot"} />
-            {liveOk ? "Live · checks every 15 min" : d.paused ? "Paused" : "Offline"}
-          </span>
-          {d._source === "local-stale" && <span className="chip danger">⚠ upstream down · local copy</span>}
-          {d._source === "local" && <span className="chip">local data</span>}
-          {N > 0 && liveNames.size === 0 && <span className="chip">awaiting live feed</span>}
-          {errs.length > 0 && <span className="chip danger">⚠ {errs.length} in log</span>}
-        </div>
-      </header>
-
       <div className={s.body}>
         <section className={s.hero}>
           <div className={s.heroMain}>
@@ -299,11 +317,38 @@ export default function FleetView() {
             <div className={s.grid}>
               {shownBots.map((b, i) => {
                 const pos = b.v.ret >= 0;
-                const shade = b.st.cls === "rest" ? "#3A4250" : TILE_SHADES[i % 5];
+                const shade = b.st.cls === "rest" ? "#3A4250" : (b.v.color ?? TILE_SHADES[i % 5]);
                 const col = !b.live ? "var(--muted-2)" : b.st.cls === "rest" ? "#6B717B" : pos ? "#3DDC97" : "#FF5C6C";
-                const cls = `${s.tile} ${b.st.cls === "trade" ? s.tileTrade : b.st.cls === "rest" ? s.tileRest : ""}`;
+                const cls = `${s.tile} ${b.st.cls === "trade" ? `${s.tileTrade} pulseCard` : b.st.cls === "rest" ? s.tileRest : ""} ${dragName === b.v.name ? s.tileDragging : ""} ${dragOverName === b.v.name && dragName !== b.v.name ? s.tileDragOver : ""}`;
                 return (
-                  <div key={b.v.name} className={cls} title={b.v.params} onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(b.v.name))}>
+                  <div
+                    key={b.v.name}
+                    className={cls}
+                    title={b.v.params}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragName(b.v.name);
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", b.v.name);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverName !== b.v.name) setDragOverName(b.v.name);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const src = dragName || e.dataTransfer.getData("text/plain");
+                      if (src) reorderCard(src, b.v.name);
+                      setDragName(null);
+                      setDragOverName(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragName(null);
+                      setDragOverName(null);
+                    }}
+                    onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(b.v.name))}
+                  >
                     <span className={s.tileTop}>
                       <svg width="30" height="30" viewBox="0 0 30 30">
                         <rect width="30" height="30" rx="8" fill="#12161D" />

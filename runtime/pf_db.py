@@ -3,6 +3,9 @@ Server-side and trusted: bypasses RLS (RLS is the web app's concern).
 """
 import json
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import core.env  # noqa: F401 — loads .env
 import urllib.error
 import urllib.request
 
@@ -12,6 +15,57 @@ KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 def enabled() -> bool:
     return bool(URL and KEY)
+
+
+def save_mark(mark: dict) -> None:
+    """Upsert a per-bot live mark into pf_bot_marks (service role)."""
+    if not enabled():
+        return
+    import json as _j
+    data = _j.dumps(mark).encode()
+    req = urllib.request.Request(
+        f"{URL}/rest/v1/pf_bot_marks",
+        data=data, method="POST",
+        headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
+                 "Content-Type": "application/json",
+                 "Prefer": "return=minimal"})
+    try:
+        with urllib.request.urlopen(req, timeout=15):
+            pass
+    except Exception:
+        pass
+
+
+def save_trade(trade: dict) -> None:
+    if not enabled():
+        return
+    import json as _j
+    data = _j.dumps(trade).encode()
+    req = urllib.request.Request(
+        f"{URL}/rest/v1/pf_bot_trades", data=data, method="POST",
+        headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
+                 "Content-Type": "application/json", "Prefer": "return=minimal"})
+    try:
+        with urllib.request.urlopen(req, timeout=15):
+            pass
+    except Exception:
+        pass
+
+
+def save_log(line: str) -> None:
+    if not enabled():
+        return
+    import json as _j, time as _t
+    data = _j.dumps({"t": int(_t.time() * 1000), "line": line}).encode()
+    req = urllib.request.Request(
+        f"{URL}/rest/v1/pf_fleet_log", data=data, method="POST",
+        headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
+                 "Content-Type": "application/json", "Prefer": "return=minimal"})
+    try:
+        with urllib.request.urlopen(req, timeout=15):
+            pass
+    except Exception:
+        pass
 
 
 def _headers(extra=None):

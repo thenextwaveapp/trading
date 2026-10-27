@@ -7,10 +7,10 @@ runs, so a bot trades live exactly as it backtested (core/selftest.py for
 entries, core/selftest_exit.py for exits).
 
 Scope: only specs with proven live==backtest parity — side long/short (not
-both), stop mode hh/dstop/none, no trailing/sig/ext stop, no resting-limit
-order, not `partial`. covered() is the gate; anything it rejects stays on the
-legacy run_signals path. Covers pump_short (base/strict/fast/slow/loose/hold24/
-buf2/vol3/veto/wick30) and capit_long.
+both), stop mode hh/dstop/none/sig, no trailing stop, no resting-limit order,
+no extra exit conditions, not `partial`. covered() is the gate; anything it
+rejects stays on the legacy run_signals path. Covers pump_short
+(base/strict/fast/slow/loose/hold24/buf2/vol3/veto/wick30) and capit_long.
 
 Exits are unchanged: paper_fleet.run_exits() drives check_exit() over the
 position dict built here, and check_exit == core.exit_trade.
@@ -28,6 +28,7 @@ import time
 from core import parse, entry_signal
 from core.backtest import build_position, exit_trade
 from core.conditions import cell_at
+from core.timeframes import DAY_MS, DEFAULT_TIMEFRAME
 from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
                           TAKER, SLIP, KILL_DD, KILL_LOOKBACK, KILL_PAUSE)
 
@@ -51,6 +52,8 @@ def covered(spec):
             return False
         if exit_.get("limit") is not None:          # resting-order path (capit_lim)
             return False
+        if exit_.get("exit_conditions"):
+            return False
         stop = (exit_.get("stop") or {}).get("mode", "none")
         if stop not in _COVERED_STOPS:              # excludes trail / sig / ext
             return False
@@ -60,15 +63,17 @@ def covered(spec):
         return False
 
 
-def _capit_sl_basis(cnd, i):
+def _capit_sl_basis(cnd, i, step=M15):
     """2*NATR24 sizing basis for no-stop longs, computed from the same candles
     the signal fired on — reproduces signal_capit()'s sl_basis exactly so
-    capit positions are sized identically to the legacy engine."""
-    if i < 96:
+    capit positions are sized identically to the legacy engine. On a non-15m
+    tape the window is the same 24 hours, converted to bars."""
+    window = max(2, round(DAY_MS / int(step or M15)))
+    if i < window - 1:
         return 0.02                                  # not enough tape; safe default
     trs = [max(cnd[j]["h"], cnd[j - 1]["c"]) - min(cnd[j]["l"], cnd[j - 1]["c"])
-           for j in range(i - 95, i + 1)]
-    natr = (sum(trs) / 96) / cnd[i]["c"]
+           for j in range(i - window + 1, i + 1)]
+    natr = (sum(trs) / window) / cnd[i]["c"]
     return max(2 * natr, 0.005)
 
 
@@ -172,7 +177,7 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
         entry, stop = pos["entry"], pos["stop"]
 
         if stop_mode == "none" or stop == 0.0:
-            basis = _capit_sl_basis(cnd, i)          # 2*NATR24, like signal_capit
+            basis = _capit_sl_basis(cnd, i, strat.get("_interval_ms", M15))
         else:
             basis = abs(stop / entry - 1)
         notional = min(RISK * st["equity"] / max(basis, 0.005),
@@ -198,15 +203,21 @@ def new_state():
                 positions=[], eq_hist=[], orders=[], trades=[])
 
 
-def run_exits_spec(name, st, fetch, *, notes, log=lambda *_: None):
+def run_exits_spec(name, st, fetch, *, notes, interval=DEFAULT_TIMEFRAME,
+                   log=lambda *_: None):
     """Resolve open positions via core.exit_trade (== legacy check_exit, proven
-    in selftest_exit). `fetch(symbol, start, limit) -> candles` supplies the
+    in selftest_exit). `fetch(symbol, start, limit, interval) -> candles` supplies the
     post-signal tape; the engine passes its real klines fetcher, tests a stub."""
     for pos in list(st["positions"]):
-        cnd = fetch(pos["symbol"], pos["t_sig"], min(pos["hold"] + 8, 250))
+        cnd = fetch(pos["symbol"], pos["t_sig"],
+                    min(pos["hold"] + 8, 1500), interval)
         if not cnd:
             continue
-        ex = exit_trade(pos, cnd, TAKER, SLIP)
+        # `i` indexes the entry scan's candle list, while `cnd` is a fresh
+        # fetch starting at t_sig. Drop it so exit_trade locates the first
+        # post-signal bar by timestamp instead of indexing past the slice.
+        tape_pos = {k: v for k, v in pos.items() if k != "i"}
+        ex = exit_trade(tape_pos, cnd, TAKER, SLIP)
         if ex is None:
             continue
         net, exit_t, kind = ex
@@ -225,6 +236,24 @@ def run_exits_spec(name, st, fetch, *, notes, log=lambda *_: None):
                           net=net, pnl=pnl))
 
 
+def _bot_interval(spec):
+    try:
+        return parse(spec).get("_timeframe", DEFAULT_TIMEFRAME)
+    except Exception:
+        return None
+
+
+def _candles_for(candles, interval):
+    """Support both the legacy flat {ticker: bars} map (15m) and the new
+    per-candle-size {interval: {ticker: bars}} map."""
+    if not candles:
+        return {}
+    sample = next(iter(candles.values()), None)
+    if isinstance(sample, list):
+        return candles if interval == DEFAULT_TIMEFRAME else {}
+    return candles.get(interval) or {}
+
+
 def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
               notes=None, log=lambda *_: None):
     """One cycle over the DB-sourced fleet. For each bot: resolve exits, then
@@ -234,16 +263,25 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
     `candles` is {ticker: series} fetched for the union. A bot whose universe
     didn't resolve ({} / missing) manages open positions only, opens none."""
     notes = notes if notes is not None else []
-    btc = candles.get("BTC")
+    btc = _candles_for(candles, DEFAULT_TIMEFRAME).get("BTC")
     for bot in bots:
         st = states.setdefault(bot["id"], new_state())
-        run_exits_spec(bot["name"], st, fetch, notes=notes, log=log)
+        iv = _bot_interval(bot["spec"])
+        if not iv:
+            log(f"[{bot['name']}] SKIP: spec has an unsupported candle size")
+            continue
+        bot_candles = _candles_for(candles, iv)
+        bot_fetch = lambda sym, start, limit, _iv=iv: fetch(
+            sym, start, limit, _iv)
+        run_exits_spec(bot["name"], st, bot_fetch, notes=notes,
+                       interval=iv, log=log)
         uni = universes.get(bot["id"]) or {}
         if not uni:
             log(f"[{bot['name']}] SKIP entries: universe did not resolve")
             continue
         if covered(bot["spec"]):
-            scoped = {tk: candles[tk] for tk in uni if candles.get(tk)}
+            scoped = {tk: bot_candles.get(tk) for tk in uni
+                      if bot_candles.get(tk)}
             run_spec_signals(bot["name"], bot["spec"], st, uni, scoped,
                              gate=gate, weather=bot.get("condition_filter"),
                              btc=btc, log=log, notes=notes)

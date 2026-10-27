@@ -1,3 +1,4 @@
+import { botColor } from "../lib/brand";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
@@ -144,7 +145,7 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
             {top.map(({ b, ret, live }, i) => (
               <div key={b.id} className={s.boardRow} onClick={() => nav("/bot/" + encodeURIComponent(b.name))}>
                 <span className={s.rank}>{i + 1}</span>
-                <svg className={s.botIcon} width="34" height="34" viewBox="0 0 34 34"><rect width="34" height="34" rx="9" fill="#0f141b" /><path d={identicon(b.name, 22)} fill="#3a81d7" transform="translate(6 6)" /></svg>
+                <svg className={s.botIcon} width="34" height="34" viewBox="0 0 34 34"><rect width="34" height="34" rx="9" fill="#0f141b" /><path d={identicon(b.name, 22)} fill={botColor(b)} transform="translate(6 6)" /></svg>
                 <span>
                   <span className={s.botName}>{b.name}</span>
                   {b.builder?.handle && <span className={s.botBy}> · @{b.builder.handle}</span>}

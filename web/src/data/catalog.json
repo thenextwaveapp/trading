@@ -4085,8 +4085,956 @@
       "asset_class": "prediction"
     }
   ],
+  "spec_params": [
+    {
+      "key": "side",
+      "label": "Side",
+      "kind": "enum",
+      "default": "short",
+      "group": "direction",
+      "help": "Direction of the position taken on a signal.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [
+        {
+          "value": "short",
+          "label": "Short",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "long",
+          "label": "Long",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "both",
+          "label": "Both",
+          "backtest": false,
+          "live": false,
+          "status": "unsupported",
+          "reason": "The entry tree has no direction output, so a 'both' spec can only trade one book. Express the long and short books as separate strategies."
+        }
+      ],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "market",
+      "label": "Market",
+      "kind": "enum",
+      "default": "crypto_perp",
+      "group": "market",
+      "help": "Instrument model; indicator availability is checked by parse().",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "timeframe",
+      "label": "Candle size",
+      "kind": "enum",
+      "default": "15m",
+      "group": "market",
+      "help": "Bar size used for signals, stops, holds and exits. Every backtest, sweep and live bot runs on the selected tape.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [
+        {
+          "value": "1m",
+          "label": "1 minute",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "3m",
+          "label": "3 minutes",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "5m",
+          "label": "5 minutes",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "15m",
+          "label": "15 minutes",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "30m",
+          "label": "30 minutes",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "1h",
+          "label": "1 hour",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "2h",
+          "label": "2 hours",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "4h",
+          "label": "4 hours",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "6h",
+          "label": "6 hours",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "8h",
+          "label": "8 hours",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "12h",
+          "label": "12 hours",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "1d",
+          "label": "1 day",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "3d",
+          "label": "3 days",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "1w",
+          "label": "1 week",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "1M",
+          "label": "1 month",
+          "backtest": false,
+          "live": false,
+          "status": "unsupported",
+          "reason": "Calendar months are not fixed-width, so the engine cannot apply its gapless-bar and timestamp checks. Use 1w or a fixed number of days instead."
+        }
+      ],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "universe",
+      "label": "Universe",
+      "kind": "string",
+      "default": "fleet-60",
+      "group": "market",
+      "help": "Ticker set the strategy is evaluated over.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "fresh",
+      "label": "Fresh only",
+      "kind": "bool",
+      "default": false,
+      "group": "entry",
+      "help": "Fire only on the first bar a condition becomes true.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "entry",
+      "label": "Entry conditions",
+      "kind": "condition",
+      "default": {
+        "logic": "AND",
+        "children": []
+      },
+      "group": "entry",
+      "help": "Composable condition tree evaluated on each closed bar.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "timing.hours_utc",
+      "label": "Hours (UTC)",
+      "kind": "int_list",
+      "default": [],
+      "group": "timing",
+      "help": "UTC hours when a signal may fire, measured at bar close. Empty means every hour.",
+      "min": 0,
+      "max": 23,
+      "step": 1,
+      "unit": "hour",
+      "percent": false,
+      "choices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "timing.days_utc",
+      "label": "Days (UTC)",
+      "kind": "int_list",
+      "default": [],
+      "group": "timing",
+      "help": "UTC weekdays when a signal may fire, Monday=0. Empty means every day.",
+      "min": 0,
+      "max": 6,
+      "step": 1,
+      "unit": null,
+      "percent": false,
+      "choices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "options": [
+        {
+          "value": 0,
+          "label": "Mon"
+        },
+        {
+          "value": 1,
+          "label": "Tue"
+        },
+        {
+          "value": 2,
+          "label": "Wed"
+        },
+        {
+          "value": 3,
+          "label": "Thu"
+        },
+        {
+          "value": 4,
+          "label": "Fri"
+        },
+        {
+          "value": 5,
+          "label": "Sat"
+        },
+        {
+          "value": 6,
+          "label": "Sun"
+        }
+      ],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "exit.time_bars",
+      "label": "Max hold",
+      "kind": "int",
+      "default": 16,
+      "group": "exit",
+      "help": "Bars from entry to the time exit.",
+      "min": 1,
+      "max": null,
+      "step": 1,
+      "unit": "bar",
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "exit.stop.mode",
+      "label": "Stop mode",
+      "kind": "enum",
+      "default": "hh",
+      "group": "exit",
+      "help": "Stop construction from the signal window or entry.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [
+        {
+          "value": "none",
+          "label": "None (time only)",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "hh",
+          "label": "Signal-window extreme",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "dstop",
+          "label": "Fixed % disaster stop",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "sig",
+          "label": "Signal-window midpoint stop",
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
+        },
+        {
+          "value": "trail",
+          "label": "Legacy trailing mode",
+          "backtest": false,
+          "live": false,
+          "status": "unsupported",
+          "reason": "stop.mode='trail' was displayed but never implemented. Use exit.trailing instead."
+        }
+      ],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "exit.stop.window",
+      "label": "Stop window",
+      "kind": "int",
+      "default": 16,
+      "group": "exit",
+      "help": "Signal-window bars used by hh and sig.",
+      "min": 1,
+      "max": null,
+      "step": 1,
+      "unit": "bar",
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": {
+        "path": "exit.stop.mode",
+        "in": [
+          "hh",
+          "sig"
+        ]
+      },
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "exit.stop.param",
+      "label": "Stop parameter",
+      "kind": "float",
+      "default": 0.0,
+      "group": "exit",
+      "help": "Buffer for hh/sig or distance for dstop, in percent.",
+      "min": null,
+      "max": null,
+      "step": 0.0001,
+      "unit": "%",
+      "percent": true,
+      "choices": [],
+      "options": [],
+      "visible_if": {
+        "path": "exit.stop.mode",
+        "in": [
+          "hh",
+          "sig",
+          "dstop"
+        ]
+      },
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "exit.take_profit",
+      "label": "Take profit",
+      "kind": "float",
+      "default": null,
+      "group": "exit",
+      "help": "Percent from entry. Empty means no take-profit.",
+      "min": 0,
+      "max": null,
+      "step": 0.0001,
+      "unit": "%",
+      "percent": true,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
+      "reason": ""
+    },
+    {
+      "key": "exit.tp_close",
+      "label": "Take profit on close",
+      "kind": "bool",
+      "default": false,
+      "group": "exit",
+      "help": "Wait for a close through the target instead of filling intrabar.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "exit.trailing.k",
+      "label": "Trailing distance",
+      "kind": "float",
+      "default": 3.0,
+      "group": "exit",
+      "help": "NATR multiple for the trailing stop. Set a value to enable trailing; delete it to disable.",
+      "min": 0,
+      "max": null,
+      "step": 0.1,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": {
+        "path": "exit.trailing",
+        "exists": true
+      },
+      "status": "partial",
+      "backtest": true,
+      "live": false,
+      "sweep": true,
+      "in_default": false,
+      "reason": "Trailing exits are backtested but not yet pinned for live parity, so live deployment is blocked."
+    },
+    {
+      "key": "exit.trailing.natr",
+      "label": "Trailing ATR window",
+      "kind": "int",
+      "default": 24,
+      "group": "exit",
+      "help": "Bars in the NATR used by the trailing stop.",
+      "min": 1,
+      "max": null,
+      "step": 1,
+      "unit": "bar",
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": {
+        "path": "exit.trailing",
+        "exists": true
+      },
+      "status": "partial",
+      "backtest": true,
+      "live": false,
+      "sweep": true,
+      "in_default": false,
+      "reason": "Trailing exits are backtested but not yet pinned for live parity, so live deployment is blocked."
+    },
+    {
+      "key": "exit.limit",
+      "label": "Resting limit",
+      "kind": "float",
+      "default": null,
+      "group": "exit",
+      "help": "Legacy capitulation limit offset, in percent.",
+      "min": null,
+      "max": null,
+      "step": 0.0001,
+      "unit": "%",
+      "percent": true,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "unsupported",
+      "backtest": false,
+      "live": false,
+      "sweep": true,
+      "in_default": false,
+      "reason": "Only the legacy capitulation path places resting limits; the spec backtester ignores them."
+    },
+    {
+      "key": "exit.exit_conditions",
+      "label": "Exit conditions",
+      "kind": "condition",
+      "default": null,
+      "group": "exit",
+      "help": "Additional condition tree evaluated after entry.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "unsupported",
+      "backtest": false,
+      "live": false,
+      "sweep": true,
+      "in_default": false,
+      "reason": "Exit conditions are parsed but not executed by the backtest or live engine."
+    },
+    {
+      "key": "sizing.risk",
+      "label": "Risk per trade",
+      "kind": "float",
+      "default": 0.0075,
+      "group": "sizing",
+      "help": "Percent of equity risked to the stop.",
+      "min": 0,
+      "max": null,
+      "step": 0.0001,
+      "unit": "%",
+      "percent": true,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "sizing.notional_cap",
+      "label": "Notional cap",
+      "kind": "float",
+      "default": 0.2,
+      "group": "sizing",
+      "help": "Maximum notional as a percent of equity.",
+      "min": 0,
+      "max": null,
+      "step": 0.0001,
+      "unit": "%",
+      "percent": true,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "sizing.weight",
+      "label": "Portfolio weight",
+      "kind": "float",
+      "default": 1.0,
+      "group": "sizing",
+      "help": "Stored allocation hint; the single-bot engine does not read it.",
+      "min": 0,
+      "max": null,
+      "step": 0.1,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ignored",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
+      "reason": "The single-bot backtest and runtime have no portfolio allocation step; this value is stored but has no effect."
+    }
+  ],
+  "spec_features": [
+    {
+      "id": "side.short",
+      "label": "Short book",
+      "path": "side",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": "short"
+    },
+    {
+      "id": "side.long",
+      "label": "Long book",
+      "path": "side",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": "long"
+    },
+    {
+      "id": "side.both",
+      "label": "Two-sided book",
+      "path": "side",
+      "op": "eq",
+      "backtest": false,
+      "live": false,
+      "status": "unsupported",
+      "reason": "Entry trees do not emit a direction; both sides cannot be resolved from one signal.",
+      "value": "both"
+    },
+    {
+      "id": "stop.none",
+      "label": "No stop",
+      "path": "exit.stop.mode",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": "none"
+    },
+    {
+      "id": "stop.hh",
+      "label": "Signal-window extreme stop",
+      "path": "exit.stop.mode",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": "hh"
+    },
+    {
+      "id": "stop.dstop",
+      "label": "Disaster stop",
+      "path": "exit.stop.mode",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": "dstop"
+    },
+    {
+      "id": "stop.sig",
+      "label": "Signal-window midpoint stop",
+      "path": "exit.stop.mode",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": "sig"
+    },
+    {
+      "id": "stop.trail",
+      "label": "Legacy trailing mode",
+      "path": "exit.stop.mode",
+      "op": "eq",
+      "backtest": false,
+      "live": false,
+      "status": "unsupported",
+      "reason": "stop.mode='trail' is a no-op; use exit.trailing.",
+      "value": "trail"
+    },
+    {
+      "id": "exit.trailing",
+      "label": "Trailing exit",
+      "path": "exit.trailing",
+      "op": "exists",
+      "backtest": true,
+      "live": false,
+      "status": "partial",
+      "reason": "Backtested, but live parity is not pinned; deployment stays on the legacy engine or is refused."
+    },
+    {
+      "id": "exit.limit",
+      "label": "Resting limit",
+      "path": "exit.limit",
+      "op": "exists",
+      "backtest": false,
+      "live": false,
+      "status": "unsupported",
+      "reason": "Only the legacy capitulation path places resting limits."
+    },
+    {
+      "id": "exit.exit_conditions",
+      "label": "Exit conditions",
+      "path": "exit.exit_conditions",
+      "op": "exists",
+      "backtest": false,
+      "live": false,
+      "status": "unsupported",
+      "reason": "Parsed but not executed by either engine."
+    },
+    {
+      "id": "exit.tp_close",
+      "label": "Take profit on close",
+      "path": "exit.tp_close",
+      "op": "eq",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
+      "value": true
+    },
+    {
+      "id": "filters",
+      "label": "Live regime filters",
+      "path": "filters",
+      "op": "nonempty",
+      "backtest": true,
+      "live": true,
+      "status": "partial",
+      "reason": "BTC-bear, regime-veto and ticker filters are applied live; the backtest is unfiltered, so read those results as the strategy before filters."
+    },
+    {
+      "id": "sizing.weight",
+      "label": "Portfolio weight",
+      "path": "sizing.weight",
+      "op": "neq",
+      "backtest": true,
+      "live": true,
+      "status": "ignored",
+      "reason": "Weights are stored but the single-bot engine never reads them.",
+      "value": 1.0
+    }
+  ],
+  "spec_groups": [
+    {
+      "id": "direction",
+      "label": "Direction"
+    },
+    {
+      "id": "market",
+      "label": "Market"
+    },
+    {
+      "id": "entry",
+      "label": "Entry"
+    },
+    {
+      "id": "timing",
+      "label": "Timing"
+    },
+    {
+      "id": "exit",
+      "label": "Exit"
+    },
+    {
+      "id": "sizing",
+      "label": "Sizing"
+    },
+    {
+      "id": "filters",
+      "label": "Filters"
+    }
+  ],
+  "spec_defaults": {
+    "name": "",
+    "side": "short",
+    "market": "crypto_perp",
+    "timeframe": "15m",
+    "universe": "fleet-60",
+    "fresh": false,
+    "entry": {
+      "logic": "AND",
+      "children": []
+    },
+    "timing": {
+      "hours_utc": [],
+      "days_utc": []
+    },
+    "exit": {
+      "time_bars": 16,
+      "stop": {
+        "mode": "hh",
+        "window": 16,
+        "param": 0.0
+      },
+      "tp_close": false
+    },
+    "sizing": {
+      "risk": 0.0075,
+      "notional_cap": 0.2
+    },
+    "filters": []
+  },
   "counts": {
     "indicators": 212,
-    "markets": 6
+    "markets": 6,
+    "spec_params": 21
   }
 }

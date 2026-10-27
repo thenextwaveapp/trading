@@ -9,6 +9,7 @@ A Strategy is the composable object that replaces "engine + variant":
       "universe": str,               # e.g. "fleet-60"
       "fresh": bool,                 # fire only on the bar the entry becomes true
       "entry": <ConditionGroup>,
+      "timing": {hours_utc, days_utc},  # optional signal windows
       "exit":  {time_bars, stop:{mode,param}, take_profit, trailing, ...},
       "sizing": {risk, notional_cap, weight}
     }
@@ -20,6 +21,8 @@ the evaluator for its gapless guard.
 from .expr import _OPS
 from .indicators import REGISTRY
 from .markets import MARKETS, available
+from .params import STOP_MODES, normalize_spec, timing_sets
+from .timeframes import DEFAULT_TIMEFRAME, interval_ms, TIMEFRAME_VALUES
 
 
 class StrategyError(ValueError):
@@ -64,26 +67,98 @@ def _node_lookback(n):
     return max(_operand_lookback(n["left"]), _operand_lookback(n["right"]))
 
 
+def _validate_timing(spec):
+    timing = spec.get("timing")
+    if timing is None:
+        return
+    if not isinstance(timing, dict):
+        raise StrategyError("timing must be an object")
+    for key, hi in (("hours_utc", 23), ("days_utc", 6)):
+        vals = timing.get(key, [])
+        if vals is None:
+            vals = []
+        if not isinstance(vals, list):
+            raise StrategyError(f"timing.{key} must be a list")
+        for v in vals:
+            if isinstance(v, bool) or not isinstance(v, int):
+                raise StrategyError(f"timing.{key} values must be integers")
+            if v < 0 or v > hi:
+                raise StrategyError(
+                    f"timing.{key} value {v} outside 0..{hi}")
+        timing[key] = sorted(set(vals))
+
+
+def _validate_exit(spec):
+    ex = spec.setdefault("exit", {})
+    if not isinstance(ex, dict):
+        raise StrategyError("exit must be an object")
+    hold = ex.get("time_bars", 16)
+    if isinstance(hold, bool) or not isinstance(hold, int) or hold < 1:
+        raise StrategyError("exit.time_bars must be an integer >= 1")
+    ex["time_bars"] = hold
+
+    stop = ex.get("stop")
+    if stop is not None:
+        if not isinstance(stop, dict):
+            raise StrategyError("exit.stop must be an object")
+        mode = stop.get("mode", "none")
+        if mode not in STOP_MODES:
+            raise StrategyError(f"unknown stop mode: {mode!r}")
+        if "window" in stop:
+            w = stop["window"]
+            if isinstance(w, bool) or not isinstance(w, int) or w < 1:
+                raise StrategyError("exit.stop.window must be an integer >= 1")
+        if "param" in stop and not isinstance(stop["param"], (int, float)):
+            raise StrategyError("exit.stop.param must be numeric")
+
+    tr = ex.get("trailing")
+    if tr is not None:
+        if not isinstance(tr, dict):
+            raise StrategyError("exit.trailing must be an object")
+        k, natr = tr.get("k"), tr.get("natr")
+        if not isinstance(k, (int, float)) or k <= 0:
+            raise StrategyError("exit.trailing.k must be > 0")
+        if isinstance(natr, bool) or not isinstance(natr, int) or natr < 1:
+            raise StrategyError("exit.trailing.natr must be an integer >= 1")
+
+    tp = ex.get("take_profit")
+    if tp is not None and (not isinstance(tp, (int, float)) or tp < 0):
+        raise StrategyError("exit.take_profit must be >= 0")
+
+
 def parse(spec):
     for req in ("side", "entry"):
         if req not in spec:
             raise StrategyError(f"strategy missing required field: {req!r}")
     if spec["side"] not in ("long", "short", "both"):
         raise StrategyError(f"bad side: {spec['side']!r}")
-    out = dict(spec)
-    out["_lookback"] = _node_lookback(spec["entry"])
+    out = normalize_spec(spec)
+    timeframe = out.get("timeframe", DEFAULT_TIMEFRAME)
+    if timeframe not in TIMEFRAME_VALUES:
+        raise StrategyError(
+            f"unsupported candle size: {timeframe!r}; choose one of "
+            f"{', '.join(TIMEFRAME_VALUES)}")
+    out["timeframe"] = timeframe
+    out["_timeframe"] = timeframe
+    out["_interval_ms"] = interval_ms(timeframe)
+    _validate_timing(out)
+    _validate_exit(out)
+    out["_lookback"] = _node_lookback(out["entry"])
     out.setdefault("fresh", False)
+    hours, days = timing_sets(out)
+    out["_timing_hours"] = hours
+    out["_timing_days"] = days
 
     # market capability: every indicator the strategy uses must be computable
     # on its market, or it can't be saved
-    market = spec.get("market")
+    market = out.get("market")
     if market is not None:
         if market not in MARKETS:
             raise StrategyError(f"unknown market: {market!r}")
         m = MARKETS[market]
         refs = []
-        _collect_indicators(spec["entry"], refs)
-        exit_conds = spec.get("exit", {}).get("exit_conditions")
+        _collect_indicators(out["entry"], refs)
+        exit_conds = out.get("exit", {}).get("exit_conditions")
         if exit_conds:
             _collect_indicators(exit_conds, refs)
         for ind in refs:

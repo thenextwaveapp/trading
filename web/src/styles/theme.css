@@ -35,8 +35,8 @@
   --font-mono: "Geist Mono", ui-monospace, monospace;
   --font-display: "DM Sans", sans-serif;
 
-  /* chart line palette (matches original dashboard) */
-  --c0: #58a6ff; --c1: #3fb950; --c2: #f85149; --c3: #d29922;
-  --c4: #bc8cff; --c5: #39c5cf; --c6: #ff7b72; --c7: #7ee787;
-  --c8: #ffa657; --c9: #79c0ff; --c10: #d2a8ff; --c11: #56d4dd;
+  /* 8-hue brand fleet palette */
+  --c0: #3a81d7; --c1: #cb8315; --c2: #814ec6; --c3: #19a9b0;
+  --c4: #c04688; --c5: #979828; --c6: #455bb2; --c7: #cf6139;
+  --c8: #65a1ec; --c9: #e5a65a; --c10: #9b73da; --c11: #63c6cc;
 }

@@ -1,3 +1,4 @@
+import { botColor } from "../../lib/brand";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth";
@@ -9,6 +10,7 @@ import {
   useMyFleets,
 } from "../../db/queries";
 import type { DbFleet, Visibility } from "../../db/types";
+import { blockingIssues } from "../../lib/catalog";
 import { dol, identicon } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
@@ -61,7 +63,8 @@ export default function Deploy() {
   const spec = bot.spec as Record<string, unknown> | null;
   const partial = !spec || spec.partial === true;
   const deployed = bot.stage === "deployed";
-  const blocked = !deployed && (bot.stage !== "ready" || partial);
+  const liveBlockers = spec ? blockingIssues(spec, "live") : [];
+  const blocked = !deployed && (bot.stage !== "ready" || partial || liveBlockers.length > 0);
 
   const makeFleet = async (): Promise<string | null> => {
     if (!user) {
@@ -122,7 +125,7 @@ export default function Deploy() {
       <div className={p.body}>
         <div className={r.modalCard}>
           <div className={r.modalIcon}>
-            <svg width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#12161D" /><path d={identicon(name || bot.name, 38)} fill={bot.builder?.avatar_color || "#3a81d7"} transform="translate(13 13)" /></svg>
+            <svg width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#12161D" /><path d={identicon(name || bot.name, 38)} fill={botColor(bot)} transform="translate(13 13)" /></svg>
           </div>
 
           {done ? (
@@ -133,7 +136,23 @@ export default function Deploy() {
               </div>
               <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24 }}>
                 <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/bot/" + encodeURIComponent(done))}>View bot</button>
-                <button className={p.btn} onClick={() => nav("/build/compose")}>Build another</button>
+                <button className={p.btn} onClick={() => nav("/build")}>Back to build</button>
+              </div>
+            </>
+          ) : !deployed && !partial && liveBlockers.length ? (
+            <>
+              <h1 className={r.modalTitle}>This strategy isn't live-ready.</h1>
+              <div className="lbl" style={{ textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
+                {liveBlockers.map((i) => (
+                  <div key={i.id} style={{ marginTop: 8 }}>
+                    <b>{i.label}</b>
+                    <div>{i.reason}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
+                <button className={`${p.btn} ${p.pri}`} onClick={() => nav(withBot("/build/compose", bot.id))}>Edit strategy</button>
+                <button className={p.btn} onClick={() => nav("/build")}>Back to Build</button>
               </div>
             </>
           ) : blocked ? (

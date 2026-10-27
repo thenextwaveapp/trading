@@ -8,6 +8,9 @@ without a spec or not deployed are skipped.
 """
 import json
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import core.env  # noqa: F401 — loads .env
 import urllib.request
 
 URL = os.environ.get("SUPABASE_URL", "").rstrip("/")

@@ -23,6 +23,9 @@ Existing projects apply files under `db/migrations/` in filename order:
 psql "$DATABASE_URL" -f db/migrations/20261024_build_flow.sql
 psql "$DATABASE_URL" -f db/migrations/20261024_weather_thresholds.sql
 psql "$DATABASE_URL" -f db/migrations/20261025_checks_lexicon.sql
+psql "$DATABASE_URL" -f db/migrations/20261026_bot_marks.sql
+psql "$DATABASE_URL" -f db/migrations/20261026_bot_trades.sql
+psql "$DATABASE_URL" -f db/migrations/20261026_sweeps.sql
 ```
 
 Migrations are idempotent where possible. `20261024_build_flow.sql` adds the
@@ -32,6 +35,10 @@ backtest lookup, and canonical `default_params` for the mapped families.
 terciles with each Weather cell so the live fleet can enforce the gate.
 `20261025_checks_lexicon.sql` aligns the `pf_checks` constraints with the
 engine's `placebo`/`cost_stress`/`entry_delay` keys and `pass`/`fail` statuses.
+`20261026_bot_marks.sql` and `20261026_bot_trades.sql` store the live fleet's
+per-cycle marks and trade ledger. `20261026_sweeps.sql` adds the experiment
+lab's `pf_sweeps` queue and `pf_sweep_runs` grid results, with RLS following
+the parent bot owner.
 
 ## Scope
 

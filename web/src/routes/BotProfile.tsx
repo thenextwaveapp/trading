@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { DEFAULT_BOT_COLOR, botColor } from "../lib/brand";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
 import { useAuth } from "../auth";
-import { useBot, useLatestBacktest } from "../db/queries";
+import { deleteBot, useBot, useLatestBacktest } from "../db/queries";
 import type { Position, Trade } from "../api/types";
 import { variantFromBot } from "../lib/variant";
 import {
@@ -15,12 +16,122 @@ import {
   held,
   identicon,
   pct,
+  px,
   usd,
 } from "../lib/format";
 import DataTable, { type Column } from "../components/DataTable";
 import BotChart from "../components/BotChart";
-import { Coin } from "../components/cells";
+import { BotLink, Coin } from "../components/cells";
 import s from "./BotProfile.module.css";
+
+const OP_SYM: Record<string, string> = {
+  gt: ">",
+  ge: "≥",
+  lt: "<",
+  le: "≤",
+  eq: "=",
+  ne: "≠",
+  crosses_above: "crosses above",
+  crosses_below: "crosses below",
+};
+
+const STOP_LBL: Record<string, string> = {
+  none: "None (time only)",
+  hh: "Signal-window extreme",
+  dstop: "Disaster stop",
+  sig: "Signal-window midpoint",
+  trail: "Trailing stop",
+};
+
+function fmtOperand(o: unknown): string {
+  if (typeof o === "number") return String(o);
+  if (o && typeof o === "object" && "ind" in (o as Record<string, unknown>)) {
+    const ind = (o as { ind: string; params?: Record<string, unknown>; offset?: number }).ind;
+    const params = (o as { params?: Record<string, unknown> }).params;
+    const offset = (o as { offset?: number }).offset;
+    const pvals = params ? Object.values(params).join(", ") : "";
+    const pstr = pvals ? `(${pvals})` : "";
+    const ostr = offset ? `[${offset}]` : "";
+    return `${ind}${pstr}${ostr}`;
+  }
+  return JSON.stringify(o);
+}
+
+function fmtEntryTree(node: unknown): string {
+  if (!node || typeof node !== "object") return "–";
+  const g = node as { logic?: string; children?: unknown[] };
+  if (Array.isArray(g.children)) {
+    if (!g.children.length) return "–";
+    const parts = g.children.map(fmtEntryTree);
+    const logic = g.logic ?? "AND";
+    if (logic === "NOT") return `NOT (${parts.join(" AND ")})`;
+    return parts.join(` ${logic} `);
+  }
+  const c = node as { left?: unknown; op?: string; right?: unknown };
+  return `${fmtOperand(c.left)} ${OP_SYM[c.op ?? ""] ?? c.op ?? ""} ${fmtOperand(c.right)}`;
+}
+
+export function buildStrategyRows(
+  spec: Record<string, unknown> | null | undefined,
+  cfg: Record<string, unknown> | null | undefined,
+  group: string | null | undefined,
+  conditionFilter?: Record<string, unknown> | null,
+): [string, string][] {
+  const rows: [string, string][] = [];
+  const side = (spec?.side as string | undefined) ?? group ?? null;
+  rows.push(["Direction", DIRLBL[side ?? ""] ?? side ?? "–"]);
+  if (spec && typeof spec === "object" && ("entry" in spec || "exit" in spec)) {
+    if (spec.market) rows.push(["Market", String(spec.market)]);
+    if (spec.universe) rows.push(["Universe", String(spec.universe)]);
+    rows.push(["Timeframe", String(spec.timeframe ?? "15m")]);
+    rows.push(["Entry", fmtEntryTree(spec.entry)]);
+    rows.push(["Fire mode", spec.fresh ? "First true bar only" : "Every true bar"]);
+    const timing = spec.timing as { hours_utc?: number[]; days_utc?: number[] } | undefined;
+    if (timing && ((timing.hours_utc?.length ?? 0) > 0 || (timing.days_utc?.length ?? 0) > 0)) {
+      const hrs = timing.hours_utc?.length ? `Hours: ${timing.hours_utc.join(",")}` : "All hours";
+      const days = timing.days_utc?.length ? `Days: ${timing.days_utc.join(",")}` : "Every day";
+      rows.push(["Timing", `${hrs} · ${days} UTC`]);
+    }
+    const ex = (spec.exit ?? {}) as {
+      time_bars?: number;
+      stop?: { mode?: string; param?: number; window?: number };
+      take_profit?: number;
+      trailing?: { k?: number; natr?: number };
+    };
+    if (ex.time_bars != null) rows.push(["Max hold", `${ex.time_bars} bars`]);
+    if (ex.stop) {
+      const m = ex.stop.mode ?? "none";
+      const label = STOP_LBL[m] ?? m;
+      const details: string[] = [label];
+      if (m !== "none" && ex.stop.window != null) details.push(`${ex.stop.window}b window`);
+      if (m !== "none" && ex.stop.param != null) details.push(`${+(ex.stop.param * 100).toFixed(2)}%`);
+      rows.push(["Stop", details.join(" · ")]);
+    }
+    if (ex.take_profit != null && ex.take_profit > 0) {
+      rows.push(["Take profit", `${+(ex.take_profit * 100).toFixed(2)}%`]);
+    }
+    if (ex.trailing) {
+      rows.push(["Trailing", `${ex.trailing.k}× NATR(${ex.trailing.natr})`]);
+    }
+    const sz = (spec.sizing ?? {}) as { risk?: number; notional_cap?: number };
+    if (sz.risk != null || sz.notional_cap != null) {
+      const bits: string[] = [];
+      if (sz.risk != null) bits.push(`Risk ${+(sz.risk * 100).toFixed(2)}%`);
+      if (sz.notional_cap != null) bits.push(`Cap ${+(sz.notional_cap * 100).toFixed(0)}%`);
+      rows.push(["Sizing", bits.join(" · ")]);
+    }
+  }
+  if (cfg) {
+    for (const [k, val] of Object.entries(cfg)) {
+      if (k === "color") continue;
+      rows.push([k, typeof val === "string" ? val : JSON.stringify(val)]);
+    }
+  }
+  if (conditionFilter && Object.keys(conditionFilter).length > 0) {
+    rows.push(["Weather", JSON.stringify(conditionFilter)]);
+  }
+  return rows;
+}
 
 type OpenRow = Position & { _open: true };
 type Row = OpenRow | Trade;
@@ -36,15 +147,20 @@ export default function BotProfile() {
   // visibility model before showing a bot's strategy — public, or its owner.
   const { data: bot, loading: botLoading } = useBot(name);
   const { data: bt } = useLatestBacktest(bot?.id ?? null);
+  const btV = bot ? variantFromBot(bot, bt) : null;
   // Pages must render even when the engine feed omits the bot: fall back to
   // the DB row + latest backtest results.
-  const v = liveV ?? (bot ? variantFromBot(bot, bt) : null);
-  const canSeeStrategy =
-    bot?.visibility === "public" || (!!user && bot?.owner === user.id);
+  const v = liveV ? { ...liveV, color: bot ? botColor(bot) : liveV.color } : btV;
+  const liveTrades = useMemo(() => d.trades.filter((t) => t.variant === name), [d.trades, name]);
+  const hasLiveTrades = (liveV?.closed ?? 0) > 0 || (liveV?.open.length ?? 0) > 0 || liveTrades.length > 0;
+  const isOwner = !!user && !!bot && bot.owner === user.id;
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [delErr, setDelErr] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     if (!v) return null;
-    const trs = d.trades.filter((t) => t.variant === name).slice().sort((a, b) => a.exit_t - b.exit_t);
+    const trs = liveTrades.slice().sort((a, b) => a.exit_t - b.exit_t);
     let best = 0,
       run = 0,
       streak = 0;
@@ -58,18 +174,27 @@ export default function BotProfile() {
       if (trs[i].pnl > 0) streak++;
       else break;
     }
-    let peak = START,
-      dd = 0;
+    let livePeak = START,
+      liveDd = 0;
     for (const c of v.curve) {
-      peak = Math.max(peak, c[1]);
-      dd = Math.min(dd, c[1] / peak - 1);
+      livePeak = Math.max(livePeak, c[1]);
+      liveDd = Math.min(liveDd, c[1] / livePeak - 1);
+    }
+    let btPeak = START,
+      btDd = bt?.max_drawdown ?? 0;
+    if (btV?.curve.length) {
+      btDd = 0;
+      for (const c of btV.curve) {
+        btPeak = Math.max(btPeak, c[1]);
+        btDd = Math.min(btDd, c[1] / btPeak - 1);
+      }
     }
     const sigs = trs.map((t) => t.t_sig).sort((a, b) => a - b);
     const gaps: number[] = [];
     for (let i = 1; i < sigs.length; i++) gaps.push(sigs[i] - sigs[i - 1]);
     const avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length / 86_400_000 : null;
-    return { best, streak, dd, avgGap };
-  }, [v, d.trades, name]);
+    return { best, streak, liveDd, btDd, avgGap };
+  }, [v, bt, btV, liveTrades]);
 
   if (!v || !stats) {
     if (botLoading) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
@@ -96,9 +221,20 @@ export default function BotProfile() {
   const wins = v.win != null ? Math.round((v.win / 100) * v.closed) : null;
   const losses = wins != null ? v.closed - wins : null;
   const tradesSub =
-    wins != null ? `${wins} wins · ${losses} losses · ${openN} open` : openN ? `${openN} open` : "no trades yet";
+    wins != null ? `${wins} wins · ${losses} losses · ${openN} open` : openN ? `${openN} open` : "no live trades yet";
   const grp = DIRLBL[v.group ?? ""] ?? v.group ?? "";
   const pos = v.ret >= 0;
+
+  const btEquity = bt?.final_value ?? btV?.equity ?? START;
+  const btProfit = btEquity - START;
+  const btRet = btV ? btV.ret : 0;
+  const btNet = bt?.net_per_trade ?? bt?.avg_trade ?? v.bt;
+  const btClosed = bt?.trades ?? btV?.closed ?? null;
+  const btWin = btV?.win ?? (bt?.win_rate != null ? Math.round((Math.abs(bt.win_rate) <= 1 ? bt.win_rate * 100 : bt.win_rate) * 10) / 10 : null);
+  const btWins = bt?.wins ?? (btWin != null && btClosed != null ? Math.round((btWin / 100) * btClosed) : null);
+  const btLosses = bt?.losses ?? (btWins != null && btClosed != null ? btClosed - btWins : null);
+  const btTradesSub =
+    btWins != null && btLosses != null ? `${btWins} wins · ${btLosses} losses` : "historical test";
 
   const statusChip = !liveV ? (
     <span className="chip">
@@ -125,13 +261,43 @@ export default function BotProfile() {
     ...d.trades.filter((t) => t.variant === name),
   ];
 
+  const defaultSide = (v.group === "long" ? "long" : "short") as "long" | "short";
   const tradeCols: Column<Row>[] = [
-    { key: "ticker", label: "Coin", align: "left", sortable: true, value: (r) => r.ticker, render: (r) => <Coin {...r} /> },
-    { key: "opened", label: "Opened", sortable: true, value: (r) => r.t_sig, render: (r) => <span className="num muted">{dstr(r.t_sig)} {clock(r.t_sig)}</span> },
-    { key: "held", label: "Held", sortable: true, value: (r) => (isOpen(r) ? now - r.t_sig : r.exit_t - r.t_sig), render: (r) => (isOpen(r) ? <span className="num up">open</span> : <span className="num muted">{held(r.exit_t - r.t_sig)}</span>) },
-    { key: "reason", label: "Exit reason", align: "left", sortable: true, value: (r) => (isOpen(r) ? "Open" : REASON[r.kind] ?? r.kind), render: (r) => (isOpen(r) ? <span className="up">Open</span> : <span className="muted">{REASON[r.kind] ?? r.kind}</span>) },
-    { key: "result", label: "Result", sortable: true, value: (r) => (isOpen(r) ? r.upnl ?? 0 : r.pnl), render: (r) => { const val = isOpen(r) ? r.upnl : r.pnl; return <span className={`num ${(val ?? 0) >= 0 ? "up" : "down"}`}>{usd(val, true)}</span>; } },
+    { key: "variant", label: "Bot", sortable: true, value: (r) => r.variant, render: (r) => <BotLink name={r.variant} /> },
+    { key: "ticker", label: "Coin", sortable: true, value: (r) => r.ticker, render: (r) => <Coin {...r} /> },
+    { key: "side", label: "Side", sortable: true, value: (r) => r.side ?? defaultSide, render: (r) => { const sd = r.side ?? defaultSide; return <span className={sd === "short" ? "down" : "up"}>{sd === "short" ? "Short" : "Long"}</span>; } },
+    { key: "entry", label: "Entry", sortable: true, value: (r) => r.entry, render: (r) => <span className="num">{px(r.entry)}</span> },
+    { key: "notional", label: "Size", sortable: true, value: (r) => r.notional, render: (r) => <span className="num muted">{usd(r.notional)}</span> },
+    { key: "t_sig", label: "Opened", sortable: true, value: (r) => r.t_sig, render: (r) => <span className="num muted">{dstr(r.t_sig)} {clock(r.t_sig)}</span> },
+    { key: "held", label: "Held", sortable: true, value: (r) => (isOpen(r) ? now - r.t_sig : r.exit_t - r.t_sig), render: (r) => <span className="num muted">{held(Math.max(0, isOpen(r) ? now - r.t_sig : r.exit_t - r.t_sig))}</span> },
+    { key: "kind", label: "Exit", sortable: true, value: (r) => (isOpen(r) ? "Open" : REASON[r.kind] ?? r.kind), render: (r) => (isOpen(r) ? <span className="up">Open</span> : <span className="muted">{REASON[r.kind] ?? r.kind}</span>) },
+    { key: "net", label: "Net", sortable: true, value: (r) => (isOpen(r) ? r.upct : r.net), render: (r) => { const val = isOpen(r) ? r.upct : r.net; return <span className={`num ${(val ?? 0) >= 0 ? "up" : "down"}`}>{pct(val != null ? val * 100 : null, true)}</span>; } },
+    { key: "pnl", label: "P&L", sortable: true, value: (r) => (isOpen(r) ? r.upnl : r.pnl), render: (r) => { const val = isOpen(r) ? r.upnl : r.pnl; return <span className={`num ${(val ?? 0) >= 0 ? "up" : "down"}`}>{usd(val, true)}</span>; } },
   ];
+
+  const strategyRows = buildStrategyRows(
+    (bot?.spec ?? (bt?.params as Record<string, unknown> | null)) ?? null,
+    v.cfg,
+    v.group,
+    bot?.condition_filter,
+  );
+
+  const onDelete = async () => {
+    if (!bot || !isOwner) return;
+    if (!confirmDel) {
+      setConfirmDel(true);
+      return;
+    }
+    setDeleting(true);
+    setDelErr(null);
+    const { error } = await deleteBot(bot.id);
+    setDeleting(false);
+    if (error) {
+      setDelErr(error.message);
+      return;
+    }
+    nav("/");
+  };
 
   return (
     <>
@@ -144,7 +310,7 @@ export default function BotProfile() {
         <section className={s.hero}>
           <svg width="104" height="104" viewBox="0 0 104 104">
             <rect width="104" height="104" rx="26" fill="#12161D" />
-            <path d={identicon(name, 60)} fill="#3a81d7" transform="translate(22 22)" />
+            <path d={identicon(name, 60)} fill={v.color || DEFAULT_BOT_COLOR} transform="translate(22 22)" />
           </svg>
           <div className={s.heroMain}>
             <div className={s.heroTitle}>
@@ -159,35 +325,57 @@ export default function BotProfile() {
               {v.kill && <span className="chip danger">Kill-switch active</span>}
             </div>
           </div>
-          <div className={s.actions}>
-            <button className={s.btn} disabled title="Controls live on the ops dashboard">
-              Pause
-            </button>
-          </div>
+          {isOwner && (
+            <div className={s.actions}>
+              <button className={s.btn} disabled title="Controls live on the ops dashboard">
+                Pause
+              </button>
+              <button
+                className={`${s.btn} ${s.dangerBtn}`}
+                disabled={deleting}
+                onClick={() => void onDelete()}
+              >
+                {deleting ? "Deleting…" : confirmDel ? "Confirm delete" : "Delete"}
+              </button>
+              {confirmDel && !deleting && (
+                <button className={s.btn} onClick={() => setConfirmDel(false)}>
+                  Cancel
+                </button>
+              )}
+              {delErr && <span className="down" style={{ fontSize: 12 }}>{delErr}</span>}
+            </div>
+          )}
         </section>
 
+        <div className="lbl" style={{ marginBottom: 8 }}>Live performance</div>
         <section className={s.statgrid}>
-          <Stat label="Profit since launch" value={usd(v.equity - START, true)} cls={pos ? "up" : "down"} sub={`${pct(v.ret, true)} on ${dol(START)}`} />
-          <Stat label="Trades" value={String(v.closed + openN)} sub={tradesSub} />
-          <Stat label="Win streak now" value={String(stats.streak)} sub={`best ever: ${stats.best}`} />
-          <Stat label="Worst dip" value={pct(stats.dd * 100)} cls={stats.dd < 0 ? "down" : ""} sub="peak-to-trough" />
-          <Stat label="Between trades" value={stats.avgGap != null ? stats.avgGap.toFixed(1) + " d" : "–"} sub="on average" />
+          <Stat label="Live profit" value={usd(v.equity - START, true)} cls={pos ? "up" : "down"} sub={`${pct(v.ret, true)} on ${dol(START)}`} />
+          <Stat label="Live closed trades" value={String(v.closed)} sub={tradesSub} />
+          <Stat label="Live win rate" value={v.win == null ? "–" : v.win + "%"} cls={(v.win ?? 0) >= 50 ? "up" : ""} sub={v.avg != null ? `${pct(v.avg, true)} avg net / trade` : "avg net: –"} />
+          <Stat label="Live avg net" value={pct(v.avg, true)} cls={(v.avg ?? 0) >= 0 ? "up" : "down"} sub={`win streak: ${stats.streak} (best ${stats.best})`} />
+          <Stat label="Live worst dip" value={pct(stats.liveDd * 100)} cls={stats.liveDd < 0 ? "down" : ""} sub={stats.avgGap != null ? `${stats.avgGap.toFixed(1)}d between trades` : "peak-to-trough"} />
         </section>
 
-        <section className={`card ${s.cmp}`}>
-          <div className={s.cmpMain}>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>Backtest vs live</div>
-            <div className="lbl" style={{ marginTop: 4 }}>Live average net per trade against the backtest</div>
-          </div>
-          <Metric label="Backtest net" value={pct(v.bt)} />
-          <Metric label="Live avg net" value={pct(v.avg, true)} cls={(v.avg ?? 0) >= 0 ? "up" : "down"} />
-          <Metric label="Win rate" value={v.win == null ? "–" : v.win + "%"} />
-          <Metric label="Closed trades" value={String(v.closed)} />
+        <div className="lbl" style={{ marginTop: 22, marginBottom: 8 }}>
+          Backtest performance {bt?.window_start && bt?.window_end ? `· ${bt.window_start} to ${bt.window_end}` : ""}
+        </div>
+        <section className={s.statgrid}>
+          <Stat label="Backtest profit" value={bt || btV?.curve.length ? usd(btProfit, true) : "–"} cls={btProfit >= 0 ? "up" : "down"} sub={bt || btV?.curve.length ? `${pct(btRet, true)} → ${dol(btEquity)}` : "on $10,000.00"} />
+          <Stat label="Backtest closed trades" value={btClosed != null ? String(btClosed) : "–"} sub={btTradesSub} />
+          <Stat label="Backtest win rate" value={btWin == null ? "–" : btWin + "%"} cls={(btWin ?? 0) >= 50 ? "up" : ""} sub="after fees & slippage" />
+          <Stat label="Backtest avg net" value={pct(btNet, true)} cls={(btNet ?? 0) >= 0 ? "up" : "down"} sub="net per trade" />
+          <Stat label="Backtest max drawdown" value={bt || btV?.curve.length ? pct(stats.btDd * 100) : "–"} cls={stats.btDd < 0 ? "down" : ""} sub={bt?.drawdown_recovery_days != null ? `recovered in ${bt.drawdown_recovery_days}d · max gap ${bt.longest_gap_days ?? "–"}d` : "peak-to-trough"} />
         </section>
 
         <section className={s.lower}>
           <div className={s.leftcol}>
-            <BotChart variant={v} variants={d.variants} trades={d.trades} />
+            <BotChart
+              variant={v}
+              backtestVariant={btV}
+              defaultMode={hasLiveTrades ? "live" : "backtest"}
+              variants={d.variants}
+              trades={d.trades}
+            />
             <div>
               <div className={s.tradesHead}>
                 <h2 className={s.h2}>
@@ -200,22 +388,14 @@ export default function BotProfile() {
           <div className={`card ${s.strategy}`}>
             <h2 className={s.h2}>Strategy</h2>
             {v.note && <p className={s.strategyText}>{v.note}</p>}
-            <div className={s.blk}><span className={s.tag}>Direction</span>{grp || "–"}</div>
-            {canSeeStrategy ? (
-              <>
-                <div className={s.blk}><span className={s.tag}>Params</span><span className="num" style={{ fontWeight: 400, fontSize: 12, lineHeight: 1.5 }}>{v.params || "–"}</span></div>
-                {Object.entries(v.cfg ?? {}).map(([k, val]) => (
-                  <div className={s.blk} key={k}>
-                    <span className={s.tag}>{k}</span>
-                    <span className="num" style={{ fontWeight: 400, fontSize: 12 }}>{JSON.stringify(val)}</span>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="lbl" style={{ marginTop: 8, lineHeight: 1.5 }}>
-                This bot shares results only — its strategy stays private.
+            {strategyRows.map(([k, val]) => (
+              <div className={s.blk} key={k}>
+                <span className={s.tag}>{k}</span>
+                <span className="num" style={{ fontWeight: 400, fontSize: 12, lineHeight: 1.5, wordBreak: "break-word" }}>
+                  {val}
+                </span>
               </div>
-            )}
+            ))}
           </div>
         </section>
       </div>
@@ -229,15 +409,6 @@ function Stat({ label, value, cls, sub }: { label: string; value: string; cls?: 
       <div className="lbl">{label}</div>
       <div className={`num ${cls ?? ""} ${s.statBig}`}>{value}</div>
       <div className="lbl" style={{ marginTop: 4 }}>{sub}</div>
-    </div>
-  );
-}
-
-function Metric({ label, value, cls }: { label: string; value: string; cls?: string }) {
-  return (
-    <div>
-      <div className="lbl">{label}</div>
-      <div className={`num ${cls ?? ""} ${s.cmpVal}`}>{value}</div>
     </div>
   );
 }

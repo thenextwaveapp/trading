@@ -79,7 +79,7 @@ export default function DataTable<T>({
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={`${s.th} ${c.align === "left" ? s.left : ""} ${c.sortable ? s.sortable : ""}`}
+                  className={`${s.th} ${c.sortable ? s.sortable : ""}`}
                   onClick={() => onSort(c)}
                 >
                   {c.label}
@@ -99,7 +99,7 @@ export default function DataTable<T>({
               pageRows.map((row, i) => (
                 <tr key={i}>
                   {columns.map((c) => (
-                    <td key={c.key} className={`${s.td} ${c.align === "left" ? s.left : ""}`}>
+                    <td key={c.key} className={s.td}>
                       {c.render(row)}
                     </td>
                   ))}

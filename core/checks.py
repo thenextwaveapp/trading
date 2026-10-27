@@ -11,6 +11,7 @@ import random as _random
 from .backtest import (DEFAULTS, backtest_universe, build_position,
                        exit_trade)
 from .evaluator import M15
+from .timeframes import interval_label
 
 
 def _net_per_trade(res):
@@ -31,15 +32,16 @@ def _cost_stress(strategy, uni, base_npt, mult=3.0):
 def _entry_delay(strategy, uni, base_npt, bars=1):
     npt = _net_per_trade(backtest_universe(strategy, uni, entry_delay=bars))
     kept = (npt / base_npt) if base_npt else 0.0
+    tf = interval_label(strategy.get("_timeframe", "15m"))
     return {"key": "entry_delay",
-            "label": f"Survives a {bars*15}-min late fill",
+            "label": f"Survives a {bars}-bar ({tf}) late fill",
             "passed": npt > 0, "stat": round(npt, 4), "threshold": 0.0,
             "detail": {"base_net_per_trade": round(base_npt, 4),
                        "delayed_net_per_trade": round(npt, 4),
                        "edge_kept": round(kept, 3)}}
 
 
-def _placebo(strategy, uni, real_trades, rounds=100, seed=7):
+def _placebo(strategy, uni, real_trades, rounds=100, seed=7, max_samples=5_000):
     n = len(real_trades)
     if n == 0:
         return {"key": "placebo", "label": "Beats random entries",
@@ -47,19 +49,29 @@ def _placebo(strategy, uni, real_trades, rounds=100, seed=7):
                 "detail": {"reason": "no real trades"}}
     rnd = _random.Random(seed)
     L = strategy["_lookback"]
-    pool = [(tk, i) for tk, c in uni.items()
-            for i in range(L + 8, len(c) - 1)]
-    if len(pool) < n:
+    tickers, weights = [], []
+    for tk, c in uni.items():
+        count = len(c) - 1 - (L + 8)
+        if count > 0:
+            tickers.append(tk)
+            weights.append(count)
+    if not tickers:
         return {"key": "placebo", "label": "Beats random entries",
                 "passed": False, "stat": 0.0, "threshold": 0.0,
                 "detail": {"reason": "universe too small for placebo"}}
+    # The placebo only needs a representative sample of random entries;
+    # replaying every real trade 100x is what made large runs crawl.
+    sample_n = min(n, max_samples)
     taker, slip = DEFAULTS["taker"], DEFAULTS["slip"]
     means = []
     for _ in range(rounds):
         nets = []
-        for tk, i in rnd.sample(pool, n):
+        for tk in rnd.choices(tickers, weights=weights, k=sample_n):
             c = uni[tk]
-            fake = {"entry": c[i]["c"], "t_sig": c[i]["t"] + M15, "i": i}
+            i = rnd.randrange(L + 8, len(c) - 1)
+            fake = {"entry": c[i]["c"],
+                    "t_sig": c[i]["t"] + strategy.get("_interval_ms", M15),
+                    "i": i}
             ex = exit_trade(build_position(strategy, c, i, fake), c,
                             taker, slip)
             if ex:

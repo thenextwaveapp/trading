@@ -13,6 +13,20 @@ export type Stage =
 export type Visibility = "private" | "results" | "public";
 export type Direction = "short" | "long" | "both";
 
+export interface DbBotMark {
+  id: number;
+  bot_id: string;
+  t: number;
+  equity: number;
+  ret: number | null;
+  open_json: unknown;
+  closed: number | null;
+  win: number | null;
+  paused: boolean;
+  kill: boolean;
+  log_tail: string | null;
+}
+
 export interface DbBot {
   id: string;
   owner: string;
@@ -157,6 +171,49 @@ export interface DbCheck {
   threshold: number | null;
   detail: Record<string, unknown> | null;
   position: number;
+}
+
+export interface SweepAxis {
+  path: string;
+  values: unknown[];
+}
+
+export interface SweepStats {
+  n: number;
+  win_rate: number;
+  net_pct_per_trade: number;
+  total_net_pct: number;
+  final_equity: number;
+  max_drawdown: number;
+}
+
+export interface DbSweep {
+  id: string;
+  bot_id: string;
+  universe_id: string | null;
+  universe_slug: string | null;
+  spec: Record<string, unknown>;
+  axes: SweepAxis[];
+  window_start: string | null;
+  window_end: string | null;
+  run_count: number;
+  completed_count: number;
+  status: "pending" | "running" | "done" | "error";
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbSweepRun {
+  id: string;
+  sweep_id: string;
+  position: number;
+  label: string;
+  changes: Record<string, unknown>;
+  stats: SweepStats | null;
+  issues: { id?: string; label?: string; reason?: string; blocking?: boolean }[] | null;
+  error: string | null;
+  created_at: string;
 }
 
 export interface DbCondition {

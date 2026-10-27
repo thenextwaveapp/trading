@@ -91,6 +91,83 @@ def run_case(passed):
     return ok
 
 
+def canned_sweep():
+    return {
+        "ok": True, "count": 2, "completed": 2,
+        "window": {"start": "2024-01-01", "end": "2026-01-01"},
+        "runs": [
+            {"label": "Max hold=5", "changes": {"exit.time_bars": 5},
+             "stats": {"n": 4, "net_pct_per_trade": 1.0},
+             "issues": [], "error": None},
+            {"label": "Max hold=10", "changes": {"exit.time_bars": 10},
+             "stats": {"n": 2, "net_pct_per_trade": 0.5},
+             "issues": [], "error": "late failure"},
+        ],
+    }
+
+
+def check_sweep():
+    sweep = {"id": "sw-1", "spec": {"side": "short", "entry": {}},
+             "axes": [{"path": "exit.time_bars", "values": [5, 10]}],
+             "universe_id": None, "universe_slug": "fleet-60"}
+    db = FakeDB({"pf_sweeps": [sweep]})
+    old = engine_worker.pf_db, engine_worker.ep_sweep
+    engine_worker.pf_db = db
+    engine_worker.ep_sweep = lambda body: (200, canned_sweep())
+    try:
+        engine_worker.process_sweep(sweep)
+    finally:
+        engine_worker.pf_db, engine_worker.ep_sweep = old
+
+    ok = True
+    def check(cond, msg):
+        nonlocal ok
+        if not cond:
+            print("FAIL:", msg)
+            ok = False
+
+    check(sweep["status"] == "done", "sweep status should be done")
+    check(sweep["run_count"] == 2 and sweep["completed_count"] == 2,
+          "sweep should persist its grid counts")
+    runs = [r for t, r in db.inserts if t == "pf_sweep_runs"]
+    check(len(runs) == 2, "one row per sweep point should be written")
+    check(runs[1]["error"] == "late failure",
+          "a failed grid point should be stored without failing the sweep")
+
+    failed = {"id": "sw-2", "spec": {}, "axes": [], "universe_slug": None}
+    db = FakeDB({"pf_sweeps": [failed]})
+    old = engine_worker.pf_db, engine_worker.ep_sweep
+    engine_worker.pf_db = db
+    engine_worker.ep_sweep = lambda body: (400, {"ok": False, "error": "bad grid"})
+    try:
+        engine_worker.process_sweep(failed)
+    finally:
+        engine_worker.pf_db, engine_worker.ep_sweep = old
+    check(failed["status"] == "error" and "bad grid" in failed.get("error", ""),
+          "a failed sweep should be recorded as error")
+
+    allbad = {"id": "sw-3", "spec": {}, "axes": [], "universe_slug": None}
+    db = FakeDB({"pf_sweeps": [allbad]})
+    out = {"ok": True, "count": 1, "completed": 0,
+           "window": None, "runs": [
+               {"label": "Side=both", "changes": {"side": "both"},
+                "stats": None, "issues": [{"id": "side.both"}],
+                "error": "side both blocked"},
+           ]}
+    old = engine_worker.pf_db, engine_worker.ep_sweep
+    engine_worker.pf_db = db
+    engine_worker.ep_sweep = lambda body: (200, out)
+    try:
+        engine_worker.process_sweep(allbad)
+    finally:
+        engine_worker.pf_db, engine_worker.ep_sweep = old
+    check(allbad["status"] == "error" and "all 1 grid point failed" in allbad.get("error", ""),
+          "an all-failed grid should surface as an error")
+    check(len([r for t, r in db.inserts if t == "pf_sweep_runs"]) == 1,
+          "failed grid rows should still be stored")
+    return ok
+
+
 def check_momo_params():
     """Editable momo knobs must reach the spec, not fall back to constants."""
     spec = variant_to_spec("momo_long", {"runup": 0.2, "vol": 3.0, "hold": 10})
@@ -103,10 +180,11 @@ def main():
     a = run_case(True)
     b = run_case(False)
     c = check_momo_params()
+    d = check_sweep()
     if not c:
         print("FAIL: momo params did not flow into the spec")
-    if a and b and c:
-        print("PASS: worker persists spec, ledger, checks, conditions, and stage")
+    if a and b and c and d:
+        print("PASS: worker persists spec, ledger, checks, conditions, stage, and sweeps")
         return 0
     return 1
 

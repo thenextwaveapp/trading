@@ -11,7 +11,22 @@ import {
   useMyBot,
   useUniverses,
 } from "../../db/queries";
-import { CATALOG, indicatorsForMarket, indicatorById } from "../../lib/catalog";
+import {
+  CATALOG,
+  SPEC_GROUPS,
+  blockingIssues,
+  defaultSpec as catalogDefaultSpec,
+  getPath,
+  indicatorById,
+  indicatorsForMarket,
+  paramsForGroup,
+  setPath,
+  specIssues,
+  specParam,
+  visibleParam,
+} from "../../lib/catalog";
+import { DEFAULT_BOT_COLOR, FLEET_PALETTE, botColor } from "../../lib/brand";
+import { identicon } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
 import { MissingBot, StepLoading } from "./parts";
@@ -39,6 +54,32 @@ type AnyNode = CondNode | CondGroup;
 
 function isGroup(n: AnyNode): n is CondGroup {
   return !!n && Array.isArray((n as CondGroup).children);
+}
+
+function validOperand(o: Operand): boolean {
+  if (typeof o === "number" && Number.isFinite(o)) return true;
+  if (typeof o === "object" && o !== null && "ind" in (o as object)) {
+    const v = o as { ind: string };
+    return typeof v.ind === "string" && v.ind.length > 0;
+  }
+  return false;
+}
+
+function validateEntry(node: AnyNode): string | null {
+  if (!isGroup(node)) return "Entry must be a condition group.";
+  if (node.children.length === 0) return "Add at least one entry condition.";
+  for (const c of node.children) {
+    if (isGroup(c)) {
+      const e = validateEntry(c);
+      if (e) return e;
+    } else {
+      const n = c as CondNode;
+      if (!n || typeof n !== "object") return "Invalid condition.";
+      if (!OPS.some((o) => o.v === n.op)) return "Invalid operator in an entry condition.";
+      if (!validOperand(n.left) || !validOperand(n.right)) return "Each condition needs valid left/right operands.";
+    }
+  }
+  return null;
 }
 
 interface StopCfg {
@@ -73,13 +114,20 @@ interface FilterCfg {
   btc_bear?: boolean;
 }
 
+interface TimingCfg {
+  hours_utc: number[];
+  days_utc: number[];
+}
+
 interface StrategySpec {
   name: string;
   side: "long" | "short" | "both";
   market: string;
   universe: string;
+  timeframe: string;
   fresh: boolean;
   entry: CondGroup;
+  timing: TimingCfg;
   exit: ExitCfg;
   sizing: SizingCfg;
   filters: FilterCfg[];
@@ -95,31 +143,31 @@ const OPS = [
   { v: "crosses_below", l: "crosses below" },
 ];
 
-const STOP_MODES = [
-  { v: "none", l: "None (time only)" },
-  { v: "hh", l: "4h signal high" },
-  { v: "dstop", l: "Disaster stop" },
-  { v: "sig", l: "Signal-window stop" },
-  { v: "trail", l: "Trailing stop" },
-];
-
 const LOGICS = ["AND", "OR", "NOT"] as const;
+const EXIT_CUSTOM = new Set(["exit.trailing.k", "exit.trailing.natr"]);
 
 function defaultOperand(): Operand {
   return { ind: "ROC", params: { period: 16 }, offset: 0 };
 }
 
-function defaultSpec(universe: string): StrategySpec {
+function blankSpec(universe: string): StrategySpec {
+  const spec = catalogDefaultSpec<Record<string, unknown>>(universe);
+  return { name: "", ...spec, universe, filters: [] } as unknown as StrategySpec;
+}
+
+function groupLabel(id: string): string {
+  return SPEC_GROUPS.find((g) => g.id === id)?.label ?? id;
+}
+
+function mergeSpec(base: StrategySpec, incoming: Partial<StrategySpec>): StrategySpec {
   return {
-    name: "",
-    side: "short",
-    market: "crypto_perp",
-    universe,
-    fresh: false,
-    entry: { logic: "AND", children: [] },
-    exit: { time_bars: 16, stop: { mode: "hh", param: 0.0, window: 16 } },
-    sizing: { risk: 0.0075, notional_cap: 0.2, weight: 1.0 },
-    filters: [],
+    ...base,
+    ...incoming,
+    entry: incoming.entry ?? base.entry,
+    timing: { ...base.timing, ...(incoming.timing ?? {}) },
+    exit: { ...base.exit, ...(incoming.exit ?? {}) },
+    sizing: { ...base.sizing, ...(incoming.sizing ?? {}) },
+    filters: incoming.filters ?? base.filters,
   };
 }
 
@@ -128,7 +176,7 @@ const PRESETS: { key: string; label: string; family: string | null; spec: Strate
     key: "blank",
     label: "Blank — start from scratch",
     family: null,
-    spec: defaultSpec("fleet-60"),
+    spec: blankSpec("fleet-60"),
   },
   {
     key: "rule_p",
@@ -139,7 +187,9 @@ const PRESETS: { key: string; label: string; family: string | null; spec: Strate
       side: "short",
       market: "crypto_perp",
       universe: "fleet-60",
+      timeframe: "15m",
       fresh: false,
+      timing: { hours_utc: [], days_utc: [] },
       entry: {
         logic: "AND",
         children: [
@@ -162,7 +212,9 @@ const PRESETS: { key: string; label: string; family: string | null; spec: Strate
       side: "short",
       market: "crypto_perp",
       universe: "fleet-60",
+      timeframe: "15m",
       fresh: false,
+      timing: { hours_utc: [], days_utc: [] },
       entry: {
         logic: "AND",
         children: [
@@ -186,7 +238,9 @@ const PRESETS: { key: string; label: string; family: string | null; spec: Strate
       side: "long",
       market: "crypto_perp",
       universe: "fleet-60",
+      timeframe: "15m",
       fresh: false,
+      timing: { hours_utc: [], days_utc: [] },
       entry: {
         logic: "AND",
         children: [
@@ -210,7 +264,9 @@ const PRESETS: { key: string; label: string; family: string | null; spec: Strate
       side: "long",
       market: "crypto_perp",
       universe: "fleet-60",
+      timeframe: "15m",
       fresh: true,
+      timing: { hours_utc: [], days_utc: [] },
       entry: {
         logic: "AND",
         children: [{ left: { ind: "ROC", params: { period: 96 } }, op: "le", right: -0.2 }],
@@ -299,44 +355,40 @@ function OperandEditor({
             </optgroup>
           ))}
         </select>
-        <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingLeft: 4, alignItems: "flex-end" }}>
+        {(indMeta?.params ?? []).map((pm) => (
+          <label key={pm.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="lbl">{pm.name}</span>
+            <input
+              className={r.input}
+              type={pm.type === "int" ? "number" : "number"}
+              step={pm.type === "int" ? 1 : "any"}
+              min={pm.min ?? undefined}
+              max={pm.max ?? undefined}
+              value={
+                params[pm.name] === undefined ? (pm.default as number) : (params[pm.name] as number)
+              }
+              onChange={(e) => {
+                const raw = e.target.value === "" ? pm.default : Number(e.target.value);
+                onChange({ ...v, params: { ...params, [pm.name]: raw } });
+              }}
+              style={{ width: 90 }}
+            />
+          </label>
+        ))}
+        <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span className="lbl">offset</span>
           <input
             className={r.input}
             type="number"
             step="1"
             value={v.offset ?? 0}
-            onChange={(e) =>
-              onChange({ ...v, offset: Number(e.target.value) })
-            }
+            onChange={(e) => onChange({ ...v, offset: Number(e.target.value) })}
             style={{ width: 70 }}
           />
         </label>
       </div>
-      {indMeta && indMeta.params.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingLeft: 4 }}>
-          {indMeta.params.map((pm) => (
-            <label key={pm.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="lbl">{pm.name}</span>
-              <input
-                className={r.input}
-                type={pm.type === "int" ? "number" : "number"}
-                step={pm.type === "int" ? 1 : "any"}
-                min={pm.min ?? undefined}
-                max={pm.max ?? undefined}
-                value={
-                  params[pm.name] === undefined ? (pm.default as number) : (params[pm.name] as number)
-                }
-                onChange={(e) => {
-                  const raw = e.target.value === "" ? pm.default : Number(e.target.value);
-                  onChange({ ...v, params: { ...params, [pm.name]: raw } });
-                }}
-                style={{ width: 90 }}
-              />
-            </label>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -490,6 +542,325 @@ function NodeEditor({
   );
 }
 
+
+function ParamControl({
+  spec,
+  path,
+  onChange,
+  showNote = true,
+}: {
+  spec: StrategySpec;
+  path: string;
+  onChange: (path: string, value: unknown) => void;
+  showNote?: boolean;
+}) {
+  const p = specParam(path);
+  if (!p || p.kind === "condition" || !visibleParam(p, spec)) return null;
+
+  const raw = getPath(spec, path);
+  const value = raw === undefined ? p.default : raw;
+  const scale = p.percent ? 100 : 1;
+  const shown = value === null || value === undefined
+    ? ""
+    : Number((Number(value) * scale).toFixed(6));
+  const set = (next: unknown) => onChange(path, next);
+  const label = (
+    <span className={r.label}>
+      {p.label}
+      {p.unit ? <span className="lbl"> ({p.unit})</span> : null}
+    </span>
+  );
+
+  let control: React.ReactNode;
+  if (p.kind === "bool") {
+    control = (
+      <span style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36 }}>
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => set(e.target.checked)}
+        />
+        <span className="lbl">{Boolean(value) ? "On" : "Off"}</span>
+      </span>
+    );
+  } else if (p.kind === "enum") {
+    const options = p.options.length
+      ? p.options
+      : p.choices.map((c) => ({
+          value: String(c),
+          label: String(c),
+          backtest: true,
+          live: true,
+          status: "ok" as const,
+          reason: "",
+        }));
+    const current = options.find((o) => o.value === String(value));
+    control = (
+      <>
+        <select
+          className={r.input}
+          value={String(value ?? "")}
+          onChange={(e) => set(e.target.value)}
+        >
+          {options.map((o) => (
+            <option
+              key={o.value}
+              value={o.value}
+              disabled={!o.backtest}
+              title={o.reason || undefined}
+            >
+              {o.label}
+              {o.backtest ? "" : " — unsupported"}
+            </option>
+          ))}
+        </select>
+        {current && !current.backtest && current.reason && (
+          <span style={{ color: "#d29922", fontSize: 11 }}>{current.reason}</span>
+        )}
+      </>
+    );
+  } else if (p.kind === "int_list") {
+    const list = Array.isArray(value) ? (value as number[]) : [];
+    const opts = p.options.length
+      ? p.options
+      : p.choices.map((c) => ({
+          value: String(c),
+          label: String(c),
+          backtest: true,
+          live: true,
+          status: "ok" as const,
+          reason: "",
+        }));
+    control = (
+      <>
+        <div className={r.chipRow}>
+          {opts.map((o) => {
+            const n = Number(o.value);
+            const on = list.includes(n);
+            return (
+              <button
+                key={o.value}
+                type="button"
+                className={`${r.pill} ${on ? r.sel : ""}`}
+                style={{ height: 28, fontSize: 12 }}
+                onClick={() =>
+                  set(
+                    (on ? list.filter((x) => x !== n) : [...list, n]).sort(
+                      (a, b) => a - b,
+                    ),
+                  )
+                }
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="lbl" style={{ fontSize: 11 }}>
+          {list.length ? "Selected; clear all to allow every value." : "All values."}
+        </span>
+      </>
+    );
+  } else if (p.kind === "string") {
+    control = (
+      <input
+        className={r.input}
+        value={String(value ?? "")}
+        onChange={(e) => set(e.target.value)}
+      />
+    );
+  } else {
+    const isInt = p.kind === "int";
+    control = (
+      <input
+        className={r.input}
+        type="number"
+        step={p.percent
+          ? (p.step ?? 0.0001) * scale
+          : p.step ?? (isInt ? 1 : "any")}
+        min={p.min == null ? undefined : p.min * scale}
+        max={p.max == null ? undefined : p.max * scale}
+        value={shown}
+        onChange={(e) => {
+          const text = e.target.value;
+          if (text === "") {
+            set(p.default === null || p.default === undefined ? undefined : p.default);
+          } else {
+            set(isInt ? Math.trunc(Number(text)) : Number(text) / scale);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}
+      title={p.help || undefined}
+    >
+      {label}
+      {control}
+      {showNote && p.status !== "ok" && p.reason && (
+        <span style={{ color: "#d29922", fontSize: 11, lineHeight: 1.35 }}>
+          {p.reason}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---- timing ----
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS = [0, 1, 2, 3, 4];
+const WEEKENDS = [5, 6];
+
+function hourLabel(h: number): string {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
+function sameNumbers(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+function hoursRange(hours: number[]): { from: string; to: string; custom: boolean } {
+  const sorted = [...new Set(hours)].sort((a, b) => a - b);
+  if (!sorted.length) return { from: "", to: "", custom: false };
+  if (sorted.length === 1) {
+    return { from: String(sorted[0]), to: String(sorted[0]), custom: false };
+  }
+  const contiguous = sorted.every((h, i) => i === 0 || h === sorted[i - 1] + 1);
+  if (contiguous) {
+    return { from: String(sorted[0]), to: String(sorted[sorted.length - 1]), custom: false };
+  }
+  const gaps = sorted
+    .map((h, i) => (i > 0 && h - sorted[i - 1] > 1 ? i - 1 : -1))
+    .filter((i) => i >= 0);
+  if (gaps.length === 1) {
+    const from = sorted[gaps[0] + 1];
+    const to = sorted[gaps[0]];
+    const wrapped = rangeHours(String(from), String(to)).sort((a, b) => a - b);
+    if (sameNumbers(wrapped, sorted)) {
+      return { from: String(from), to: String(to), custom: false };
+    }
+  }
+  return { from: String(sorted[0]), to: String(sorted[sorted.length - 1]), custom: true };
+}
+
+function rangeHours(from: string, to: string): number[] {
+  if (from === "") return [];
+  const a = Number(from);
+  const b = to === "" ? a : Number(to);
+  if (a <= b) return HOURS.slice(a, b + 1);
+  return [...HOURS.slice(a), ...HOURS.slice(0, b + 1)];
+}
+
+function daysSummary(days: number[]): string {
+  const sorted = [...new Set(days)].sort((a, b) => a - b);
+  if (!sorted.length) return "Every day";
+  if (sameNumbers(sorted, WEEKDAYS)) return "Weekdays";
+  if (sameNumbers(sorted, WEEKENDS)) return "Weekends";
+  if (sorted.length === 1) return `${DAY_NAMES[sorted[0]]}s`;
+  return sorted.map((d) => DAY_NAMES[d]).join(", ");
+}
+
+function TimingControl({
+  hours,
+  days,
+  onHours,
+  onDays,
+}: {
+  hours: number[];
+  days: number[];
+  onHours: (hours: number[]) => void;
+  onDays: (days: number[]) => void;
+}) {
+  const range = hoursRange(hours);
+  return (
+    <div className={r.timingGrid}>
+      <label>
+        <span className={r.label}>From (UTC)</span>
+        <div className={r.timeRow}>
+          <select
+            className={r.input}
+            value={range.from}
+            onChange={(e) => {
+              const from = e.target.value;
+              onHours(from === "" ? [] : rangeHours(from, range.to));
+            }}
+          >
+            <option value="">All hours</option>
+            {HOURS.map((h) => (
+              <option key={h} value={h}>{hourLabel(h)}</option>
+            ))}
+          </select>
+          <span className="lbl">to</span>
+          <select
+            className={r.input}
+            value={range.to}
+            disabled={range.from === ""}
+            onChange={(e) => onHours(rangeHours(range.from, e.target.value))}
+          >
+            {HOURS.map((h) => (
+              <option key={h} value={h}>{hourLabel(h)}</option>
+            ))}
+          </select>
+        </div>
+        <span className="lbl" style={{ fontSize: 11, marginTop: 6 }}>
+          {range.from === ""
+            ? "Every hour is allowed."
+            : range.from === range.to
+              ? `Signals may fire in the ${hourLabel(Number(range.from))} hour only.`
+              : `Signals may fire from ${hourLabel(Number(range.from))} through ${hourLabel(Number(range.to))} at bar close.`}
+        </span>
+        {range.custom && (
+          <span className="lbl" style={{ fontSize: 11, marginTop: 4, color: "#d29922" }}>
+            Custom hour set selected. Choosing a window replaces it.
+          </span>
+        )}
+      </label>
+
+      <label>
+        <span className={r.label}>Days (UTC)</span>
+        <details className={r.multi}>
+          <summary className={r.input}>
+            <span>{daysSummary(days)}</span>
+            <span aria-hidden>▾</span>
+          </summary>
+          <div className={r.multiMenu}>
+            <label className={r.multiRow}>
+              <input
+                type="checkbox"
+                checked={days.length === 0}
+                onChange={() => onDays([])}
+              />
+              <span>Every day</span>
+            </label>
+            {DAY_NAMES.map((label, d) => (
+              <label key={label} className={r.multiRow}>
+                <input
+                  type="checkbox"
+                  checked={days.includes(d)}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                      ? [...days, d]
+                      : days.filter((x) => x !== d);
+                    onDays([...new Set(next)].sort((a, b) => a - b));
+                  }}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </details>
+        <span className="lbl" style={{ fontSize: 11, marginTop: 6 }}>
+          Weekdays are Monday through Friday. Every day is the default.
+        </span>
+      </label>
+    </div>
+  );
+}
+
 // ---- main component ----
 
 
@@ -503,10 +874,11 @@ export default function Compose() {
   const { data: universes } = useUniverses();
 
   const [name, setName] = useState("");
+  const [color, setColor] = useState(DEFAULT_BOT_COLOR);
   const [prompt, setPrompt] = useState("");
   const [started, setStarted] = useState(false);
   const [presetKey, setPresetKey] = useState<string>("blank");
-  const [spec, setSpec] = useState<StrategySpec>(defaultSpec("fleet-60"));
+  const [spec, setSpec] = useState<StrategySpec>(blankSpec("fleet-60"));
   const [seeded, setSeeded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -515,6 +887,16 @@ export default function Compose() {
   const selectedUniverse = universeList.find((u) => u.slug === spec.universe);
   const marketMeta = CATALOG.markets.find((m) => m.id === spec.market);
   const familySlug = PRESETS.find((pr) => pr.key === presetKey)?.family ?? null;
+  const backtestIssues = specIssues(spec, "backtest");
+  const liveIssues = specIssues(spec, "live");
+  const backtestBlockers = backtestIssues.filter((i) => i.blocking);
+  const liveBlockers = liveIssues.filter((i) => i.blocking);
+  const liveOnlyBlockers = liveBlockers.filter(
+    (b) => !backtestBlockers.some((x) => x.id === b.id),
+  );
+  const warnings = backtestIssues.filter(
+    (i) => !i.blocking && !liveOnlyBlockers.some((x) => x.id === i.id),
+  );
 
   // seed
   useEffect(() => {
@@ -522,13 +904,14 @@ export default function Compose() {
     if (botId && !bot) return;
     if (bot) {
       setName(bot.name);
+      setColor(botColor(bot));
       const s = (bot.spec as StrategySpec | null) ?? null;
       if (s && s.entry) {
-        setSpec({ ...defaultSpec(s.universe ?? "fleet-60"), ...s, name: bot.name });
+        setSpec({ ...mergeSpec(blankSpec(s.universe ?? "fleet-60"), s), name: bot.name });
         const pk = PRESETS.find((pr) => pr.family === bot.family_slug && JSON.stringify(pr.spec.entry) === JSON.stringify(s.entry))?.key;
         setPresetKey(pk ?? "blank");
       } else {
-        setSpec(defaultSpec("fleet-60"));
+        setSpec(blankSpec("fleet-60"));
       }
       setSeeded(true);
       return;
@@ -540,9 +923,9 @@ export default function Compose() {
       ? PRESETS.find((pr) => pr.family === slug)?.key ?? "blank"
       : "blank";
     setPresetKey(pk);
-    const base = PRESETS.find((pr) => pr.key === pk)?.spec ?? defaultSpec("fleet-60");
-    setName("New strategy");
-    setSpec({ ...base, name: "New strategy" });
+    const base = PRESETS.find((pr) => pr.key === pk)?.spec ?? blankSpec("fleet-60");
+    setName("New bot");
+    setSpec({ ...base, name: "New bot" });
     setSeeded(true);
   }, [bot, botId, botLoading, seeded, startFamily]);
 
@@ -553,6 +936,15 @@ export default function Compose() {
       setSpec((s) => ({ ...s, universe: universeList[0].slug }));
     }
   }, [universeList, seeded, spec.universe]);
+
+  const setParam = (path: string, value: unknown) =>
+    setSpec((s) => setPath(s, path, value));
+
+  const clearIssue = (issue: { id: string; path: string }) => {
+    if (issue.id === "side.both") setParam("side", "short");
+    else if (issue.id === "stop.trail") setParam("exit.stop.mode", "none");
+    else setParam(issue.path, undefined);
+  };
 
   const updateFilter = (kind: string, on: boolean) => {
     setSpec((s) => {
@@ -580,8 +972,11 @@ export default function Compose() {
   const loadPreset = (key: string) => {
     setPresetKey(key);
     const pr = PRESETS.find((p) => p.key === key);
-    if (!pr || key === "blank") return;
-    setSpec({ ...pr.spec, name: name || pr.spec.name });
+    setSpec((s) => {
+      const base = blankSpec(s.universe || "fleet-60");
+      if (!pr || key === "blank") return { ...base, name: name || "New bot" };
+      return { ...mergeSpec(base, pr.spec), name: name || pr.spec.name };
+    });
   };
 
   const save = async (toTraining: boolean) => {
@@ -593,6 +988,22 @@ export default function Compose() {
     if (!name.trim()) {
       setErr("Give the bot a name.");
       return;
+    }
+    const entryErr = validateEntry(spec.entry);
+  if (toTraining && entryErr) {
+      setErr(entryErr);
+      return;
+    }
+    if (toTraining && (!Number.isFinite(spec.exit.time_bars) || spec.exit.time_bars < 1)) {
+      setErr("Max hold must be at least 1 bar.");
+      return;
+    }
+    if (toTraining) {
+      const blockers = blockingIssues(spec, "backtest");
+      if (blockers.length) {
+        setErr(`${blockers[0].label}: ${blockers[0].reason}`);
+        return;
+      }
     }
     setSaving(true);
     const finalName = name.trim();
@@ -616,7 +1027,7 @@ export default function Compose() {
       family_slug: familySlug,
       universe_id: uni?.id ?? bot?.universe_id ?? null,
       direction,
-      params: {},
+      params: { ...(bot?.params ?? {}), color },
       spec: finalSpec as unknown as Record<string, unknown>,
     };
 
@@ -689,21 +1100,52 @@ export default function Compose() {
         <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{name || "New bot"}</b>
       </div>
       <Steps current={1} />
-      <div className={p.body}>
+       <div className={p.body}>
+        {/* Identity — always first */}
+        <div style={{ paddingBottom: 28, borderBottom: "1px solid var(--line)", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", marginBottom: 28 }}>
+          <svg width="56" height="56" viewBox="0 0 56 56" style={{ flex: "none" }}>
+            <rect width="56" height="56" rx="14" fill="#12161D" />
+            <path d={identicon(name || "bot", 36)} fill={color} transform="translate(10 10)" />
+          </svg>
+          <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+            <div className={r.label}>Bot name</div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name this bot"
+              style={{ background: "transparent", border: "none", color: "var(--fg)", fontSize: 32, fontWeight: 500, letterSpacing: "-0.02em", width: "100%", marginTop: 6, outline: "none" }}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span className={r.label}>Color</span>
+            <div className={r.swatchRows}>
+              {FLEET_PALETTE.map((hue) => (
+                <div key={hue.name} className={r.swatchRow} title={hue.name}>
+                  {hue.shades.map((c, i) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`${r.swatch} ${color === c ? r.swatchOn : ""}`}
+                      style={{ background: c }}
+                      onClick={() => setColor(c)}
+                      aria-label={`${hue.name} ${[100, 200, 300, 400, 500][i]}`}
+                      aria-pressed={color === c}
+                      title={`${hue.name} ${[100, 200, 300, 400, 500][i]} · ${c}`}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {!started && (
-          <section style={{ maxWidth: 720, padding: "48px 0" }}>
-            <h1 className={p.title} style={{ fontSize: 34 }}>Compose</h1>
+          <section style={{ maxWidth: 720, padding: "0 0 48px" }}>
+            <h1 className={p.title} style={{ fontSize: 34 }}>Compose your bot's strategy</h1>
             <div className={p.subtitle} style={{ marginTop: 8 }}>
               Describe the strategy you want in plain English. We'll parse it into rules you can refine.
             </div>
             <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-              <input
-                className={r.input}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Strategy name"
-                style={{ fontSize: 18, height: 52 }}
-              />
               <textarea
                 className={r.input}
                 value={prompt}
@@ -720,12 +1162,12 @@ export default function Compose() {
                     const text = prompt || name;
                     // Always use the API which uses the backend-configured Anthropic key
                     // NO FALLBACKS - if API errors or key not configured, show error
-                    fetch(`/api/parse-strategy?text=${encodeURIComponent(text)}`)
+                    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-strategy?text=${encodeURIComponent(text)}`, { headers: { apikey: import.meta.env.VITE_SUPABASE_KEY } })
                       .then((r) => r.json())
                       .then((data) => {
                         if (data.error) {
                           // Claude API failed or key not configured - show error, still present manual screen
-                          setSpec(defaultSpec("fleet-60"));
+                          setSpec(blankSpec("fleet-60"));
                           setPresetKey("blank");
                           setStarted(true);
                           setErr(data.error || "Unknown parsing error");
@@ -733,32 +1175,42 @@ export default function Compose() {
                         }
                         // Use Claude-parsed spec - validate and set
                         const cspec = data.spec as StrategySpec;
-                        let spec = defaultSpec("fleet-60");
-                        spec.name = cspec.name || "Claude-parsed";
-                        spec.side = cspec.side || "short";
-                        spec.market = cspec.market || "crypto_perp";
-                        spec.universe = cspec.universe || "fleet-60";
-                        spec.fresh = cspec.fresh ?? false;
+                        let spec = blankSpec("fleet-60");
+                        spec.name = (typeof cspec.name === "string" ? cspec.name : "Claude-parsed");
+                        spec.side = (["short","long","both"].includes(cspec.side) ? cspec.side : "short");
+                        spec.market = (typeof cspec.market === "string" ? cspec.market : "crypto_perp");
+                        spec.universe = (typeof cspec.universe === "string" ? cspec.universe : "fleet-60");
+                        spec.fresh = typeof cspec.fresh === "boolean" ? cspec.fresh : false;
                         
                         // Set entry from Claude
-                        if (cspec.entry && cspec.entry.logic && cspec.entry.children) {
-                          spec.entry = cspec.entry;
+                        if (cspec.entry && cspec.entry.logic && Array.isArray(cspec.entry.children)) {
+                          spec.entry = { logic: cspec.entry.logic, children: cspec.entry.children };
                         } else {
                           spec.entry = { logic: "AND", children: [] };
                         }
                         
                         // Set exit from Claude
                         if (cspec.exit) {
-                          spec.exit = { ...defaultSpec("fleet-60").exit, ...cspec.exit };
+                          const baseExit = blankSpec("fleet-60").exit;
+                          const parsedExit = { ...baseExit, ...cspec.exit };
+                          if (!parsedExit.stop || typeof parsedExit.stop !== "object") {
+                            parsedExit.stop = baseExit.stop;
+                          }
+                          spec.exit = parsedExit;
                         } else {
-                          spec.exit = defaultSpec("fleet-60").exit;
+                          spec.exit = blankSpec("fleet-60").exit;
                         }
                         
                         // Set sizing from Claude
-                        if (cspec.sizing) {
-                          spec.sizing = { ...defaultSpec("fleet-60").sizing, ...cspec.sizing };
+                        if (cspec.sizing && typeof cspec.sizing === "object") {
+                          const baseSizing = blankSpec("fleet-60").sizing;
+                          spec.sizing = {
+                            risk: typeof cspec.sizing.risk === "number" ? cspec.sizing.risk : baseSizing.risk,
+                            notional_cap: typeof cspec.sizing.notional_cap === "number" ? cspec.sizing.notional_cap : baseSizing.notional_cap,
+                            weight: typeof cspec.sizing.weight === "number" ? cspec.sizing.weight : baseSizing.weight,
+                          };
                         } else {
-                          spec.sizing = defaultSpec("fleet-60").sizing;
+                          spec.sizing = blankSpec("fleet-60").sizing;
                         }
                         
                         spec.filters = cspec.filters || [];
@@ -770,7 +1222,7 @@ export default function Compose() {
                       })
                       .catch(() => {
                         // Error contacting API - no fallback to local parsing
-                        setSpec(defaultSpec("fleet-60"));
+                        setSpec(blankSpec("fleet-60"));
                         setPresetKey("blank");
                         setStarted(true);
                         setErr("Could not reach parsing service");
@@ -783,7 +1235,7 @@ export default function Compose() {
                   className={p.btn}
                   style={{ height: 46 }}
                   onClick={() => {
-                    setSpec(defaultSpec("fleet-60"));
+                    setSpec(blankSpec("fleet-60"));
                     setPresetKey("blank");
                     setStarted(true);
                   }}
@@ -795,20 +1247,14 @@ export default function Compose() {
             </section>
           )}
         {started && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            <button className={p.btn} style={{ height: 36, fontSize: 13 }} onClick={() => setStarted(false)}>← Back to parse</button>
+          </div>
+        )}
+        {started && (
 
         <section style={{ display: "flex", flexWrap: "wrap", gap: 32, paddingTop: 28 }}>
-          <div style={{ flex: "999 1 620px", minWidth: 0 }}>
-            {/* Name */}
-            <div style={{ paddingBottom: 28, borderBottom: "1px solid var(--line)" }}>
-              <div className={r.label}>Strategy name</div>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Name this bot"
-                style={{ background: "transparent", border: "none", color: "var(--fg)", fontSize: 36, fontWeight: 500, letterSpacing: "-0.02em", width: "100%", marginTop: 6, outline: "none" }}
-              />
-            </div>
-
+           <div style={{ flex: "999 1 620px", minWidth: 0 }}>
             {bot?.stage === "deployed" && (
               <div className={r.statusCard} style={{ marginTop: 20 }}>
                 <span className="downDot" style={{ background: "#d29922" }} />
@@ -870,83 +1316,42 @@ export default function Compose() {
                   </select>
                   <span className="lbl">{selectedUniverse?.description ?? ""}</span>
                 </label>
+                <ParamControl spec={spec} path="timeframe" onChange={setParam} />
               </div>
             </div>
 
-            {/* Side / fresh / sizing */}
+            {/* Direction / fresh / sizing */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>Direction &amp; sizing</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14, marginTop: 12 }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Side</span>
-                  <select
-                    className={r.input}
-                    value={spec.side}
-                    onChange={(e) => setSpec((s) => ({ ...s, side: e.target.value as StrategySpec["side"] }))}
-                  >
-                    <option value="short">Short</option>
-                    <option value="long">Long</option>
-                    <option value="both">Both</option>
-                  </select>
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Fresh (fire once)</span>
-                  <select
-                    className={r.input}
-                    value={spec.fresh ? "yes" : "no"}
-                    onChange={(e) => setSpec((s) => ({ ...s, fresh: e.target.value === "yes" }))}
-                  >
-                    <option value="no">No — every bar</option>
-                    <option value="yes">Yes — only on first true bar</option>
-                  </select>
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Risk / trade</span>
-                  <input
-                    className={r.input}
-                    type="number"
-                    step="0.0001"
-                    value={spec.sizing.risk}
-                    onChange={(e) =>
-                      setSpec((s) => ({ ...s, sizing: { ...s.sizing, risk: Number(e.target.value) } }))
-                    }
-                  />
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Notional cap</span>
-                  <input
-                    className={r.input}
-                    type="number"
-                    step="0.01"
-                    value={spec.sizing.notional_cap}
-                    onChange={(e) =>
-                      setSpec((s) => ({ ...s, sizing: { ...s.sizing, notional_cap: Number(e.target.value) } }))
-                    }
-                  />
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Weight</span>
-                  <input
-                    className={r.input}
-                    type="number"
-                    step="0.1"
-                    value={spec.sizing.weight}
-                    onChange={(e) =>
-                      setSpec((s) => ({ ...s, sizing: { ...s.sizing, weight: Number(e.target.value) } }))
-                    }
-                  />
-                </label>
+              <h2 className={r.h2}>{groupLabel("direction")} &amp; {groupLabel("sizing")}</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginTop: 12 }}>
+                {paramsForGroup("direction").map((p) => (
+                  <ParamControl key={p.key} spec={spec} path={p.key} onChange={setParam} />
+                ))}
+                {paramsForGroup("sizing")
+                  .filter((p) => p.status !== "ignored")
+                  .map((p) => (
+                    <ParamControl key={p.key} spec={spec} path={p.key} onChange={setParam} />
+                  ))}
               </div>
+              {spec.sizing.weight !== undefined && spec.sizing.weight !== 1 && (
+                <div className="lbl" style={{ marginTop: 10, color: "#d29922" }}>
+                  Portfolio weight is stored but this single-bot engine does not
+                  read it, so it cannot change results.
+                </div>
+              )}
             </div>
 
             {/* Entry conditions */}
             <div className={r.formRow}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <h2 className={r.h2}>Entry conditions</h2>
+                <h2 className={r.h2}>{groupLabel("entry")} conditions</h2>
                 <span className="lbl">{spec.entry.children.length} top-level</span>
               </div>
               <div className={r.label} style={{ margin: "4px 0 12px" }}>
                 Compose the condition tree. Indicators available depend on the market.
+              </div>
+              <div style={{ maxWidth: 240, marginBottom: 14 }}>
+                <ParamControl spec={spec} path="fresh" onChange={setParam} />
               </div>
               <NodeEditor
                 node={spec.entry}
@@ -956,119 +1361,65 @@ export default function Compose() {
               />
             </div>
 
+            {/* Timing */}
+            <div className={r.formRow}>
+              <h2 className={r.h2}>{groupLabel("timing")} (UTC)</h2>
+              <div className={r.label} style={{ margin: "4px 0 12px" }}>
+                Optional entry windows, measured at bar close. Leave the window
+                clear and every day selected to trade around the clock.
+              </div>
+              <TimingControl
+                hours={spec.timing?.hours_utc ?? []}
+                days={spec.timing?.days_utc ?? []}
+                onHours={(hours) =>
+                  setSpec((s) => ({ ...s, timing: { ...s.timing, hours_utc: hours } }))
+                }
+                onDays={(days) =>
+                  setSpec((s) => ({ ...s, timing: { ...s.timing, days_utc: days } }))
+                }
+              />
+            </div>
+
             {/* Exit */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>Exit</h2>
+              <h2 className={r.h2}>{groupLabel("exit")}</h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginTop: 12 }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Max hold (bars)</span>
+                {paramsForGroup("exit")
+                  .filter((p) => p.kind !== "condition" && p.status !== "unsupported")
+                  .filter((p) => !EXIT_CUSTOM.has(p.key))
+                  .map((p) => (
+                    <ParamControl key={p.key} spec={spec} path={p.key} onChange={setParam} />
+                  ))}
+              </div>
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <input
-                    className={r.input}
-                    type="number"
-                    step="1"
-                    value={spec.exit.time_bars}
-                    onChange={(e) =>
-                      setSpec((s) => ({ ...s, exit: { ...s.exit, time_bars: Number(e.target.value) } }))
-                    }
-                  />
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Stop mode</span>
-                  <select
-                    className={r.input}
-                    value={spec.exit.stop.mode}
-                    onChange={(e) =>
-                      setSpec((s) => ({ ...s, exit: { ...s.exit, stop: { ...s.exit.stop, mode: e.target.value } } }))
-                    }
-                  >
-                    {STOP_MODES.map((m) => (
-                      <option key={m.v} value={m.v}>
-                        {m.l}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {spec.exit.stop.mode === "hh" && (
-                  <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span className={r.label}>Window (bars)</span>
-                    <input
-                      className={r.input}
-                      type="number"
-                      step="1"
-                      value={spec.exit.stop.window ?? 16}
-                      onChange={(e) =>
-                        setSpec((s) => ({
-                          ...s,
-                          exit: { ...s.exit, stop: { ...s.exit.stop, window: Number(e.target.value) } },
-                        }))
-                      }
-                    />
-                  </label>
-                )}
-                {spec.exit.stop.mode === "dstop" && (
-                  <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span className={r.label}>Disaster stop (fraction)</span>
-                    <input
-                      className={r.input}
-                      type="number"
-                      step="0.001"
-                      value={spec.exit.stop.param ?? 0}
-                      onChange={(e) =>
-                        setSpec((s) => ({
-                          ...s,
-                          exit: { ...s.exit, stop: { ...s.exit.stop, param: Number(e.target.value) } },
-                        }))
-                      }
-                    />
-                  </label>
-                )}
-                {spec.exit.stop.mode === "sig" && (
-                  <>
-                    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <span className={r.label}>Window (bars)</span>
-                      <input
-                        className={r.input}
-                        type="number"
-                        step="1"
-                        value={spec.exit.stop.window ?? 16}
-                        onChange={(e) =>
-                          setSpec((s) => ({
-                            ...s,
-                            exit: { ...s.exit, stop: { ...s.exit.stop, window: Number(e.target.value) } },
-                          }))
-                        }
-                      />
-                    </label>
-                    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <span className={r.label}>Buffer (fraction)</span>
-                      <input
-                        className={r.input}
-                        type="number"
-                        step="0.0001"
-                        value={spec.exit.stop.param ?? 0.001}
-                        onChange={(e) =>
-                          setSpec((s) => ({
-                            ...s,
-                            exit: { ...s.exit, stop: { ...s.exit.stop, param: Number(e.target.value) } },
-                          }))
-                        }
-                      />
-                    </label>
-                  </>
-                )}
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Take profit (fraction, optional)</span>
-                  <input
-                    className={r.input}
-                    type="number"
-                    step="0.01"
-                    value={spec.exit.take_profit ?? ""}
+                    type="checkbox"
+                    checked={Boolean(spec.exit.trailing)}
                     onChange={(e) => {
-                      const v = e.target.value === "" ? undefined : Number(e.target.value);
-                      setSpec((s) => ({ ...s, exit: { ...s.exit, take_profit: v } }));
+                      if (e.target.checked) {
+                        const k = specParam("exit.trailing.k")?.default ?? 3;
+                        const natr = specParam("exit.trailing.natr")?.default ?? 24;
+                        setParam("exit.trailing", { k, natr });
+                      } else {
+                        setParam("exit.trailing", undefined);
+                      }
                     }}
                   />
+                  <span className="lbl">Trailing stop</span>
                 </label>
+                {spec.exit.trailing && (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginTop: 12 }}>
+                      <ParamControl spec={spec} path="exit.trailing.k" onChange={setParam} showNote={false} />
+                      <ParamControl spec={spec} path="exit.trailing.natr" onChange={setParam} showNote={false} />
+                    </div>
+                    <div className="lbl" style={{ marginTop: 8, color: "#d29922" }}>
+                      Trailing exits are backtested but not yet pinned for live
+                      parity, so live deployment is blocked.
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1096,12 +1447,12 @@ export default function Compose() {
                       className={r.input}
                       type="number"
                       step="0.01"
-                      value={(filterVal("regime_veto", "threshold") as number) ?? 0}
+                      value={Number((((filterVal("regime_veto", "threshold") as number) ?? 0) * 100).toFixed(4))}
                       onChange={(e) =>
                         setSpec((s) => ({
                           ...s,
                           filters: s.filters.map((f) =>
-                            f.kind === "regime_veto" ? { ...f, threshold: Number(e.target.value) } : f,
+                            f.kind === "regime_veto" ? { ...f, threshold: Number(e.target.value) / 100 } : f,
                           ),
                         }))
                       }
@@ -1118,6 +1469,12 @@ export default function Compose() {
                     placeholder="e.g. BTC, ETH"
                   />
                 </label>
+                {spec.filters.length > 0 && (
+                  <div className="lbl" style={{ color: "#d29922" }}>
+                    These are live gates. The backtest is unfiltered, so read its
+                    numbers as the strategy before filters.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1126,7 +1483,7 @@ export default function Compose() {
           <div style={{ flex: "1 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 16, paddingTop: 4 }}>
             <div className="card" style={{ padding: 20 }}>
               <div className={r.label}>Live preview</div>
-              <div style={{ fontSize: 15, fontWeight: 500, marginTop: 6 }}>{name.trim() || "New strategy"}</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginTop: 6 }}>{name.trim() || "New bot"}</div>
               <div className="lbl" style={{ marginTop: 2 }}>
                 {familySlug ? familySlug : "Custom"} · {spec.side} · {spec.market}
               </div>
@@ -1155,10 +1512,64 @@ export default function Compose() {
               <div className="lbl" style={{ marginTop: 2 }}>{selectedUniverse?.name ?? spec.universe}</div>
             </div>
 
+            <div className="card" style={{ padding: 20 }}>
+              <div className={r.label}>Engine coverage</div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 13 }}>
+                <span>Backtest</span>
+                <span style={{ color: backtestBlockers.length ? "var(--down)" : "var(--up)" }}>
+                  {backtestBlockers.length ? "blocked" : "ready"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13 }}>
+                <span>Live</span>
+                <span style={{ color: liveBlockers.length ? "#d29922" : "var(--up)" }}>
+                  {liveBlockers.length ? "needs pinning" : "ready"}
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                {backtestBlockers.map((i) => (
+                  <div key={i.id} style={{ fontSize: 11, lineHeight: 1.4, color: "var(--down)" }}>
+                    <b>{i.label}</b>
+                    <div style={{ color: "var(--muted)" }}>{i.reason}</div>
+                    <button
+                      className={p.btn}
+                      style={{ height: 24, padding: "0 8px", fontSize: 11, marginTop: 5 }}
+                      onClick={() => clearIssue(i)}
+                    >
+                      Resolve
+                    </button>
+                  </div>
+                ))}
+                {liveOnlyBlockers.map((i) => (
+                  <div key={i.id} style={{ fontSize: 11, lineHeight: 1.4, color: "#d29922" }}>
+                    <b>Live: {i.label}</b>
+                    <div style={{ color: "var(--muted)" }}>{i.reason}</div>
+                    <button
+                      className={p.btn}
+                      style={{ height: 24, padding: "0 8px", fontSize: 11, marginTop: 5 }}
+                      onClick={() => clearIssue(i)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {warnings.map((i) => (
+                  <div key={i.id} style={{ fontSize: 11, lineHeight: 1.4, color: "#d29922" }}>
+                    <b>{i.label}</b>
+                    <div style={{ color: "var(--muted)" }}>{i.reason}</div>
+                  </div>
+                ))}
+                {!backtestBlockers.length && !liveBlockers.length && !warnings.length && (
+                  <div className="lbl">Every selected feature is executable by both engines.</div>
+                )}
+              </div>
+            </div>
+
             <button
               className={`${p.btn} ${p.pri}`}
               style={{ height: 48, fontSize: 14 }}
-              disabled={saving}
+              disabled={saving || backtestBlockers.length > 0}
+              title={backtestBlockers[0]?.reason}
               onClick={() => save(true)}
             >
               {saving ? "Saving…" : "Start training"}
