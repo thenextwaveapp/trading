@@ -1,11 +1,58 @@
 import { botColor } from "../lib/brand";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import { useBots } from "../db/queries";
 import type { DbBot } from "../db/types";
+import type { Variant } from "../api/types";
 import { identicon, pct, usd, windowReturn } from "../lib/format";
 import s from "./Landing.module.css";
+
+/** A single rotating spotlight of a live bot — favours ones currently in a
+ *  trade — cycling every 10s, in place of a static "bots live" count. */
+function NowTrading({ variants }: { variants: Variant[] }) {
+  const roster = useMemo(
+    () => variants.slice().sort((a, b) => (b.open?.length ?? 0) - (a.open?.length ?? 0)),
+    [variants],
+  );
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (roster.length <= 1) return;
+    const t = setInterval(() => setI((x) => x + 1), 10000);
+    return () => clearInterval(t);
+  }, [roster.length]);
+
+  if (!roster.length) {
+    return (
+      <div>
+        <div className={s.statLbl}>Now trading</div>
+        <div className={s.panelStatNum} style={{ fontSize: 18 }}>—</div>
+      </div>
+    );
+  }
+  const v = roster[i % roster.length];
+  const pos = v.open?.[0];
+  const up = (pos?.upnl ?? v.ret) >= 0;
+  return (
+    <div key={v.name} className={s.nowTrading}>
+      <div className={s.statLbl}>Now trading</div>
+      <div className={s.panelStatNum} style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 7 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: v.color || "#3a81d7", flex: "none" }} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span>
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+        {pos ? (
+          <>
+            {pos.ticker} <span className={pos.side === "short" ? "down" : "up"}>{pos.side}</span> ·{" "}
+            <span className={up ? "up" : "down"}>{usd(pos.upnl, true)}</span>
+          </>
+        ) : (
+          <>watching · <span className={up ? "up" : "down"}>{pct(v.ret, true)}</span></>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const STEPS: [string, string, string][] = [
   ["01", "Compose", "Make a bot in plain English. Pick a strategy, tune it, see exactly what it will trade."],
@@ -202,10 +249,7 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
                 <div className={s.statLbl}>Unrealized</div>
                 <div className={`${s.panelStatNum} ${d.hero.unreal >= 0 ? "up" : "down"}`}>{usd(d.hero.unreal, true)}</div>
               </div>
-              <div>
-                <div className={s.statLbl}>Bots live</div>
-                <div className={s.panelStatNum}>{d.variants.length}</div>
-              </div>
+              <NowTrading variants={d.variants} />
             </div>
             {d.positions.length ? (
               d.positions.slice(0, 4).map((pos) => (

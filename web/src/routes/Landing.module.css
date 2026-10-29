@@ -310,6 +310,14 @@
   font-weight: 650;
   letter-spacing: -0.02em;
 }
+.nowTrading {
+  min-width: 0;
+  animation: nowFade 0.45s ease;
+}
+@keyframes nowFade {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .posRow {
   display: flex;
   align-items: center;
