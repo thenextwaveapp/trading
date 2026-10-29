@@ -25,28 +25,29 @@ function BotDot({ seed, color, size = 40 }: { seed: string; color: string; size?
 function LiveSpotlight({ positions, variants }: { positions: Position[]; variants: Variant[] }) {
   const byName = useMemo(() => new Map(variants.map((v) => [v.name, v])), [variants]);
   const items = useMemo<{ name: string; color: string; sub: ReactNode; right: ReactNode }[]>(() => {
-    if (positions.length) {
-      return positions.map((p) => ({
-        name: p.variant,
-        color: byName.get(p.variant)?.color || "#3a81d7",
-        sub: (
-          <>
-            {p.ticker} <span className={p.side === "short" ? "down" : "up"}>{p.side}</span>
-          </>
-        ),
-        right: <span className={`num ${(p.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(p.upnl, true)}</span>,
-      }));
-    }
-    return variants
-      .slice()
+    // Open trades first (the live action), then the rest of the fleet "watching"
+    // — so the card always has plenty to cycle through, even with one position.
+    const open = positions.map((p) => ({
+      name: p.variant,
+      color: byName.get(p.variant)?.color || "#3a81d7",
+      sub: (
+        <>
+          {p.ticker} <span className={p.side === "short" ? "down" : "up"}>{p.side}</span>
+        </>
+      ),
+      right: <span className={`num ${(p.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(p.upnl, true)}</span>,
+    }));
+    const inTrade = new Set(positions.map((p) => p.variant));
+    const watching = variants
+      .filter((v) => !inTrade.has(v.name))
       .sort((a, b) => b.ret - a.ret)
-      .slice(0, 6)
       .map((v) => ({
         name: v.name,
         color: v.color || "#3a81d7",
         sub: <span className="muted">watching</span>,
         right: <span className={`num ${v.ret >= 0 ? "up" : "down"}`}>{pct(v.ret, true)}</span>,
       }));
+    return [...open, ...watching];
   }, [positions, variants, byName]);
 
   const [i, setI] = useState(0);
