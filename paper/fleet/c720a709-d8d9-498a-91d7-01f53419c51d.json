@@ -1,0 +1,53 @@
+{
+ "equity": 10378.639373192933,
+ "kill_until": 0,
+ "last_sig_t": 1793088000000,
+ "positions": [],
+ "eq_hist": [
+  [
+   1793102400000,
+   10378.639373192933
+  ]
+ ],
+ "orders": [],
+ "trades": [
+  {
+   "ticker": "ALGO",
+   "t_sig": 1791452700000,
+   "entry": 0.13775,
+   "stop": 0.14355,
+   "exit_t": 1791467100000,
+   "kind": "time",
+   "net": 0.112792,
+   "pnl": 200.91,
+   "notional": 1781.25,
+   "equity_after": 10200.91,
+   "side": "short"
+  },
+  {
+   "ticker": "STX",
+   "t_sig": 1791837000000,
+   "entry": 0.4452,
+   "stop": 0.4609,
+   "exit_t": 1791851400000,
+   "kind": "time",
+   "net": 0.077216,
+   "pnl": 157.54,
+   "notional": 2040.18,
+   "equity_after": 10358.45,
+   "side": "short"
+  },
+  {
+   "ticker": "NIL",
+   "t_sig": 1793088000000,
+   "entry": 0.10266,
+   "stop": 0.13304,
+   "exit_t": 1793102400000,
+   "kind": "time",
+   "net": 0.076917,
+   "pnl": 20.19,
+   "notional": 262.52,
+   "equity": 10378.64
+  }
+ ]
+}

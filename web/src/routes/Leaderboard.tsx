@@ -3,11 +3,12 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import type { Variant } from "../api/types";
-import { useBots } from "../db/queries";
-import { useCurrentHandle } from "../auth";
+import { copyBotToDraft, useBots, usePublicProfiles } from "../db/queries";
+import { useAuth, useCurrentHandle } from "../auth";
 import type { DbBot } from "../db/types";
 import { DIRLBL, START, dol, identicon, pct, windowReturn } from "../lib/format";
 import Spark from "../components/Spark";
+import { RowsSkeleton } from "../components/Skeleton";
 import p from "./pages.module.css";
 import s from "./Leaderboard.module.css";
 
@@ -32,22 +33,59 @@ interface Row {
 export default function Leaderboard() {
   const nav = useNavigate();
   const live = useData();
+  const { user, profile } = useAuth();
   const me = useCurrentHandle();
   const { data: bots, loading } = useBots();
+  const { data: profiles } = usePublicProfiles();
+  const [marketFilter, setMarketFilter] = useState<"all" | "crypto" | "stocks">("all");
   const [range, setRange] = useState(2);
   const [q, setQ] = useState("");
+  const [copyingId, setCopyingId] = useState<string | null>(null);
+
+  const handleCopy = async (bot: DbBot) => {
+    if (!user) {
+      nav("/signin");
+      return;
+    }
+    setCopyingId(bot.id);
+    const { data } = await copyBotToDraft(
+      bot,
+      user.id,
+      profile?.default_bot_visibility ?? "private",
+    );
+    setCopyingId(null);
+    if (data?.id) {
+      nav(`/build/compose?bot=${encodeURIComponent(data.id)}`);
+    }
+  };
 
   const days = RANGES[range][1];
+  const query = q.trim().toLowerCase().replace(/^@/, "");
+
+  const matchedBuilders = useMemo(() => {
+    if (!query || !profiles) return [];
+    return profiles.filter(
+      (pr) =>
+        pr.handle?.toLowerCase().includes(query) ||
+        pr.display_name?.toLowerCase().includes(query) ||
+        pr.bio?.toLowerCase().includes(query),
+    );
+  }, [profiles, query]);
 
   const rows: Row[] = useMemo(() => {
     if (!bots) return [];
     const byName = new Map(live.variants.map((v) => [v.name, v]));
     return bots
-      .filter((bot) => bot.stage === "deployed")
+      .filter((bot) => bot.builder?.bots_on_leaderboard !== false)
+      .filter((bot) => {
+        if (marketFilter === "all") return true;
+        const isStocks = bot.market === "stocks" || (bot.spec as Record<string, unknown> | null)?.market === "equity";
+        return marketFilter === "stocks" ? isStocks : !isStocks;
+      })
+      .filter((bot) => (query ? true : bot.stage === "deployed"))
       .map((bot) => {
         const v = byName.get(bot.name) ?? null;
-        const unreal = v ? v.open.reduce((a, o) => a + (o.upnl || 0), 0) : 0;
-        const equity = v ? v.equity + unreal : START;
+        const equity = v ? v.equity : START;
         const totalRet = (equity / START - 1) * 100;
         const ret =
           v == null
@@ -70,9 +108,11 @@ export default function Leaderboard() {
       })
       .filter(
         (x) =>
-          !q ||
-          x.bot.name.toLowerCase().includes(q.toLowerCase()) ||
-          x.builder.toLowerCase().includes(q.toLowerCase()),
+          !query ||
+          x.bot.name.toLowerCase().includes(query) ||
+          x.builder.toLowerCase().includes(query) ||
+          (x.bot.family_slug ?? "").toLowerCase().includes(query) ||
+          (x.bot.note ?? "").toLowerCase().includes(query),
       )
       .sort((a, b) => {
         if (b.ret !== a.ret) return b.ret - a.ret;
@@ -81,7 +121,7 @@ export default function Leaderboard() {
         if (bActive !== aActive) return bActive - aActive;
         return a.bot.name.localeCompare(b.bot.name);
       });
-  }, [bots, live, days, q]);
+  }, [bots, live, days, query]);
 
   const top = rows.slice(0, 3);
 
@@ -98,9 +138,20 @@ export default function Leaderboard() {
       <div className={p.body}>
         <div className={s.filters}>
           <div className={p.seg}>
-            {["Crypto", "Stocks · soon", "Predictions · soon"].map((m, i) => (
-              <button key={m} className={`${p.segBtn} ${i === 0 ? p.sel : ""}`} disabled={i > 0}>{m}</button>
+            {([
+              ["all", "All"],
+              ["crypto", "Crypto"],
+              ["stocks", "Stocks"],
+            ] as const).map(([k, label]) => (
+              <button
+                key={k}
+                className={`${p.segBtn} ${marketFilter === k ? p.sel : ""}`}
+                onClick={() => setMarketFilter(k)}
+              >
+                {label}
+              </button>
             ))}
+            <button className={p.segBtn} disabled>Predictions · soon</button>
           </div>
           <div className={p.seg}>
             {RANGES.map(([label], i) => (
@@ -110,9 +161,42 @@ export default function Leaderboard() {
         </div>
 
         {loading ? (
-          <div className="muted" style={{ padding: "40px 0" }}>Loading bots…</div>
+          <RowsSkeleton rows={12} avatar />
         ) : (
           <>
+            {query && matchedBuilders.length > 0 && (
+              <div style={{ marginBottom: 28 }}>
+                <div className="lbl" style={{ marginBottom: 10 }}>
+                  Builders ({matchedBuilders.length})
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+                  {matchedBuilders.map((pr) => {
+                    const count = (bots ?? []).filter((b) => b.builder?.handle === pr.handle).length;
+                    return (
+                      <div
+                        key={pr.id}
+                        className="card"
+                        style={{ padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+                        onClick={() => nav("/builder/" + encodeURIComponent(pr.handle))}
+                      >
+                        <svg width="36" height="36" viewBox="0 0 36 36" style={{ flex: "none" }}>
+                          <rect width="36" height="36" rx="18" fill="#12161D" />
+                          <path d={identicon("@" + pr.handle, 22)} fill={pr.avatar_color || "#3a81d7"} transform="translate(7 7)" />
+                        </svg>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 500 }}>@{pr.handle}</div>
+                          <div className="lbl" style={{ marginTop: 2 }}>
+                            {pr.display_name ? `${pr.display_name} · ` : ""}{count} public bot{count === 1 ? "" : "s"}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!query && (
             <div className={s.cards}>
               {top.map((row, i) => {
                 const up = row.ret >= 0;
@@ -121,7 +205,7 @@ export default function Leaderboard() {
                 return (
                   <div key={row.bot.id} className={`card ${s.card} ${row.openCount > 0 ? "pulseCard" : ""}`}>
                     <div className={s.cardTop}>
-                      <svg width="52" height="52" viewBox="0 0 52 52"><rect width="52" height="52" rx="13" fill="#12161D" /><path d={identicon(row.bot.name, 34)} fill={col} transform="translate(9 9)" /></svg>
+                      <svg width="52" height="52" viewBox="0 0 52 52"><rect width="52" height="52" rx="26" fill="#12161D" /><path d={identicon(row.bot.name, 34)} fill={col} transform="translate(9 9)" /></svg>
                       <span className={`num gradtext ${s.rank}`}>{i + 1}</span>
                     </div>
                     <div className={s.cardName} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</div>
@@ -135,13 +219,25 @@ export default function Leaderboard() {
                       </div>
                       <div className={s.cardCta}>
                         <span className="chip">{row.bot.visibility === "public" ? "Public strategy" : "Results only"}</span>
-                        <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {(row.bot.visibility === "public" || (user && row.bot.owner === user.id)) && (
+                            <button
+                              className="copyBtn"
+                              disabled={copyingId === row.bot.id}
+                              onClick={() => void handleCopy(row.bot)}
+                            >
+                              {copyingId === row.bot.id ? "…" : "Copy"}
+                            </button>
+                          )}
+                          <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+            )}
 
             <div className={s.tableWrap}>
               <table className={s.table}>
@@ -174,7 +270,7 @@ export default function Leaderboard() {
                             onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}
                           >
                             <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: "none" }}>
-                              <rect width="28" height="28" rx="7" fill="#12161D" />
+                              <rect width="28" height="28" rx="14" fill="#12161D" />
                               <path d={identicon(row.bot.name, 18)} fill={col} transform="translate(5 5)" />
                             </svg>
                             <span>{row.bot.name}</span>
@@ -188,7 +284,20 @@ export default function Leaderboard() {
                         <td className="num">{row.win == null ? "–" : row.win + "%"}</td>
                         <td className="num muted">{row.trades}{row.openCount ? ` (+${row.openCount})` : ""}</td>
                         <td className={s.left}><Spark data={sparkPts} w={120} h={28} up={up} color={col} /></td>
-                        <td><button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button></td>
+                        <td>
+                          <span style={{ display: "inline-flex", gap: 6 }}>
+                            {(row.bot.visibility === "public" || (user && row.bot.owner === user.id)) && (
+                              <button
+                                className="copyBtn"
+                                disabled={copyingId === row.bot.id}
+                                onClick={() => void handleCopy(row.bot)}
+                              >
+                                {copyingId === row.bot.id ? "…" : "Copy"}
+                              </button>
+                            )}
+                            <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button>
+                          </span>
+                        </td>
                       </tr>
                     );
                   })}

@@ -89,9 +89,7 @@ function buildPayload(
       };
     }) as Position[];
     const equity = Number(m?.equity ?? START);
-    const unreal = open.reduce((a, o) => a + (o.upnl || 0), 0);
-    const markedEquity = +(equity + unreal).toFixed(2);
-    const ret = (markedEquity / START - 1) * 100;
+    const ret = (equity / START - 1) * 100;
     const closed = Math.max(m?.closed ?? 0, botTrades.length);
     const wins = botTrades.filter((t) => Number(t.pnl ?? t.net ?? 0) > 0).length;
     const win =
@@ -104,35 +102,29 @@ function buildPayload(
       ? (botTrades.reduce((a, t) => a + Number(t.net ?? 0), 0) / botTrades.length) * 100
       : null;
 
-    const curve: [number, number][] = [];
-    if (botTrades.length > 0) {
-      let runEq = START;
-      const firstT = Math.min(
-        Number(botTrades[0].t_sig || botTrades[0].exit_t) - 900_000,
-        botMarks.length ? Number(botMarks[0].t) : Infinity,
-      );
-      curve.push([firstT, START]);
-      for (const tr of botTrades) {
-        runEq += Number(tr.pnl ?? 0);
-        curve.push([Number(tr.exit_t), +runEq.toFixed(2)]);
-      }
-    }
-    for (const mk of botMarks) {
-      curve.push([Number(mk.t), Number(mk.equity)]);
-    }
-    if (open.length > 0) {
-      curve.push([Date.now(), markedEquity]);
-    }
-    curve.sort((a, b) => a[0] - b[0]);
-    if (curve.length === 1) {
-      const launchMs = b.launched_at ? new Date(b.launched_at).getTime() : curve[0][0] - 900_000;
-      curve.unshift([Math.min(launchMs, curve[0][0] - 60_000), START]);
+    // Equity curve from the per-cycle marks alone — one authoritative realized
+    // equity series. (Previously this merged a trades-derived cumulative with
+    // the marks and sorted them together; where the two disagreed the single
+    // line ping-ponged between them, which is what made the chart sawtooth.)
+    // botMarks is already sorted ascending by t.
+    const curve: [number, number][] = botMarks.map(
+      (mk) => [Number(mk.t), Number(mk.equity)] as [number, number],
+    );
+    // Anchor the line at the starting equity so it begins at $10k.
+    if (curve.length === 0 || curve[0][1] !== START) {
+      const launchMs = b.launched_at
+        ? new Date(b.launched_at).getTime()
+        : curve.length
+          ? curve[0][0] - 900_000
+          : Date.now();
+      const anchorT = curve.length ? Math.min(launchMs, curve[0][0] - 60_000) : launchMs;
+      curve.unshift([anchorT, START]);
     }
 
     return {
       name: b.name,
       group: (b.direction as any) ?? null,
-      equity: markedEquity,
+      equity,
       ret,
       open,
       closed,

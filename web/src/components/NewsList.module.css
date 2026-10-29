@@ -1,0 +1,16 @@
+.list { display: flex; flex-direction: column; }
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--fg);
+  text-decoration: none;
+}
+.row:first-child { border-top: none; }
+.row:hover { background: #0c1219; }
+.title { font-size: 14px; line-height: 1.4; }
+.meta { font-size: 12px; color: var(--muted); white-space: nowrap; flex: none; }
+.empty { padding: 20px 16px; color: var(--muted); font-size: 13px; }

@@ -1,0 +1,239 @@
+{
+ "equity": 9853.576719686705,
+ "kill_until": 0,
+ "last_sig_t": 0,
+ "positions": [
+  {
+   "ticker": "STRK",
+   "symbol": "STRKUSDT",
+   "t_sig": 1791922500000,
+   "entry": 0.08527,
+   "stop": 0.0,
+   "notional": 824.7043224859076,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.093797,
+   "tp_close": true
+  },
+  {
+   "ticker": "FIL",
+   "symbol": "FILUSDT",
+   "t_sig": 1791926100000,
+   "entry": 1.1583,
+   "stop": 0.0,
+   "notional": 817.7928409052374,
+   "hold": 96,
+   "side": 1,
+   "tp": 1.2741300000000002,
+   "tp_close": true
+  },
+  {
+   "ticker": "STRK",
+   "symbol": "STRKUSDT",
+   "t_sig": 1791929700000,
+   "entry": 0.08314,
+   "stop": 0.0,
+   "notional": 817.7928409052374,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.09145400000000001,
+   "tp_close": true
+  },
+  {
+   "ticker": "NIL",
+   "symbol": "NILUSDT",
+   "t_sig": 1791935100000,
+   "entry": 0.07784,
+   "stop": 0.0,
+   "notional": 818.0639180079055,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.08562400000000002,
+   "tp_close": true
+  },
+  {
+   "ticker": "TIA",
+   "symbol": "TIAUSDT",
+   "t_sig": 1791958500000,
+   "entry": 0.5553,
+   "stop": 0.0,
+   "notional": 821.1313933072255,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.6108300000000001,
+   "tp_close": true
+  },
+  {
+   "ticker": "NIL",
+   "symbol": "NILUSDT",
+   "t_sig": 1791966600000,
+   "entry": 0.07846,
+   "stop": 0.0,
+   "notional": 821.1313933072255,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.08630600000000001,
+   "tp_close": true
+  },
+  {
+   "ticker": "ZEC",
+   "symbol": "ZECUSDT",
+   "t_sig": 1791990900000,
+   "entry": 1160.54,
+   "stop": 0.0,
+   "notional": 821.1313933072255,
+   "hold": 96,
+   "side": 1,
+   "tp": 1276.594,
+   "tp_close": true
+  },
+  {
+   "ticker": "GRASS",
+   "symbol": "GRASSUSDT",
+   "t_sig": 1791994500000,
+   "entry": 0.6578,
+   "stop": 0.0,
+   "notional": 821.1313933072255,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.7235800000000001,
+   "tp_close": true
+  },
+  {
+   "ticker": "GRASS",
+   "symbol": "GRASSUSDT",
+   "t_sig": 1791999900000,
+   "entry": 0.6324,
+   "stop": 0.0,
+   "notional": 821.1313933072255,
+   "hold": 96,
+   "side": 1,
+   "tp": 0.69564,
+   "tp_close": true
+  }
+ ],
+ "eq_hist": [
+  [
+   1791907200000,
+   9978.111139792349
+  ],
+  [
+   1791910800000,
+   9965.925981221879
+  ],
+  [
+   1791918000000,
+   9896.451869830891
+  ],
+  [
+   1791925200000,
+   9813.51409086285
+  ],
+  [
+   1791931500000,
+   9820.601203034686
+  ],
+  [
+   1791935100000,
+   9816.767016094866
+  ],
+  [
+   1791938700000,
+   9853.576719686705
+  ]
+ ],
+ "orders": [],
+ "trades": [
+  {
+   "ticker": "FIL",
+   "t_sig": 1791820800000,
+   "entry": 1.1622,
+   "stop": 0.0,
+   "exit_t": 1791907200000,
+   "kind": "time",
+   "net": -0.026267,
+   "pnl": -21.89,
+   "notional": 833.33,
+   "equity_after": 9978.11,
+   "side": "long"
+  },
+  {
+   "ticker": "CRV",
+   "t_sig": 1791824400000,
+   "entry": 0.3479,
+   "stop": 0.0,
+   "exit_t": 1791910800000,
+   "kind": "time",
+   "net": -0.014622,
+   "pnl": -12.19,
+   "notional": 833.33,
+   "equity_after": 9965.93,
+   "side": "long"
+  },
+  {
+   "ticker": "STRK",
+   "t_sig": 1791831600000,
+   "entry": 0.09528,
+   "stop": 0.0,
+   "exit_t": 1791918000000,
+   "kind": "time",
+   "net": -0.083369,
+   "pnl": -69.47,
+   "notional": 833.33,
+   "equity_after": 9896.45,
+   "side": "long"
+  },
+  {
+   "ticker": "STRK",
+   "t_sig": 1791838800000,
+   "entry": 0.09335,
+   "stop": 0.0,
+   "exit_t": 1791925200000,
+   "kind": "time",
+   "net": -0.099525,
+   "pnl": -82.94,
+   "notional": 833.33,
+   "equity_after": 9813.51,
+   "side": "long"
+  },
+  {
+   "ticker": "STRK",
+   "t_sig": 1791845100000,
+   "entry": 0.0838,
+   "stop": 0.0,
+   "exit_t": 1791931500000,
+   "kind": "time",
+   "net": 0.008505,
+   "pnl": 7.09,
+   "notional": 833.33,
+   "equity_after": 9820.6,
+   "side": "long"
+  },
+  {
+   "ticker": "ONDO",
+   "t_sig": 1791848700000,
+   "entry": 0.4686,
+   "stop": 0.0,
+   "exit_t": 1791935100000,
+   "kind": "time",
+   "net": -0.004601,
+   "pnl": -3.83,
+   "notional": 833.33,
+   "equity_after": 9816.77,
+   "side": "long"
+  },
+  {
+   "ticker": "DOT",
+   "t_sig": 1791852300000,
+   "entry": 1.1257,
+   "stop": 0.0,
+   "exit_t": 1791938700000,
+   "kind": "time",
+   "net": 0.044172,
+   "pnl": 36.81,
+   "notional": 833.33,
+   "equity_after": 9853.58,
+   "side": "long"
+  }
+ ]
+}

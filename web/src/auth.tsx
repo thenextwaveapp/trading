@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null;
   profile: DbProfile | null;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
   sendMagicLink: (email: string) => Promise<{ error: string | null }>;
   signInGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -29,6 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  const loadProfile = async (uid: string) => {
+    const { data } = await supabase
+      .from("pf_profiles")
+      .select("*")
+      .eq("id", uid)
+      .single();
+    setProfile((data as DbProfile) ?? null);
+  };
+
   // Profile row is created by the handle_new_user trigger on signup (db/functions.sql).
   useEffect(() => {
     const uid = session?.user?.id;
@@ -36,18 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
-    let alive = true;
-    supabase
-      .from("pf_profiles")
-      .select("*")
-      .eq("id", uid)
-      .single()
-      .then(({ data }) => {
-        if (alive) setProfile((data as DbProfile) ?? null);
-      });
-    return () => {
-      alive = false;
-    };
+    void loadProfile(uid);
   }, [session?.user?.id]);
 
   // OAuth returns to the same page, stripping the HashRouter fragment.
@@ -59,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
+    refreshProfile: async () => {
+      if (session?.user?.id) await loadProfile(session.user.id);
+    },
     // Passwordless: email a magic sign-in link. shouldCreateUser signs up new
     // emails (handle_new_user seeds the account on first click), so there is no
     // separate sign-up path.

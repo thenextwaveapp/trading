@@ -1,0 +1,86 @@
+/* hero — "you've landed in the crypto market" */
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px 32px;
+  flex-wrap: wrap;
+  padding: 8px 0 24px;
+}
+.heroTitle { font-size: 34px; letter-spacing: -0.03em; font-weight: 500; }
+.heroSub { color: var(--muted); font-size: 14px; margin-top: 6px; max-width: 420px; }
+.movers { display: flex; gap: 10px; flex-wrap: wrap; }
+.mover {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px;
+  min-width: 158px;
+  cursor: pointer;
+}
+.moverLogo { width: 30px; height: 30px; border-radius: 50%; flex: none; background: #12161d; }
+.moverName { font-size: 13px; color: var(--fg); }
+.moverBase { font-size: 12px; color: var(--muted); }
+
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.tableWrap { overflow-x: auto; }
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 620px;
+}
+.table th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: right;
+  padding: 0 14px 12px;
+  white-space: nowrap;
+}
+.table td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.table tbody tr {
+  cursor: pointer;
+}
+.table tbody tr:hover {
+  background: #0c1219;
+}
+.left { text-align: left !important; }
+.coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: none;
+  background: #12161d;
+}
+.sym { font-weight: 500; }
+.base { color: var(--muted); font-size: 12px; }
+.stamp {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+}

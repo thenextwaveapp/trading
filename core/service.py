@@ -29,6 +29,7 @@ from .checks import run_checks
 from .conditions import conditions_breakdown
 from .mapping import variant_to_spec
 from .params import spec_issues
+from . import challenges as _challenges
 from .sweep import SweepError, expand_prepared, label_for, prepare_axes
 from .timeframes import interval_ms as _timeframe_ms
 from . import db
@@ -36,6 +37,7 @@ from . import presets as _presets
 from .export_catalog import build as build_catalog
 
 BINANCE = "https://fapi.binance.com/fapi/v1/klines"
+YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart"
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DAY_MS = 86_400_000
@@ -47,6 +49,74 @@ MAX_BARS = 200_000      # per-symbol safety cap when paging Binance
 
 def _iso_date(ms):
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
+
+
+def _is_equity_symbol(symbol):
+    return not str(symbol).upper().endswith("USDT")
+
+
+def _fetch_equity(symbol, interval="15m", limit=1500, start=None, end=None):
+    """Closed OHLCV bars for an equity ticker via Yahoo Finance chart API."""
+    iv_map = {
+        "1m": ("1m", "7d"),
+        "3m": ("5m", "60d"),
+        "5m": ("5m", "60d"),
+        "15m": ("15m", "60d"),
+        "30m": ("30m", "60d"),
+        "1h": ("1h", "730d"),
+        "2h": ("1h", "730d"),
+        "4h": ("1h", "730d"),
+        "6h": ("1h", "730d"),
+        "8h": ("1h", "730d"),
+        "12h": ("1h", "730d"),
+        "1d": ("1d", "5y"),
+        "3d": ("1d", "5y"),
+        "1w": ("1wk", "5y"),
+    }
+    yf_iv, yf_rng = iv_map.get(interval, ("15m", "60d"))
+    url = f"{YAHOO_CHART}/{symbol}?interval={yf_iv}&range={yf_rng}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            data = json.loads(r.read())
+        res = (data.get("chart") or {}).get("result") or []
+        if not res:
+            return []
+        block = res[0]
+        ts = block.get("timestamp") or []
+        quote = ((block.get("indicators") or {}).get("quote") or [{}])[0]
+        opens = quote.get("open") or []
+        highs = quote.get("high") or []
+        lows = quote.get("low") or []
+        closes = quote.get("close") or []
+        vols = quote.get("volume") or []
+        out = []
+        for i, t_sec in enumerate(ts):
+            o = opens[i] if i < len(opens) else None
+            h = highs[i] if i < len(highs) else None
+            l = lows[i] if i < len(lows) else None
+            c = closes[i] if i < len(closes) else None
+            v = vols[i] if i < len(vols) else 0
+            if o is None or h is None or l is None or c is None:
+                continue
+            t_ms = int(t_sec) * 1000
+            if start and t_ms < int(start):
+                continue
+            if end and t_ms > int(end):
+                continue
+            out.append({
+                "t": t_ms,
+                "o": float(o),
+                "h": float(h),
+                "l": float(l),
+                "c": float(c),
+                "v": float(v or 1.0),
+            })
+        if start is None and limit:
+            out = out[-int(limit):]
+        return out[:MAX_BARS]
+    except Exception:
+        return []
 
 
 def _fetch_page(symbol, interval, limit, start, end):
@@ -65,9 +135,9 @@ def _fetch_page(symbol, interval, limit, start, end):
 
 
 def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
-    """Closed candles from Binance. With a `start` we page forward 1,500 bars
-    at a time so a multi-year window is possible; without one this is the
-    original single-request path."""
+    """Closed candles from Binance (crypto perps) or Yahoo Finance (equities)."""
+    if _is_equity_symbol(symbol):
+        return _fetch_equity(symbol, interval, limit, start, end)
     if start is None:
         return _fetch_page(symbol, interval, limit, start, end)
 
@@ -174,11 +244,15 @@ def _resolve_universe(body):
     cached, seen = _read_cache(items, interval, start, end)
     missing = {tk: sym for tk, sym in items.items() if sym not in seen}
     for tk, sym in missing.items():
-        cached[tk] = fetch_candles(sym, interval, limit, start, end)
+        rows = fetch_candles(sym, interval, limit, start, end)
+        if rows:
+            cached[tk] = rows
 
+    cached = {tk: rows for tk, rows in cached.items() if rows}
     if not cached:
         raise ValueError("no candles for this universe/window")
-    source = ("cache" if not missing else
+    any_eq = any(_is_equity_symbol(sym) for sym in items.values())
+    source = ("yahoo" if any_eq else "cache" if not missing else
               "binance" if not seen else "cache+binance")
     return cached, {"source": source, "bars": sum(len(v) for v in cached.values())}
 
@@ -440,6 +514,71 @@ def ep_map(body):
     return 200, {"ok": True, "spec": spec}
 
 
+def ep_enter_challenge(body):
+    """Validate a Copy of a challenge template as a legal entry.
+
+    The lock-set is the engine's, not the UI's: the entry may differ from the
+    template only at the open holes, every predicate must hold, and the result
+    must still be a runnable strategy. Give either a full `candidate` spec or a
+    map of `edits` (hole path -> value) applied to the template.
+
+        body = {template, lock_set:{holes, predicates}, candidate?|edits?}
+    """
+    template = body.get("template")
+    lock_set = body.get("lock_set") or {}
+    holes = lock_set.get("holes") or []
+    predicates = lock_set.get("predicates") or []
+    if not isinstance(template, dict):
+        return 400, {"ok": False, "error": "a template spec is required"}
+
+    try:
+        if body.get("candidate") is not None:
+            candidate = body["candidate"]
+        else:
+            candidate = _challenges.build_entry(template, body.get("edits") or {}, holes)
+    except (ValueError, KeyError, TypeError) as e:
+        return 200, {"ok": False, "error": str(e)}
+
+    # the Weather gate lives on the bot row, not the strategy tree; carry it
+    # onto the candidate so predicates like no_weather can see it.
+    if "condition_filter" in body:
+        candidate = {**candidate, "condition_filter": body["condition_filter"]}
+
+    ok, err = _challenges.validate_entry(template, candidate, holes, predicates)
+    if not ok:
+        return 200, {"ok": False, "error": err}
+
+    # a legal entry must still be a runnable strategy the target can execute
+    try:
+        s = parse(candidate)
+    except (StrategyError, KeyError, TypeError) as e:
+        return 200, {"ok": False, "error": str(e)}
+    blocked, issues = _capability_gate(s, "backtest")
+    if blocked:
+        return 200, {**blocked, "ok": False}
+    return 200, {"ok": True, "spec": candidate, "lookback": s["_lookback"],
+                 "side": s["side"], "issues": issues}
+
+
+def ep_score_challenge(body):
+    """Rank a challenge's entries by its judge.
+
+        body = {entries:[{id, result}], judge, judge_cfg?}
+    `result` is a backtest/live result ({stats, trades}). Returns standings,
+    winner first; ineligible entries (e.g. below a trade floor) place last.
+
+    INTEGRITY: results MUST be produced by the engine over the real market
+    window (the worker calls this with its own run output). Never pass results
+    supplied by a client — a Builder could forge their own P&L."""
+    try:
+        standings = _challenges.rank(body.get("entries") or [],
+                                     body.get("judge", "return"),
+                                     body.get("judge_cfg") or {})
+    except (ValueError, KeyError, TypeError) as e:
+        return 400, {"ok": False, "error": str(e)}
+    return 200, {"ok": True, "standings": standings}
+
+
 ENDPOINTS = {
     ("GET", "/v1/healthz"): ep_health,
     ("GET", "/v1/catalog"): ep_catalog,
@@ -450,6 +589,8 @@ ENDPOINTS = {
     ("POST", "/v1/evaluate"): ep_evaluate,
     ("POST", "/v1/sweep"): ep_sweep,
     ("POST", "/v1/map"): ep_map,
+    ("POST", "/v1/challenge/enter"): ep_enter_challenge,
+    ("POST", "/v1/challenge/score"): ep_score_challenge,
 }
 
 

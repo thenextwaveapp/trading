@@ -20,7 +20,7 @@
   height: 32px;
   padding: 0 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   font-size: 13px;
@@ -60,7 +60,7 @@
 .clear {
   height: 22px;
   padding: 0 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: #10141a;
   color: var(--fg);

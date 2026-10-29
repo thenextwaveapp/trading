@@ -1,0 +1,33 @@
+{
+ "equity": 10000.0,
+ "kill_until": 0,
+ "last_sig_t": 1793228400000,
+ "positions": [
+  {
+   "entry": 0.0050404,
+   "hold": 16,
+   "side": -1,
+   "stop": 0.0052434,
+   "t_sig": 1793228400000,
+   "interval_ms": 3600000,
+   "i": 109,
+   "ticker": "kPEPE",
+   "symbol": "1000PEPEUSDT",
+   "notional": 1862.216748768476
+  },
+  {
+   "entry": 0.0050404,
+   "hold": 16,
+   "side": -1,
+   "stop": 0.0052434,
+   "t_sig": 1793228400000,
+   "interval_ms": 3600000,
+   "i": 109,
+   "ticker": "PEPE",
+   "symbol": "1000PEPEUSDT",
+   "notional": 1862.216748768476
+  }
+ ],
+ "eq_hist": [],
+ "orders": []
+}

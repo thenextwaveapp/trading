@@ -14,6 +14,11 @@ export default defineConfig({
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },
       "/candles": { target: API_TARGET, changeOrigin: true },
+      "/yf": {
+        target: "https://query1.finance.yahoo.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/yf/, ""),
+      },
     },
   },
 });

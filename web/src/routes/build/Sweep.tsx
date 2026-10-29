@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { BackBar } from "../../components/cells";
 import { createSweep, useMyBot, useSweepData, useUniverses } from "../../db/queries";
 import type { DbSweep, DbSweepRun, DbUniverse } from "../../db/types";
 import {
@@ -522,7 +523,7 @@ export default function Sweep() {
   if (botLoading) {
     return (
       <>
-        <div className={p.crumb}><b>Build</b> / Sweep</div>
+        <BackBar fallbackPath="/build" fallbackLabel="Build" />
         <div className={p.body} style={{ paddingTop: 28 }}><span className="muted">Loading…</span></div>
       </>
     );
@@ -530,7 +531,7 @@ export default function Sweep() {
   if (!bot) {
     return (
       <>
-        <div className={p.crumb}><b>Build</b> / Sweep</div>
+        <BackBar fallbackPath="/build" fallbackLabel="Build" />
         <div className={p.body} style={{ paddingTop: 28 }}>
           <span className="muted">Pick a bot to sweep. </span>
           <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/build")}>Back to Build →</span>
@@ -541,10 +542,7 @@ export default function Sweep() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> /{" "}
-        <span className="lk" onClick={training}>{bot.name}</span> / <b>Sweep</b>
-      </div>
+      <BackBar to={withBot("/build/training", bot.id)} label="Training" />
       <div className={p.body} style={{ paddingTop: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { BackBar } from "../../components/cells";
 import { setBotStage, useBuildData, useMyBot } from "../../db/queries";
 import type { CheckKey, DbCheck } from "../../db/types";
 import { pct } from "../../lib/format";
@@ -26,7 +27,7 @@ export default function Trials() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const current = bot && bot.stage !== "draft" ? backtest : null;
+  const current = backtest;
   const pending = !!current && (
     current.status === "pending" ||
     current.status === "running" ||
@@ -58,9 +59,7 @@ export default function Trials() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{bot.name}</b>
-      </div>
+      <BackBar to={withBot("/build/training", bot.id)} label="Training" />
       <Steps current={3} />
       <div className={p.body}>
         <section style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16, padding: "32px 0 24px" }}>
@@ -106,10 +105,11 @@ export default function Trials() {
 
         {!noBacktest && (
           <section style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap", alignItems: "center" }}>
-            {!allDone && <button className={p.btn} onClick={() => setNonce((n) => n + 1)}>Refresh</button>}
+            <button className={p.btn} onClick={() => nav(withBot("/build/training", bot.id))}>← Training</button>
             <button className={p.btn} onClick={() => nav(withBot("/build/compose", bot.id))}>Edit strategy</button>
+            {!allDone && <button className={p.btn} onClick={() => setNonce((n) => n + 1)}>Refresh</button>}
             <button className={`${p.btn} ${p.pri}`} disabled={busy} onClick={toWeather}>
-              {busy ? "Saving…" : "Check the weather"}
+              {busy ? "Saving…" : "Weather →"}
             </button>
             {err && <span className="lbl" style={{ color: "var(--down, #ff5c6c)" }}>{err}</span>}
           </section>

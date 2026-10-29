@@ -19,6 +19,8 @@ import {
 } from "../lib/format";
 import DataTable, { type Column } from "../components/DataTable";
 import FleetChart from "../components/FleetChart";
+import Rolling from "../components/Rolling";
+import ManagePosition from "../components/ManagePosition";
 import { BotLink, Coin } from "../components/cells";
 import { useMyBots } from "../db/queries";
 import { variantFromBot } from "../lib/variant";
@@ -55,6 +57,12 @@ export default function FleetView() {
   const d = useData();
   const { user } = useAuth();
   const { data: roster } = useMyBots(user?.id ?? null);
+  const [manage, setManage] = useState<Position | null>(null);
+  const [closing, setClosing] = useState<Set<string>>(new Set());
+  const myBotId = useMemo(
+    () => new Map((roster ?? []).map((b) => [b.name, b.id])),
+    [roster],
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"cards" | "rows">(() =>
     localStorage.getItem("fleetview") === "rows" ? "rows" : "cards",
@@ -236,6 +244,14 @@ export default function FleetView() {
     { key: "kind", label: "Exit", sortable: true, value: () => "Open", render: () => <span className="up">Open</span> },
     { key: "net", label: "Net", sortable: true, value: (o) => o.upct, render: (o) => <span className={`num ${(o.upct ?? 0) >= 0 ? "up" : "down"}`}>{pct(o.upct != null ? o.upct * 100 : null, true)}</span> },
     { key: "pnl", label: "P&L", sortable: true, value: (o) => o.upnl, render: (o) => <span className={`num ${(o.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(o.upnl, true)}</span> },
+    { key: "manage", label: "", sortable: false, value: () => 0, render: (o) => (
+      myBotId.has(o.variant) ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); setManage(o); }}
+          style={{ height: 26, padding: "0 11px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "#10141a", color: "var(--fg-2)", fontSize: 12, cursor: "pointer" }}
+        >Manage</button>
+      ) : null
+    ) },
   ];
 
   const closedCols: Column<Trade>[] = [
@@ -257,9 +273,9 @@ export default function FleetView() {
         <section className={s.hero}>
           <div className={s.heroMain}>
             <div className="lbl" style={{ fontSize: 13 }}>Fleet total profit</div>
-            <div className={`num gradtext ${s.heroBig}`}>{usd(totalProfit, true)}</div>
+            <div className={`num gradtext ${s.heroBig}`}><Rolling value={totalProfit} format={(n) => usd(n, true)} /></div>
             <div className={s.heroSub}>
-              <span className={`num ${todayPnl >= 0 ? "up" : "down"}`}>{usd(todayPnl, true)} today</span>
+              <span className={`num ${todayPnl >= 0 ? "up" : "down"}`}><Rolling value={todayPnl} format={(n) => usd(n, true)} /> today</span>
               <span className="muted">{closedCount} closed trades · since {dstr(d.start)}</span>
             </div>
           </div>
@@ -279,12 +295,12 @@ export default function FleetView() {
             )}
             <div className={`card ${s.statCard}`}>
               <div className="lbl">Open · unrealized</div>
-              <div className={`num ${unreal >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(unreal, true)}</div>
+              <div className={`num ${unreal >= 0 ? "up" : "down"} ${s.statBig}`}><Rolling value={unreal} format={(n) => usd(n, true)} /></div>
               <div className="lbl" style={{ marginTop: 2 }}>{open.length} open position{open.length === 1 ? "" : "s"}</div>
             </div>
             <div className={`card ${s.statCard}`}>
               <div className="lbl">Last 7 days</div>
-              <div className={`num ${weekPnl >= 0 ? "up" : "down"} ${s.statBig}`}>{usd(weekPnl, true)}</div>
+              <div className={`num ${weekPnl >= 0 ? "up" : "down"} ${s.statBig}`}><Rolling value={weekPnl} format={(n) => usd(n, true)} /></div>
               <div className="lbl" style={{ marginTop: 2 }}>closed P&L, your fleet</div>
             </div>
           </div>
@@ -351,7 +367,7 @@ export default function FleetView() {
                   >
                     <span className={s.tileTop}>
                       <svg width="30" height="30" viewBox="0 0 30 30">
-                        <rect width="30" height="30" rx="8" fill="#12161D" />
+                        <rect width="30" height="30" rx="15" fill="#12161D" />
                         <path d={identicon(b.v.name, 20)} fill={shade} transform="translate(5 5)" />
                       </svg>
                       <span className="num" style={{ fontSize: 13, color: col }}>{pct(b.v.ret, true)}</span>
@@ -381,7 +397,7 @@ export default function FleetView() {
               {filterChip}
             </h2>
           </div>
-          <DataTable columns={openCols} rows={fOpen} />
+          <DataTable columns={openCols} rows={fOpen.filter((o) => !closing.has(o.variant + ":" + o.ticker))} />
         </section>
 
         <section className={s.section48}>
@@ -402,6 +418,15 @@ export default function FleetView() {
           <div className={s.syslog}>{d.log.length ? d.log.join("\n") : "(no recent log lines)"}</div>
         </section>
       </div>
+      {manage && myBotId.get(manage.variant) && (
+        <ManagePosition
+          botId={myBotId.get(manage.variant)!}
+          botName={manage.variant}
+          pos={manage}
+          onClose={() => setManage(null)}
+          onClosed={() => setClosing((c) => new Set(c).add(manage.variant + ":" + manage.ticker))}
+        />
+      )}
     </>
   );
 }

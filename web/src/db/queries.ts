@@ -3,11 +3,17 @@ import { supabase } from "./supabase";
 import type {
   DbBacktest,
   DbBot,
+  DbBotCard,
   DbBotVersion,
+  DbChallenge,
+  DbChallengeStanding,
   DbCheck,
   DbCondition,
+  DbEvent,
   DbFamily,
   DbFleet,
+  DbMarketRow,
+  DbNews,
   DbPlan,
   DbProfile,
   DbStrategyCondition,
@@ -21,19 +27,32 @@ import type {
   Visibility,
 } from "./types";
 
-/** Tiny async-query hook for one-shot Supabase reads. */
+/** Process-wide stale-while-revalidate cache: a revisited page renders its last
+ *  result instantly (no loading flash), then refreshes in the background. */
+const qcache = new Map<string, unknown>();
+export function invalidateQuery(prefix: string) {
+  for (const k of qcache.keys()) if (k.startsWith(prefix)) qcache.delete(k);
+}
+
+/** Tiny async-query hook. Pass a stable `key` to enable the cache. */
 export function useQuery<T>(
   run: () => PromiseLike<{ data: T | null; error: { message: string } | null }>,
   deps: unknown[] = [],
+  key?: string,
 ): { data: T | null; error: string | null; loading: boolean } {
-  const [data, setData] = useState<T | null>(null);
+  const [data, setData] = useState<T | null>(
+    () => (key && qcache.has(key) ? (qcache.get(key) as T) : null),
+  );
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     run().then(({ data, error }) => {
       if (!alive) return;
       if (error) setError(error.message);
-      else setData(data);
+      else {
+        setData(data);
+        if (key && data != null) qcache.set(key, data);
+      }
     });
     return () => {
       alive = false;
@@ -48,14 +67,14 @@ export function useQuery<T>(
 export const fetchBots = () =>
   supabase
     .from("pf_bots")
-    .select("*, builder:pf_profiles(handle, avatar_color)")
+    .select("*, builder:pf_profiles(handle, avatar_color, profile_public, bots_on_leaderboard)")
     .neq("visibility", "private")
     .order("name");
 
 export const fetchBot = (name: string) =>
   supabase
     .from("pf_bots")
-    .select("*, builder:pf_profiles(handle, avatar_color)")
+    .select("*, builder:pf_profiles(handle, avatar_color, profile_public, bots_on_leaderboard)")
     .eq("name", name)
     .single();
 
@@ -131,6 +150,9 @@ export const fetchMyFleets = (owner: string) =>
 export const fetchProfile = (handle: string) =>
   supabase.from("pf_profiles").select("*").eq("handle", handle).single();
 
+export const fetchPublicProfiles = () =>
+  supabase.from("pf_profiles").select("*").eq("profile_public", true).order("handle");
+
 // ---- build lifecycle ----
 
 export const fetchBacktests = (botId: string) =>
@@ -192,7 +214,7 @@ export const fetchPlans = () => supabase.from("pf_plans").select("*").order("pos
 
 // ---- typed convenience hooks ----
 
-export const useBots = () => useQuery<DbBot[]>(() => fetchBots());
+export const useBots = () => useQuery<DbBot[]>(() => fetchBots(), [], "bots");
 export const useMyBots = (owner: string | null) =>
   useQuery<DbBot[]>(
     () => (owner ? fetchMyBots(owner) : Promise.resolve({ data: [], error: null })),
@@ -245,19 +267,21 @@ export function useMyBot(id: string | null, nonce = 0): {
 
   return { data: state.data, error: state.error, loading: state.loading };
 }
-export const useBot = (name: string) => useQuery<DbBot>(() => fetchBot(name), [name]);
+export const useBot = (name: string) => useQuery<DbBot>(() => fetchBot(name), [name], "bot:" + name);
 export const useUniverse = (slug: string) =>
-  useQuery<DbUniverseWithCoins>(() => fetchUniverse(slug), [slug]);
+  useQuery<DbUniverseWithCoins>(() => fetchUniverse(slug), [slug], "universe:" + slug);
 export const useUniverses = () =>
-  useQuery<DbUniverse[]>(() => fetchUniverses());
+  useQuery<DbUniverse[]>(() => fetchUniverses(), [], "universes");
 export const useUniverseFilters = (universeId: string | null) =>
   useQuery<DbUniverseFilter[]>(
     () => (universeId ? fetchUniverseFilters(universeId) : Promise.resolve({ data: [], error: null })),
     [universeId],
   );
-export const useFamilies = () => useQuery<DbFamily[]>(() => fetchFamilies());
+export const useFamilies = () => useQuery<DbFamily[]>(() => fetchFamilies(), [], "families");
 export const useProfile = (handle: string) =>
-  useQuery<DbProfile>(() => fetchProfile(handle), [handle]);
+  useQuery<DbProfile>(() => fetchProfile(handle), [handle], "profile:" + handle);
+export const usePublicProfiles = () =>
+  useQuery<DbProfile[]>(() => fetchPublicProfiles(), [], "profiles");
 export const useMyFleets = (owner: string | null) =>
   useQuery<DbFleet[]>(
     () => (owner ? fetchMyFleets(owner) : Promise.resolve({ data: [], error: null })),
@@ -294,7 +318,7 @@ export const useBotVersions = (botId: string | null) =>
     () => (botId ? fetchBotVersions(botId) : Promise.resolve({ data: [], error: null })),
     [botId],
   );
-export const usePlans = () => useQuery<DbPlan[]>(() => fetchPlans());
+export const usePlans = () => useQuery<DbPlan[]>(() => fetchPlans(), [], "plans");
 
 /** The whole lifecycle for one bot in a single settled read: its latest
  *  backtest, and that backtest's checks + conditions. `loading` is honest
@@ -398,6 +422,10 @@ export const createDraftBot = (input: {
   direction: string | null;
   params: Record<string, unknown>;
   spec?: Record<string, unknown> | null;
+  visibility?: Visibility;
+  copied_from?: string | null;
+  challenge_id?: string | null;
+  market?: string;
 }) =>
   supabase
     .from("pf_bots")
@@ -409,12 +437,85 @@ export const createDraftBot = (input: {
       direction: input.direction,
       params: input.params,
       spec: input.spec ?? null,
+      copied_from: input.copied_from ?? null,
+      challenge_id: input.challenge_id ?? null,
       stage: "draft",
-      market: "crypto",
-      visibility: "private", // private by default — you choose when to publish
+      market: input.market ?? (input.spec?.market === "equity" ? "stocks" : "crypto"),
+      visibility: input.visibility ?? "private",
     })
     .select("id, name")
     .single();
+
+/** Clone a bot into the signed-in Builder's roster as a Draft to edit in Compose. */
+export const copyBotToDraft = async (
+  source: DbBot,
+  owner: string,
+  visibility: Visibility = "private",
+) => {
+  const baseName = `${source.name} copy`.slice(0, 28);
+  let candidate = baseName;
+  for (let n = 2; n <= 20; n++) {
+    const check = await botNameTaken(owner, candidate);
+    if (!check.taken) break;
+    candidate = `${baseName} ${n}`;
+  }
+  const clonedSpec =
+    source.spec && typeof source.spec === "object"
+      ? { ...(source.spec as Record<string, unknown>), name: candidate }
+      : null;
+  return createDraftBot({
+    name: candidate,
+    owner,
+    family_slug: source.family_slug,
+    universe_id: source.universe_id,
+    direction: source.direction,
+    params: { ...(source.params ?? {}) },
+    spec: clonedSpec,
+    visibility,
+    copied_from: source.id,
+  });
+};
+
+/** Update a bot's visibility setting ('private' | 'results' | 'public'). */
+export const setBotVisibility = (bot_id: string, visibility: Visibility) =>
+  supabase.from("pf_bots").update({ visibility }).eq("id", bot_id);
+
+/** Update visibility across all bots owned by a builder. */
+export const setAllMyBotsVisibility = (owner: string, visibility: Visibility) =>
+  supabase.from("pf_bots").update({ visibility }).eq("owner", owner);
+
+/** Upload a builder's avatar image to the public `avatars` bucket (path scoped
+ *  to their uid so RLS allows it), then save the public URL on the profile. */
+export const uploadAvatar = async (userId: string, file: File) => {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `${userId}/avatar.${ext}`;
+  const up = await supabase.storage.from("avatars").upload(path, file, {
+    upsert: true,
+    cacheControl: "3600",
+    contentType: file.type || undefined,
+  });
+  if (up.error) return { url: null, error: up.error };
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const url = `${data.publicUrl}?v=${Date.now()}`; // cache-bust on replace
+  const { error } = await supabase.from("pf_profiles").update({ avatar_url: url }).eq("id", userId);
+  return { url, error };
+};
+
+/** Update the signed-in Builder's profile and privacy settings. */
+export const updateBuilderProfile = (
+  id: string,
+  changes: Partial<
+    Pick<
+      DbProfile,
+      | "display_name"
+      | "bio"
+      | "avatar_color"
+      | "profile_public"
+      | "bots_on_leaderboard"
+      | "default_bot_visibility"
+    >
+  >,
+) => supabase.from("pf_profiles").update(changes).eq("id", id);
 
 /** Edit a composed bot. The old backtest and weather gate no longer describe
  *  this Setup, so clear them and send the bot back to Draft until re-trained.
@@ -437,6 +538,7 @@ export const updateDraftBot = (input: {
       direction: input.direction,
       params: input.params,
       spec: input.spec === undefined ? null : input.spec,
+      market: input.spec?.market === "equity" ? "stocks" : "crypto",
       stage: "draft",
       bt: null,
       validated_at: null,
@@ -446,6 +548,49 @@ export const updateDraftBot = (input: {
     .select("id, name")
     .single();
 
+/** Silent auto-save while moving back and forth across Build steps.
+ *  Preserves stage/bt/condition_filter unless explicitly reset. */
+export const autosaveBot = (input: {
+  id: string;
+  name: string;
+  family_slug: string | null;
+  universe_id: string | null;
+  direction: string | null;
+  params: Record<string, unknown>;
+  spec?: Record<string, unknown> | null;
+  visibility?: Visibility;
+}) =>
+  supabase
+    .from("pf_bots")
+    .update({
+      name: input.name,
+      family_slug: input.family_slug,
+      universe_id: input.universe_id,
+      direction: input.direction,
+      params: input.params,
+      spec: input.spec === undefined ? null : input.spec,
+      market: input.spec?.market === "equity" ? "stocks" : "crypto",
+      ...(input.visibility ? { visibility: input.visibility } : {}),
+    })
+    .eq("id", input.id)
+    .select("id, name")
+    .single();
+
+/** Auto-save deploy preferences (name, fleet, visibility) on Step 5. */
+export const autosaveDeployPrefs = (input: {
+  id: string;
+  name: string;
+  fleet_id: string | null;
+  visibility: Visibility;
+}) =>
+  supabase
+    .from("pf_bots")
+    .update({
+      name: input.name,
+      fleet_id: input.fleet_id,
+      visibility: input.visibility,
+    })
+    .eq("id", input.id);
 /** Move a bot along the ladder (training -> trials -> weather -> ready). */
 export const setBotStage = (bot_id: string, stage: Stage) =>
   supabase.from("pf_bots").update({ stage }).eq("id", bot_id);
@@ -539,6 +684,157 @@ export const deployBot = (input: {
     .select("id, name")
     .single();
 
+/** Queue an owner action on an open position (close / adjust stop / adjust TP).
+ *  The engine drains pending rows and applies them on its next cycle. */
+export const queuePositionAction = (input: {
+  bot_id: string;
+  ticker: string;
+  action: "close" | "set_stop" | "set_tp";
+  value?: number | null;
+}) =>
+  supabase.from("pf_position_actions").insert({
+    bot_id: input.bot_id, ticker: input.ticker, action: input.action,
+    value: input.value ?? null,
+  });
+
 /** Permanently delete a bot owned by the signed-in user (cascades to child rows). */
 export const deleteBot = (bot_id: string) =>
   supabase.from("pf_bots").delete().eq("id", bot_id);
+
+// ---- market discovery ----
+
+/** Live market snapshot the engine writes (pf_market_snapshot). Most-traded
+ *  first; sorting/filtering for the board is done client-side. */
+export const fetchMarketSnapshot = (market = "crypto") =>
+  supabase.from("pf_market_snapshot").select("*").eq("market", market)
+    .order("quote_volume", { ascending: false });
+
+export const useMarket = (market = "crypto") =>
+  useQuery<DbMarketRow[]>(() => fetchMarketSnapshot(market), [market], "market:" + market);
+
+/** Builders the signed-in user follows (builder ids). */
+export const fetchMyFollows = (follower: string) =>
+  supabase.from("pf_follows").select("builder").eq("follower", follower);
+export const useMyFollows = (follower: string | null) =>
+  useQuery<{ builder: string }[]>(
+    () => (follower ? fetchMyFollows(follower) : Promise.resolve({ data: [], error: null })),
+    [follower],
+    follower ? "follows:" + follower : undefined,
+  );
+export const followBuilder = (follower: string, builder: string) =>
+  supabase.from("pf_follows").insert({ follower, builder });
+export const unfollowBuilder = (follower: string, builder: string) =>
+  supabase.from("pf_follows").delete().eq("follower", follower).eq("builder", builder);
+
+/** The activity feed — trade/copy/follow events, newest first. RLS hides
+ *  private actors' events. */
+export const fetchEvents = (limit = 60) =>
+  supabase.from("pf_events").select("*").order("ts", { ascending: false }).limit(limit);
+
+export const useEvents = (limit = 60) =>
+  useQuery<DbEvent[]>(() => fetchEvents(limit), [limit], "events:" + limit);
+
+/** Latest crypto news headlines (pf_news), newest first. */
+export const fetchNews = (limit = 40) =>
+  supabase.from("pf_news").select("*").order("published_at", { ascending: false }).limit(limit);
+
+export const useNews = (limit = 40) =>
+  useQuery<DbNews[]>(() => fetchNews(limit), [limit], "news:" + limit);
+
+export const fetchMarketRow = (symbol: string) =>
+  supabase.from("pf_market_snapshot").select("*").eq("symbol", symbol).maybeSingle();
+
+export const useMarketRow = (symbol: string) =>
+  useQuery<DbMarketRow | null>(() => fetchMarketRow(symbol), [symbol], "marketrow:" + symbol);
+
+// ---- challenges ----
+
+/** Every challenge that has left draft (RLS also shows the author their own). */
+export const fetchChallenges = () =>
+  supabase.from("pf_challenges").select("*").order("created_at", { ascending: false });
+
+export const fetchChallenge = (slug: string) =>
+  supabase.from("pf_challenges").select("*").eq("slug", slug).single();
+
+/** A challenge's entrants as safe cards (identity + record, never the Setup).
+ *  Reads the pf_bot_cards view so a sealed entry's spec stays hidden. */
+export const fetchChallengeEntries = (challengeId: string) =>
+  supabase.from("pf_bot_cards").select("*").eq("challenge_id", challengeId);
+
+/** The settled board: one row per entry, winner first (ineligible last). */
+export const fetchStandings = (challengeId: string) =>
+  supabase
+    .from("pf_challenge_standings")
+    .select("*")
+    .eq("challenge_id", challengeId)
+    .order("place", { ascending: true, nullsFirst: false });
+
+export const useChallenges = () => useQuery<DbChallenge[]>(() => fetchChallenges(), [], "challenges");
+export const useChallenge = (slug: string) =>
+  useQuery<DbChallenge>(() => fetchChallenge(slug), [slug], "challenge:" + slug);
+
+export interface ChallengeBoard {
+  loading: boolean;
+  entries: DbBotCard[];
+  standings: DbChallengeStanding[];
+}
+
+/** Entrants (cards) + standings for one challenge in a single settled read. */
+export function useChallengeBoard(challengeId: string | null, nonce = 0): ChallengeBoard {
+  const [state, setState] = useState<ChallengeBoard>({
+    loading: !!challengeId,
+    entries: [],
+    standings: [],
+  });
+  useEffect(() => {
+    let alive = true;
+    if (!challengeId) {
+      setState({ loading: false, entries: [], standings: [] });
+      return;
+    }
+    (async () => {
+      const [e, st] = await Promise.all([
+        fetchChallengeEntries(challengeId),
+        fetchStandings(challengeId),
+      ]);
+      if (!alive) return;
+      setState({
+        loading: false,
+        entries: (e.data as DbBotCard[]) ?? [],
+        standings: (st.data as DbChallengeStanding[]) ?? [],
+      });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [challengeId, nonce]);
+  return state;
+}
+
+/** Enter a challenge: Copy its locked template into a Draft stamped with the
+ *  challenge_id, to tune the one open hole in Compose. The engine re-checks the
+ *  lock-set on save, and the DB freezes the Setup once the window closes. */
+export const enterChallenge = async (challenge: DbChallenge, owner: string) => {
+  const base = `${challenge.title} entry`.slice(0, 28);
+  let candidate = base;
+  for (let n = 2; n <= 20; n++) {
+    const check = await botNameTaken(owner, candidate);
+    if (!check.taken) break;
+    candidate = `${base} ${n}`;
+  }
+  const tmpl: Record<string, unknown> =
+    challenge.template && typeof challenge.template === "object"
+      ? { ...(challenge.template as Record<string, unknown>), name: candidate }
+      : { name: candidate };
+  return createDraftBot({
+    name: candidate,
+    owner,
+    family_slug: null,
+    universe_id: null,
+    direction: (tmpl.side as string) ?? null,
+    params: {},
+    spec: tmpl,
+    visibility: "private",
+    challenge_id: challenge.id,
+  });
+};

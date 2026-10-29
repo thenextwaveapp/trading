@@ -1,0 +1,133 @@
+.wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 26px var(--gutter) 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 312px;
+  gap: 30px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .wrap { grid-template-columns: 1fr; }
+  .rail { display: none; }
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--card-bottom);
+  width: fit-content;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab.on { background: #171c24; color: var(--fg); }
+
+/* posts */
+.post { padding: 16px 18px; margin-bottom: 14px; }
+.pHead { display: flex; align-items: center; gap: 11px; }
+.pWho { min-width: 0; }
+.pName { font-size: 14px; font-weight: 500; }
+.pSub { font-size: 13px; color: var(--muted); }
+.pTime { margin-left: auto; font-size: 13px; color: var(--muted); align-self: flex-start; }
+.pText { font-size: 14px; color: var(--fg-2); margin: 12px 0 2px; line-height: 1.45; }
+
+/* trade card inside a post */
+.trade {
+  margin-top: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: #0d1117;
+  padding: 15px;
+}
+.tradeTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.tkrRow { display: flex; align-items: center; gap: 8px; }
+.tkr { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.sideChip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+.sideLong { color: var(--up); background: color-mix(in srgb, var(--up) 15%, transparent); }
+.sideShort { color: var(--down); background: color-mix(in srgb, var(--down) 15%, transparent); }
+.price { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.pnl { font-size: 16px; text-align: right; }
+.pnlLbl { font-size: 12px; color: var(--muted); text-align: right; margin-top: 2px; }
+.mimic {
+  margin-top: 13px;
+  width: 100%;
+  justify-content: center;
+}
+.tradeFoot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.statusDot { display: inline-flex; align-items: center; gap: 6px; }
+
+/* post actions */
+.actions { display: flex; gap: 22px; margin-top: 12px; }
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.action:hover { color: var(--fg-2); }
+.action.liked { color: var(--down); }
+
+/* right rail */
+.rail { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; }
+.railCard { padding: 16px; }
+.railTitle { font-size: 13px; font-weight: 500; margin-bottom: 12px; }
+.railRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 0;
+  cursor: pointer;
+  border-top: 1px solid var(--line);
+}
+.railRow:first-of-type { border-top: none; }
+.railName { font-size: 14px; font-weight: 500; }
+.railMeta { font-size: 12px; color: var(--muted); }
+.followBtn {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #10141a;
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+  flex: none;
+}
+.followBtn.on { background: transparent; color: var(--muted); }
+.meCard { padding: 16px; display: flex; align-items: center; gap: 12px; }

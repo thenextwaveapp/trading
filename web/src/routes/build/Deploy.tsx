@@ -1,11 +1,14 @@
 import { botColor } from "../../lib/brand";
+import { BackBar } from "../../components/cells";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth";
 import {
+  autosaveDeployPrefs,
   botNameTaken,
   createFleet,
   deployBot,
+  useLatestBacktest,
   useMyBot,
   useMyFleets,
 } from "../../db/queries";
@@ -31,22 +34,26 @@ export default function Deploy() {
   const [sp] = useSearchParams();
   const botId = sp.get("bot") ?? "";
   const { data: bot, loading: botLoading } = useMyBot(botId || null);
+  const { data: bt } = useLatestBacktest(bot?.id ?? null);
   const { data: fleets } = useMyFleets(user?.id ?? null);
 
   const [name, setName] = useState("");
   const [fleetId, setFleetId] = useState<string | null>(null);
   const [createdFleet, setCreatedFleet] = useState<DbFleet | null>(null);
   const [vis, setVis] = useState<Visibility>("results");
+  const [seeded, setSeeded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   useEffect(() => {
-    if (bot) {
+    if (bot && !seeded) {
       setName(bot.name);
       setVis(bot.visibility);
+      if (bot.fleet_id) setFleetId(bot.fleet_id);
+      setSeeded(true);
     }
-  }, [bot]);
+  }, [bot, seeded]);
 
   const allFleets = useMemo(
     () => (createdFleet ? [...(fleets ?? []), createdFleet] : fleets ?? []),
@@ -56,6 +63,20 @@ export default function Deploy() {
     if (allFleets.length && !fleetId) setFleetId(allFleets[0].id);
   }, [allFleets, fleetId]);
 
+  useEffect(() => {
+    if (!seeded || !bot) return;
+    const t = setTimeout(() => {
+      const finalName = name.trim() || bot.name;
+      void autosaveDeployPrefs({
+        id: bot.id,
+        name: finalName,
+        fleet_id: fleetId,
+        visibility: vis,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [name, fleetId, vis, seeded, bot]);
+
   if (botLoading) return <StepLoading step={5} />;
   if (!bot) return <MissingBot step={5} />;
 
@@ -63,8 +84,9 @@ export default function Deploy() {
   const spec = bot.spec as Record<string, unknown> | null;
   const partial = !spec || spec.partial === true;
   const deployed = bot.stage === "deployed";
+  const hasDoneBt = bt?.status === "done" || ["trials", "weather", "ready", "deployed"].includes(bot.stage);
   const liveBlockers = spec ? blockingIssues(spec, "live") : [];
-  const blocked = !deployed && (bot.stage !== "ready" || partial || liveBlockers.length > 0);
+  const blocked = !deployed && (!hasDoneBt || partial || liveBlockers.length > 0);
 
   const makeFleet = async (): Promise<string | null> => {
     if (!user) {
@@ -118,14 +140,12 @@ export default function Deploy() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{bot.name}</b>
-      </div>
+      <BackBar to={withBot("/build/weather", bot.id)} label="Weather" />
       <Steps current={5} />
       <div className={p.body}>
         <div className={r.modalCard}>
           <div className={r.modalIcon}>
-            <svg width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#12161D" /><path d={identicon(name || bot.name, 38)} fill={botColor(bot)} transform="translate(13 13)" /></svg>
+            <svg width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#12161D" /><path d={identicon(name || bot.name, 38)} fill={botColor(bot)} transform="translate(13 13)" /></svg>
           </div>
 
           {done ? (
@@ -220,9 +240,14 @@ export default function Deploy() {
                 </div>
               </div>
 
-              <button className={`${p.btn} ${p.pri}`} style={{ height: 48, marginTop: 20, justifyContent: "center" }} disabled={busy} onClick={launch}>
-                {busy ? "Deploying…" : `Deploy ${name.trim() || bot.name}`}
-              </button>
+              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <button className={p.btn} style={{ height: 48 }} onClick={() => nav(withBot("/build/weather", bot.id))}>
+                  ← Weather
+                </button>
+                <button className={`${p.btn} ${p.pri}`} style={{ flex: 1, height: 48, justifyContent: "center" }} disabled={busy} onClick={launch}>
+                  {busy ? "Deploying…" : `Deploy ${name.trim() || bot.name}`}
+                </button>
+              </div>
               {err && <div style={{ color: "var(--down)", fontSize: 13, marginTop: 10, textAlign: "center" }}>{err}</div>}
               <div className="lbl" style={{ textAlign: "center", marginTop: 12 }}>
                 Starts with {dol(fleet?.budget_per_bot ?? 10_000)} from the fleet's budget. The backtest, trials and weather gate stay attached.

@@ -1,4 +1,5 @@
 import { DEFAULT_BOT_COLOR, botColor } from "../../lib/brand";
+import { BackBar } from "../../components/cells";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createBacktest, setBotStage, useBuildData, useMyBot } from "../../db/queries";
@@ -20,12 +21,8 @@ export default function Training() {
   const { loading, backtest } = useBuildData(bot?.id ?? null, nonce);
   const [queuing, setQueuing] = useState(false);
   const [queueErr, setQueueErr] = useState<string | null>(null);
-  const [queued, setQueued] = useState(false);
 
-  // A Draft's old done backtest describes an older Setup, but a pending or
-  // running one is live work — show it even before the stage flip lands.
-  const liveRun = !!backtest && (backtest.status === "pending" || backtest.status === "running");
-  const current = backtest && (liveRun || (bot && (bot.stage !== "draft" || queued))) ? backtest : null;
+  const current = backtest;
 
   useEffect(() => {
     if (!current || current.status === "done" || current.status === "error") return;
@@ -75,18 +72,14 @@ export default function Training() {
       setQueueErr(error.message);
       return;
     }
-    setQueued(true);
     setNonce((n) => n + 1);
   };
 
-  const name = bot.name;
   const edit = () => nav(withBot("/build/compose", bot.id));
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{name}</b>
-      </div>
+      <BackBar to={withBot("/build/compose", bot.id)} label="Compose" />
       <Steps current={2} />
       <div className={p.body}>
         {specBlockers.length > 0 && (
@@ -126,6 +119,7 @@ export default function Training() {
           <Running
             onRefresh={() => setNonce((n) => n + 1)}
             onEdit={edit}
+            onTrials={() => nav(withBot("/build/trials", bot.id))}
             onRetry={queue}
             retrying={queuing}
             status={current.status}
@@ -135,10 +129,10 @@ export default function Training() {
         ) : !specBlockers.length ? (
           <NotRun
             onQueue={queue}
+            onEdit={edit}
             onSweep={() => nav(withBot("/build/sweep", bot.id))}
             queuing={queuing}
             error={queueErr}
-            note={backtest ? "The Setup changed since the last run — train again to test the new rules." : undefined}
           />
         ) : null}
         {queueErr && current && (
@@ -179,12 +173,12 @@ function Result({ bt, color, onTrials, onSweep, onEdit, onRetrain, retraining }:
           <div className="lbl" style={{ marginTop: 8 }}>{bt.cost_note || "Includes taker fees and slippage."}</div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className={p.btn} onClick={onEdit}>Edit strategy</button>
+          <button className={p.btn} onClick={onEdit}>← Compose</button>
           <button className={p.btn} onClick={onRetrain} disabled={retraining}>
             {retraining ? "Queuing…" : "Train again"}
           </button>
           <button className={p.btn} onClick={onSweep}>Sweep parameters</button>
-          <button className={`${p.btn} ${p.pri}`} onClick={onTrials}>Run the trials</button>
+          <button className={`${p.btn} ${p.pri}`} onClick={onTrials}>Trials →</button>
         </div>
       </section>
 
@@ -209,9 +203,10 @@ function Result({ bt, color, onTrials, onSweep, onEdit, onRetrain, retraining }:
   );
 }
 
-function Running({ onRefresh, onEdit, onRetry, retrying, status, note, createdAt }: {
+function Running({ onRefresh, onEdit, onTrials, onRetry, retrying, status, note, createdAt }: {
   onRefresh: () => void;
   onEdit: () => void;
+  onTrials: () => void;
   onRetry: () => void;
   retrying: boolean;
   status: string;
@@ -253,21 +248,23 @@ function Running({ onRefresh, onEdit, onRetry, retrying, status, note, createdAt
           </div>
         )}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+          <button className={p.btn} onClick={onEdit}>← Compose</button>
           <button className={p.btn} onClick={onRefresh}>Refresh</button>
-          <button className={p.btn} onClick={onEdit}>Edit strategy</button>
           {failed && (
             <button className={p.btn} onClick={onRetry} disabled={retrying}>
               {retrying ? "Queuing…" : "Try again"}
             </button>
           )}
+          <button className={p.btn} onClick={onTrials}>Trials →</button>
         </div>
       </div>
     </section>
   );
 }
 
-function NotRun({ onQueue, onSweep, queuing, error, note }: {
+function NotRun({ onQueue, onEdit, onSweep, queuing, error, note }: {
   onQueue: () => void;
+  onEdit: () => void;
   onSweep: () => void;
   queuing: boolean;
   error?: string | null;
@@ -283,6 +280,7 @@ function NotRun({ onQueue, onSweep, queuing, error, note }: {
         </div>
         {error && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13, marginTop: 8 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+          <button className={p.btn} onClick={onEdit}>← Compose</button>
           <button className={`${p.btn} ${p.pri}`} disabled={queuing} onClick={onQueue}>
             {queuing ? "Queuing…" : "Start training"}
           </button>

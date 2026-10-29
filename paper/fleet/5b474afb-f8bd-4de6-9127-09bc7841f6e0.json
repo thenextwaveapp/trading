@@ -1,0 +1,23 @@
+{
+ "equity": 10010.607988092284,
+ "kill_until": 0,
+ "last_sig_t": 0,
+ "positions": [],
+ "eq_hist": [],
+ "orders": [],
+ "trades": [
+  {
+   "ticker": "STRK",
+   "t_sig": 1791845100000,
+   "entry": 0.0838,
+   "stop": 0.0,
+   "exit_t": 1791931500000,
+   "kind": "time",
+   "net": 0.008505,
+   "pnl": 10.61,
+   "notional": 1247.33,
+   "equity_after": 10010.61,
+   "side": "long"
+  }
+ ]
+}

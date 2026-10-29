@@ -29,10 +29,26 @@ const icons = {
       <rect x="10.6" y="9" width="2.6" height="3" rx=".5" fill="currentColor" />
     </svg>
   ),
+  market: (
+    <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+      <path d="M4 2.5v2M4 10.5v3M12 1.5v3M12 11v1.5" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="2.5" y="4.5" width="3" height="6" rx=".6" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="10.5" y="4.5" width="3" height="6.5" rx=".6" fill="currentColor" />
+    </svg>
+  ),
+  trophy: (
+    <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
+      <path d="M4.5 2h7v3.2a3.5 3.5 0 0 1-7 0V2Z" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4.5 3H2.6a2 2 0 0 0 2.2 2.6M11.5 3h1.9a2 2 0 0 1-2.2 2.6" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8 8.6V11M5.5 14h5M6.6 11h2.8v3" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  ),
   settings: (
     <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4 3.2 12.8" stroke="currentColor" strokeWidth="1.15" />
+      <path d="M2.5 4.5h4M9.5 4.5h4M2.5 8h7M12 8h1.5M2.5 11.5h2M7.5 11.5h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="8" cy="4.5" r="1.4" fill="currentColor" />
+      <circle cx="11" cy="8" r="1.4" fill="currentColor" />
+      <circle cx="6" cy="11.5" r="1.4" fill="currentColor" />
     </svg>
   ),
 };
@@ -76,15 +92,19 @@ export default function Sidebar({
     icon: "fleet" as const,
     active: user ? loc.pathname.startsWith("/fleet") : loc.pathname === "/",
   };
+  const market = { label: "Market", path: "/market", icon: "market" as const, active: loc.pathname.startsWith("/market") };
   const board = { label: "Leaderboard", path: "/leaderboard", icon: "leaderboard" as const, active: loc.pathname.startsWith("/leaderboard") };
+  const challenges = { label: "Challenges", path: "/challenges", icon: "trophy" as const, active: loc.pathname.startsWith("/challenge") };
   const navItems: { label: string; path: string; icon: keyof typeof icons; active: boolean }[] = user
     ? [
         home,
+        market,
         { label: "Build", path: "/build", icon: "build", active: loc.pathname.startsWith("/build") },
         board,
+        challenges,
         { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
       ]
-    : [home, board];
+    : [home, market, board, challenges];
 
   return (
     <aside className={`${s.side} ${collapsed ? s.collapsed : ""} ${mobileOpen ? s.open : ""}`}>

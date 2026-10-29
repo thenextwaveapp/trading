@@ -6,7 +6,7 @@ import { useData } from "../../api/context";
 import { useLatestBacktest, useMyBots, useFamilies } from "../../db/queries";
 import DataTable, { type Column } from "../../components/DataTable";
 import BotChart from "../../components/BotChart";
-import { BotLink, Coin } from "../../components/cells";
+import { BackBar, BotLink, Coin } from "../../components/cells";
 import type { Trade } from "../../api/types";
 import { variantFromBot } from "../../lib/variant";
 import { DIRLBL, REASON, START, clock, dol, dstr, held, identicon, pct, px, usd, windowReturn } from "../../lib/format";
@@ -72,12 +72,10 @@ export default function Report() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> / <span className="lk" onClick={() => nav("/build")}>Reports</span> / <b>{name}</b>
-      </div>
+      <BackBar fallbackPath="/build" fallbackLabel="Build" />
       <div className={p.body}>
         <section style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "center", padding: "36px 0 24px" }}>
-          <svg width="88" height="88" viewBox="0 0 88 88"><rect width="88" height="88" rx="22" fill="#12161D" /><path d={identicon(name, 52)} fill={botColor(bot)} transform="translate(18 18)" /></svg>
+          <svg width="88" height="88" viewBox="0 0 88 88"><rect width="88" height="88" rx="44" fill="#12161D" /><path d={identicon(name, 52)} fill={botColor(bot)} transform="translate(18 18)" /></svg>
           <div style={{ flex: "1 1 320px" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", fontWeight: 500 }}>{name}</h1>

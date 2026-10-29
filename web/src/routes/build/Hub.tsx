@@ -5,7 +5,8 @@ import { useAuth } from "../../auth";
 import { useData } from "../../api/context";
 import { deleteBot, useMyBots, useFamilies, useLatestBacktest } from "../../db/queries";
 import type { DbBot, Stage } from "../../db/types";
-import { DIRLBL, dol, identicon, pct, windowReturn } from "../../lib/format";
+import { DIRLBL, START as START_EQ, dol, identicon, pct, windowReturn } from "../../lib/format";
+import { CardsSkeleton } from "../../components/Skeleton";
 import p from "../pages.module.css";
 import r from "./build.module.css";
 import { STAGES, resumePath } from "./stages";
@@ -114,22 +115,35 @@ export default function Hub() {
     }
   };
 
-  const deployedBots = (bots ?? []).filter((b) => b.stage === "deployed");
+  const deployedBots = useMemo(
+    () => (bots ?? []).filter((b) => b.stage === "deployed"),
+    [bots],
+  );
   const avgEdge = useMemo(() => {
     const xs = (bots ?? []).map((b) => b.bt).filter((x): x is number => x != null);
     return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
   }, [bots]);
   const best = useMemo(() => {
-    let name: string | null = null, top = -Infinity;
-    for (const v of live.variants) {
-      const ret = windowReturn(v.curve, null, live.now);
-      if (ret > top) { top = ret; name = v.name; }
+    let name: string | null = null,
+      top = -Infinity;
+    for (const b of deployedBots) {
+      const v = byName.get(b.name);
+      if (!v) continue;
+      const ret = v.curve.length ? windowReturn(v.curve, null, live.now) : v.ret;
+      if (ret > top) {
+        top = ret;
+        name = b.name;
+      }
     }
     return name ? { name, ret: top } : null;
-  }, [live.variants, live.now]);
+  }, [deployedBots, byName, live.now]);
   const paperEquity = useMemo(
-    () => live.variants.reduce((a, v) => a + (v.equity ?? 0), 0),
-    [live.variants],
+    () =>
+      deployedBots.reduce(
+        (a, b) => a + (byName.get(b.name)?.equity ?? START_EQ),
+        0,
+      ),
+    [deployedBots, byName],
   );
 
   // Every bot, best live return first.
@@ -153,7 +167,7 @@ export default function Hub() {
 
       <div className={p.body}>
         {loading ? (
-          <div className="muted" style={{ padding: 40 }}>Loading your bots…</div>
+          <CardsSkeleton cards={6} />
         ) : (bots ?? []).length === 0 ? (
           <EmptyBuild onStart={(family) => nav(family ? `/build/compose?family=${family}` : "/build/compose")} />
         ) : (
@@ -224,7 +238,7 @@ export default function Hub() {
                       onClick={() => nav(resumePath(b.stage, b.id, b.name))}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <svg width="34" height="34" viewBox="0 0 34 34" style={{ flex: "none" }}><rect width="34" height="34" rx="9" fill="#12161D" /><path d={identicon(b.name, 22)} fill={botColor(b)} transform="translate(6 6)" /></svg>
+                        <svg width="34" height="34" viewBox="0 0 34 34" style={{ flex: "none" }}><rect width="34" height="34" rx="17" fill="#12161D" /><path d={identicon(b.name, 22)} fill={botColor(b)} transform="translate(6 6)" /></svg>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div className={r.kName}>{b.name}</div>
                           <div className="lbl">{DIRLBL[b.direction ?? ""] ?? b.direction ?? "—"}</div>

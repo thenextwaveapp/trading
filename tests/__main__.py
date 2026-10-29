@@ -24,6 +24,9 @@ SUITES = [
     "selftest_exits_side",   # side-aware stops + two-sided trailing
     "selftest_service",      # service capability gates before data loading
     "selftest_sweep",        # parameter grid expansion + per-run sweep results
+    "selftest_challenges",   # challenge lock-set, predicates, judges
+    "selftest_challenge_runner",  # challenge settle loop end-to-end over candles
+    "selftest_equity",       # mark-to-market equity curve follows price
 ]
 
 

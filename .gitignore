@@ -9,9 +9,13 @@ live/ARMED
 logs/
 *.log
 *.lock
+*.bak
 live/state.json
 live/pump_events.json
 live/spec_fingerprint.txt
+
+# supabase CLI local state
+supabase/.temp/
 
 # large datasets (over GitHub size limits)
 *.csv.gz

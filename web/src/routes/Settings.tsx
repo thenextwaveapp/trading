@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import { useAuth } from "../auth";
-import { ago, clock, TZ } from "../lib/format";
+import { updateBuilderProfile, uploadAvatar } from "../db/queries";
+import { DEFAULT_BOT_COLOR, FLEET_PALETTE } from "../lib/brand";
+import { ago, clock, identicon, TZ } from "../lib/format";
 import p from "./pages.module.css";
 
 const TABS = ["Profile", "Sharing", "Defaults", "Alerts", "Plan", "System"];
@@ -10,8 +12,53 @@ const TABS = ["Profile", "Sharing", "Defaults", "Alerts", "Plan", "System"];
 export default function Settings() {
   const d = useData();
   const nav = useNavigate();
-  const { profile, user, signOut } = useAuth();
-  const [tab, setTab] = useState("System");
+  const { profile, user, refreshProfile, signOut } = useAuth();
+  const [tab, setTab] = useState("Sharing");
+
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarColor, setAvatarColor] = useState(DEFAULT_BOT_COLOR);
+  const [profilePublic, setProfilePublic] = useState(true);
+  const [botsOnBoard, setBotsOnBoard] = useState(true);
+  const [seeded, setSeeded] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const onPickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    const { error } = await uploadAvatar(user.id, file);
+    if (!error) await refreshProfile();
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  useEffect(() => {
+    if (profile && !seeded) {
+      setDisplayName(profile.display_name ?? "");
+      setBio(profile.bio ?? "");
+      setAvatarColor(profile.avatar_color || DEFAULT_BOT_COLOR);
+      setProfilePublic(profile.profile_public ?? true);
+      setBotsOnBoard(profile.bots_on_leaderboard ?? true);
+      setSeeded(true);
+    }
+  }, [profile, seeded]);
+
+  useEffect(() => {
+    if (!seeded || !user) return;
+    const t = setTimeout(async () => {
+      await updateBuilderProfile(user.id, {
+        display_name: displayName.trim() || null,
+        bio: bio.trim() || null,
+        avatar_color: avatarColor,
+        profile_public: profilePublic,
+        bots_on_leaderboard: botsOnBoard,
+      });
+      await refreshProfile();
+    }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayName, bio, avatarColor, profilePublic, botsOnBoard, seeded, user]);
 
   const liveOk = d.running && !d.paused;
   const errs = d.log.filter((l) => /error|exception|traceback/i.test(l)).length;
@@ -34,15 +81,76 @@ export default function Settings() {
         {tab === "Profile" && (
           user ? (
             <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Handle" value={"@" + (profile?.handle ?? "…")} />
-              <Field label="Display name" value={profile?.display_name ?? "—"} />
-              <Field label="Email" value={user.email ?? "—"} />
-              <div>
-                <div className="lbl" style={{ marginBottom: 6 }}>Avatar color</div>
-                <span style={{ display: "inline-block", width: 30, height: 30, borderRadius: 8, background: profile?.avatar_color ?? "#3a81d7" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt=""
+                    width={64}
+                    height={64}
+                    style={{ flex: "none", borderRadius: "50%", objectFit: "cover", background: "#12161D" }}
+                  />
+                ) : (
+                  <svg width="64" height="64" viewBox="0 0 64 64" style={{ flex: "none" }}>
+                    <rect width="64" height="64" rx="32" fill="#12161D" />
+                    <path d={identicon("@" + (profile?.handle ?? "builder"), 38)} fill={avatarColor} transform="translate(13 13)" />
+                  </svg>
+                )}
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 500 }}>@{profile?.handle ?? "…"}</div>
+                  <div className="lbl" style={{ marginTop: 4 }}>{user.email ?? "—"}</div>
+                  <label className={`${p.btn} ${p.sm}`} style={{ marginTop: 8, cursor: "pointer" }}>
+                    {uploading ? "Uploading…" : profile?.avatar_url ? "Change photo" : "Upload photo"}
+                    <input type="file" accept="image/*" hidden disabled={uploading} onChange={onPickAvatar} />
+                  </label>
+                </div>
               </div>
-              <div className="lbl">Editing your profile arrives with the write backend. You're signed in — your bots and fleet are yours.</div>
-              <button className={`${p.btn} ${p.sm}`} style={{ width: "fit-content" }} onClick={() => signOut()}>Sign out</button>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="lbl">Display name</span>
+                <input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Your display name"
+                  style={{ height: 44, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border)", background: "#0d1117", color: "var(--fg)", font: "inherit", fontSize: 14 }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="lbl">Bio</span>
+                <input
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Short bio on your builder profile"
+                  style={{ height: 44, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border)", background: "#0d1117", color: "var(--fg)", font: "inherit", fontSize: 14 }}
+                />
+              </label>
+              <div>
+                <div className="lbl" style={{ marginBottom: 8 }}>Avatar color</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {FLEET_PALETTE.flatMap((h) => h.shades).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setAvatarColor(c)}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        background: c,
+                        border: avatarColor === c ? "2px solid var(--fg)" : "2px solid transparent",
+                        cursor: "pointer",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                {profile?.handle && (
+                  <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/builder/" + encodeURIComponent(profile.handle))}>
+                    View builder profile
+                  </button>
+                )}
+                <button className={`${p.btn} ${p.sm}`} onClick={() => signOut()}>Sign out</button>
+              </div>
             </div>
           ) : (
             <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -53,12 +161,40 @@ export default function Settings() {
         )}
 
         {tab === "Sharing" && (
-          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>Default visibility</div>
-              <div className="lbl" style={{ marginTop: 6, lineHeight: 1.5 }}>New bots land in your roster private. Choose what to expose when you deploy.</div>
-              <Field label="Default bot visibility" value={profile?.default_bot_visibility ?? "results"} />
-              <Field label="Show on leaderboard" value={profile?.bots_on_leaderboard ? "Yes" : "No"} />
+          <div style={{ maxWidth: 580, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="card" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 18 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 500 }}>Builder privacy</div>
+                <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>
+                  Control whether your builder profile and deployed bots appear in public search and on the Leaderboard.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Public builder profile</div>
+                  <div className="lbl" style={{ marginTop: 3 }}>
+                    Allow others to find @{profile?.handle ?? "you"} in search and view your builder page.
+                  </div>
+                </div>
+                <div className={p.seg}>
+                  <button className={`${p.segBtn} ${profilePublic ? p.sel : ""}`} onClick={() => setProfilePublic(true)}>Public</button>
+                  <button className={`${p.segBtn} ${!profilePublic ? p.sel : ""}`} onClick={() => setProfilePublic(false)}>Private</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Show bots on Leaderboard</div>
+                  <div className="lbl" style={{ marginTop: 3 }}>
+                    Include your non-private deployed bots on the public Leaderboard.
+                  </div>
+                </div>
+                <div className={p.seg}>
+                  <button className={`${p.segBtn} ${botsOnBoard ? p.sel : ""}`} onClick={() => setBotsOnBoard(true)}>Shown</button>
+                  <button className={`${p.segBtn} ${!botsOnBoard ? p.sel : ""}`} onClick={() => setBotsOnBoard(false)}>Hidden</button>
+                </div>
+              </div>
             </div>
           </div>
         )}

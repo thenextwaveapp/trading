@@ -117,7 +117,10 @@ def conditions_breakdown(trades, candles_by_ticker, bar_ms=DEFAULT_BAR_MS):
     without it we return no cells rather than inventing a market state.
     `bar_ms` is the strategy's candle size, so the 24h context stays 24h.
     """
-    btc = candles_by_ticker.get("BTC")
+    btc = (candles_by_ticker.get("BTC")
+           or candles_by_ticker.get("SPY")
+           or candles_by_ticker.get("QQQ")
+           or next(iter(candles_by_ticker.values()), None))
     if not btc:
         return []
 

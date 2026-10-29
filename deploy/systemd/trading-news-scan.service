@@ -1,0 +1,14 @@
+[Unit]
+Description=news scan (crypto headlines -> pf_news)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=trading
+WorkingDirectory=/opt/trading
+ExecStart=/opt/trading/engine-venv/bin/python -m runtime.news_scan
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

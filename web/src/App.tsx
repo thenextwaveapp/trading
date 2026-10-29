@@ -1,15 +1,20 @@
-import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { FleetCtx, EMPTY_PAYLOAD } from "./api/context";
 import { useFleet } from "./api/useFleet";
 import { useAuth } from "./auth";
 import { CandleProvider } from "./components/CandleModal";
+import { useTrackNav } from "./components/cells";
 import RequireAuth from "./components/RequireAuth";
-import Sidebar from "./components/Sidebar";
+import TopBar from "./components/TopBar";
 import FleetView from "./routes/FleetView";
+import Feed from "./routes/Feed";
 import LandingLayout from "./routes/LandingLayout";
 import BotProfile from "./routes/BotProfile";
 import Leaderboard from "./routes/Leaderboard";
+import Market from "./routes/Market";
+import MarketDetail from "./routes/MarketDetail";
+import Challenges from "./routes/Challenges";
+import ChallengeDetail from "./routes/ChallengeDetail";
 import Builder from "./routes/Builder";
 import Build from "./routes/Build";
 import Settings from "./routes/Settings";
@@ -21,32 +26,7 @@ export default function App() {
   const { data, error } = useFleet();
   const { user, loading: authLoading } = useAuth();
   const loc = useLocation();
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem("sbc") === "1",
-  );
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const toggle = () =>
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem("sbc", next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [loc.pathname, loc.hash]);
-
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [menuOpen]);
+  useTrackNav();
 
   if (authLoading || (!data && !error)) {
     return (
@@ -63,7 +43,6 @@ export default function App() {
   }
 
   const fleet = data ?? EMPTY_PAYLOAD;
-  const liveOk = fleet.running && !fleet.paused;
 
   if (!user && loc.pathname === "/") {
     return (
@@ -79,41 +58,7 @@ export default function App() {
     <FleetCtx.Provider value={fleet}>
       <CandleProvider>
         <div className={styles.app}>
-          <header className={styles.topbar}>
-            <button
-              className={styles.hamburger}
-              onClick={() => setMenuOpen((o) => !o)}
-              aria-label="Open menu"
-              aria-expanded={menuOpen}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                <path d="M3 6h18M3 12h18M3 18h18" />
-              </svg>
-            </button>
-            <span className={styles.brand}>
-              <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden>
-                <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
-                <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
-              </svg>
-              paper fleet
-            </span>
-            {user && (
-              <span
-                className={styles.topStatus}
-                title={liveOk ? "Fleet is live" : fleet.paused ? "Fleet paused" : "Fleet is down"}
-              >
-                <span className={liveOk ? "liveDot" : "downDot"} />
-              </span>
-            )}
-          </header>
-
-          <div
-            className={`${styles.backdrop} ${menuOpen ? styles.backdropOpen : ""}`}
-            onClick={() => setMenuOpen(false)}
-            aria-hidden
-          />
-
-          <Sidebar collapsed={collapsed} onToggle={toggle} mobileOpen={menuOpen} />
+          <TopBar />
 
           <main className={styles.main}>
             {!data && user && (
@@ -122,10 +67,15 @@ export default function App() {
               </div>
             )}
             <Routes>
-              <Route path="/" element={<Navigate to="/fleet" replace />} />
+              <Route path="/" element={<Navigate to="/feed" replace />} />
+              <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
               <Route path="/fleet" element={<RequireAuth><FleetView /></RequireAuth>} />
               <Route path="/bot/:name" element={<BotProfile />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/market" element={<Market />} />
+              <Route path="/market/:symbol" element={<MarketDetail />} />
+              <Route path="/challenges" element={<Challenges />} />
+              <Route path="/challenge/:slug" element={<ChallengeDetail />} />
               <Route path="/builder/:handle?" element={<Builder />} />
               <Route path="/build/*" element={<RequireAuth><Build /></RequireAuth>} />
               <Route path="/settings/*" element={<RequireAuth><Settings /></RequireAuth>} />

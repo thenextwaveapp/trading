@@ -1,9 +1,11 @@
 import { botColor } from "../lib/brand";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useCurrentHandle } from "../auth";
+import { useAuth, useCurrentHandle } from "../auth";
 import { useData } from "../api/context";
-import { useBots, useProfile } from "../db/queries";
+import { copyBotToDraft, useBots, useProfile } from "../db/queries";
+import type { DbBot } from "../db/types";
+import { BackBar } from "../components/cells";
 import { DIRLBL, identicon, pct, windowReturn } from "../lib/format";
 import p from "./pages.module.css";
 import s from "./Builder.module.css";
@@ -12,19 +14,40 @@ export default function Builder() {
   const nav = useNavigate();
   // A :handle in the URL shows that builder; otherwise the signed-in user.
   const { handle: param } = useParams();
+  const { user, profile: myProfile } = useAuth();
   const me = useCurrentHandle();
   const handle = param ?? me ?? null;
+  const isMe = !!me && handle === me;
   const live = useData();
   const { data: profile } = useProfile(handle ?? "");
   const { data: allBots } = useBots();
+  const [copyingId, setCopyingId] = useState<string | null>(null);
+
+  const handleCopy = async (bot: DbBot) => {
+    if (!user) {
+      nav("/signin");
+      return;
+    }
+    setCopyingId(bot.id);
+    const { data } = await copyBotToDraft(
+      bot,
+      user.id,
+      myProfile?.default_bot_visibility ?? "private",
+    );
+    setCopyingId(null);
+    if (data?.id) {
+      nav(`/build/compose?bot=${encodeURIComponent(data.id)}`);
+    }
+  };
 
   const mine = useMemo(() => (allBots ?? []).filter((b) => b.builder?.handle === handle), [allBots, handle]);
   const byName = useMemo(() => new Map(live.variants.map((v) => [v.name, v])), [live.variants]);
 
-  const bots = mine
-    .map((b) => ({ b, v: byName.get(b.name) }))
-    .filter((x) => x.v)
-    .map((x) => ({ ...x, ret: windowReturn(x.v!.curve, 30, live.now) }));
+  const bots = mine.map((b) => {
+    const v = byName.get(b.name);
+    const ret = v ? (v.curve.length ? windowReturn(v.curve, 30, live.now) : v.ret) : (b.bt ?? 0);
+    return { b, v, ret };
+  });
 
   const liveBots = bots.filter((x) => x.b.stage === "deployed");
   const totalTrades = bots.reduce((a, x) => a + (x.v?.closed ?? 0), 0);
@@ -41,24 +64,43 @@ export default function Builder() {
     );
   }
 
+  if (profile && profile.profile_public === false && !isMe) {
+    return (
+      <>
+        <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />
+        <div className={p.body} style={{ paddingTop: 40 }}>
+          <div className="muted">@{handle}'s builder profile is private.</div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/leaderboard")}>Leaderboard</span> / <b>@{handle}</b>
-      </div>
+      <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />
 
       <div className={p.body}>
         <section className={s.hero}>
-          <svg width="112" height="112" viewBox="0 0 112 112">
-            <rect width="112" height="112" rx="28" fill="#12161D" />
-            <path d={identicon("@" + handle, 64)} fill={profile?.avatar_color || "#3a81d7"} transform="translate(24 24)" />
-          </svg>
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" width={112} height={112}
+                 style={{ flex: "none", borderRadius: "50%", objectFit: "cover", background: "#12161D" }} />
+          ) : (
+            <svg width="112" height="112" viewBox="0 0 112 112">
+              <rect width="112" height="112" rx="56" fill="#12161D" />
+              <path d={identicon("@" + handle, 64)} fill={profile?.avatar_color || "#3a81d7"} transform="translate(24 24)" />
+            </svg>
+          )}
           <div className={s.heroMain}>
             <h1 className={s.h1}>@{handle}</h1>
             {profile?.bio && <div className={s.quote}>{profile.bio}</div>}
             <div className={s.chips}>
               <span className="chip">{liveBots.length} bots live</span>
               <span className="chip">{totalTrades} trades</span>
+              {isMe && (
+                <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/settings")}>
+                  Privacy &amp; sharing
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -80,7 +122,7 @@ export default function Builder() {
               return (
                 <div key={b.id} className={`card ${s.bc}`}>
                   <div className={s.bcTop}>
-                    <svg width="44" height="44" viewBox="0 0 44 44"><rect width="44" height="44" rx="11" fill="#12161D" /><path d={identicon(b.name, 28)} fill={botColor(b)} transform="translate(8 8)" /></svg>
+                    <svg width="44" height="44" viewBox="0 0 44 44"><rect width="44" height="44" rx="22" fill="#12161D" /><path d={identicon(b.name, 28)} fill={botColor(b)} transform="translate(8 8)" /></svg>
                     <div>
                       <div style={{ fontSize: 16, fontWeight: 500 }}>{b.name}</div>
                       <div className="lbl" style={{ marginTop: 2 }}>{b.note || DIRLBL[b.direction ?? ""]}</div>
@@ -93,7 +135,18 @@ export default function Builder() {
                     </div>
                     <div className={s.bcCta}>
                       <span className="chip">Crypto · {b.visibility === "public" ? "Public strategy" : "Results only"}</span>
-                      <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(b.name))}>Open</button>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {(b.visibility === "public" || (user && b.owner === user.id)) && (
+                          <button
+                            className={`${p.btn} ${p.sm}`}
+                            disabled={copyingId === b.id}
+                            onClick={() => void handleCopy(b)}
+                          >
+                            {copyingId === b.id ? "…" : "Copy"}
+                          </button>
+                        )}
+                        <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(b.name))}>Open</button>
+                      </div>
                     </div>
                   </div>
                 </div>

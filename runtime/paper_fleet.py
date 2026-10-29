@@ -1260,8 +1260,85 @@ def cycle_db(states):
     spec_runtime.run_fleet(
         bots, states, {} if paused else candles_by_interval, universes,
         fetch=fetch, gate=gate, notes=NOTES, log=log)
+    # latest price per ticker from this cycle's candles, for marking open
+    # positions to market (so the equity mark moves intraday, not only on close)
+    px_now = {}
+    for _cand in candles_by_interval.values():
+        for _tk, _cs in _cand.items():
+            if _cs:
+                px_now[_tk] = _cs[-1]["c"]
+
+    def _mtm_equity(st):
+        """Realized equity + unrealized P&L of open positions at the latest
+        price. This is the account's true equity right now, so the curve drawn
+        from marks wiggles with open positions instead of stepping only on
+        close."""
+        eq = st.get("equity", START_EQUITY)
+        for p in st.get("positions", []):
+            px, entry = px_now.get(p.get("ticker")), p.get("entry")
+            if not px or not entry:
+                continue
+            sign = 1 if p.get("side", 1) in (1, "long") else -1
+            eq += p.get("notional", 0.0) * sign * (px / entry - 1)
+        return eq
+
+    def _apply_position_actions(bot_id, st):
+        """Honor owner actions queued from the web (close / adjust stop / tp).
+        A close realizes P&L at the current price exactly like a normal exit
+        (same fee model), appends the trade, and removes the position — so it
+        flows out through the trade/mark write below like any other close."""
+        from . import pf_db
+        try:
+            acts = pf_db.get(
+                "pf_position_actions",
+                f"bot_id=eq.{bot_id}&status=eq.pending&select=id,ticker,action,value")
+        except Exception:
+            return
+        for a in acts:
+            try:
+                tk = a.get("ticker")
+                pos = next((p for p in st.get("positions", []) if p.get("ticker") == tk), None)
+                if a["action"] == "close" and pos:
+                    px = px_now.get(tk)
+                    if not px or not pos.get("entry"):
+                        continue  # can't price it yet — leave pending, retry next cycle
+                    side = 1 if pos.get("side", 1) in (1, "long") else -1
+                    net = side * (px / pos["entry"] - 1) - (2 * TAKER + SLIP)
+                    pnl = pos.get("notional", 0.0) * net
+                    if pos.get("margin"):
+                        pnl = max(pnl, -pos["margin"])
+                    now_ms = int(time.time() * 1000)
+                    st["equity"] = st.get("equity", START_EQUITY) + pnl
+                    st.setdefault("eq_hist", []).append([now_ms, st["equity"]])
+                    st["positions"].remove(pos)
+                    st.setdefault("trades", []).append({
+                        "t_sig": pos.get("t_sig"), "exit_t": now_ms, "ticker": tk,
+                        "side": "long" if side == 1 else "short", "kind": "manual",
+                        "net": round(net, 6), "pnl": round(pnl, 2),
+                        "notional": round(pos.get("notional", 0.0), 2),
+                        "entry": pos.get("entry")})
+                    log(f"[{bot_id}] MANUAL CLOSE {tk} net {net * 100:+.2f}% pnl {pnl:+.2f}")
+                elif a["action"] == "set_stop" and pos and a.get("value") is not None:
+                    pos["stop"] = float(a["value"])
+                elif a["action"] == "set_tp" and pos and a.get("value") is not None:
+                    pos["tp"] = float(a["value"])
+                pf_db.patch("pf_position_actions", f"id=eq.{a['id']}", {"status": "done"})
+            except Exception:
+                try:
+                    pf_db.patch("pf_position_actions", f"id=eq.{a['id']}", {"status": "error"})
+                except Exception:
+                    pass
+
     for b in bots:
         st = states[b["id"]]
+        _apply_position_actions(b["id"], st)
+        # A duplicate engine instance that loaded no local state marks a fresh
+        # account (equity=START, no trades, no positions) every cycle — that
+        # spurious series is what makes the chart sawtooth. Don't write it.
+        if (st.get("equity", START_EQUITY) == START_EQUITY
+                and not st.get("trades") and not st.get("positions")):
+            save_state(b["id"], st)
+            continue
         try:
             from . import pf_db
             for tr in st.get("trades", [])[prev_counts[b["id"]]:]:
@@ -1277,11 +1354,12 @@ def cycle_db(states):
             trs = st.get("trades", [])
             closed_n = max(len(st.get("eq_hist", [])), len(trs))
             win_pct = round(sum(1 for t in trs if float(t.get("pnl", t.get("net", 0)) or 0) > 0) / len(trs) * 100, 1) if trs else None
+            mtm = _mtm_equity(st)
             pf_db.save_mark({
                 "bot_id": b["id"],
                 "t": int(time.time() * 1000),
-                "equity": st.get("equity", START_EQUITY),
-                "ret": st.get("equity", START_EQUITY) / START_EQUITY - 1,
+                "equity": mtm,
+                "ret": mtm / START_EQUITY - 1,
                 "open_json": st.get("positions", []),
                 "closed": closed_n,
                 "win": win_pct,
@@ -1384,6 +1462,84 @@ def monitor():
         pass
 
 
+def _live_price(symbol):
+    try:
+        k = klines(symbol, limit=1)
+        return k[-1]["c"] if k else None
+    except Exception:
+        return None
+
+
+def _push_mark(bot_id, st):
+    """Write an immediate mark so a manual close shows up at once (realized
+    equity + remaining positions); the next cycle refines it to MTM."""
+    from . import pf_db
+    trs = st.get("trades", [])
+    closed_n = max(len(st.get("eq_hist", [])), len(trs))
+    win_pct = round(sum(1 for t in trs if float(t.get("pnl", t.get("net", 0)) or 0) > 0) / len(trs) * 100, 1) if trs else None
+    eq = st.get("equity", START_EQUITY)
+    pf_db.save_mark({
+        "bot_id": bot_id, "t": int(time.time() * 1000), "equity": eq,
+        "ret": eq / START_EQUITY - 1, "open_json": st.get("positions", []),
+        "closed": closed_n, "win": win_pct,
+        "kill": bool(st.get("kill_until", 0) > time.time() * 1000),
+        "paused": os.path.exists(PAUSE)})
+
+
+def fast_drain(states):
+    """Apply queued owner actions within seconds (not on the 15-min cycle). Runs
+    in the main loop's wait tick — same thread as the cycle, so no state race."""
+    from . import pf_db
+    try:
+        acts = pf_db.get("pf_position_actions",
+                         "status=eq.pending&select=id,bot_id,ticker,action,value"
+                         "&order=created_at.asc")
+    except Exception:
+        return
+    for a in acts:
+        try:
+            bid = a["bot_id"]
+            st = states.get(bid)
+            if st is None:
+                st = load_state(bid)
+                states[bid] = st
+            tk = a["ticker"]
+            pos = next((p for p in st.get("positions", []) if p.get("ticker") == tk), None)
+            if a["action"] == "close" and pos:
+                px = _live_price(pos.get("symbol") or f"{tk}USDT")
+                if px is None:
+                    continue  # couldn't price — leave pending, retry next tick
+                side = 1 if pos.get("side", 1) in (1, "long") else -1
+                net = side * (px / pos["entry"] - 1) - (2 * TAKER + SLIP)
+                pnl = pos.get("notional", 0.0) * net
+                if pos.get("margin"):
+                    pnl = max(pnl, -pos["margin"])
+                now_ms = int(time.time() * 1000)
+                st["equity"] = st.get("equity", START_EQUITY) + pnl
+                st.setdefault("eq_hist", []).append([now_ms, st["equity"]])
+                st["positions"].remove(pos)
+                tr = {"t_sig": pos.get("t_sig"), "exit_t": now_ms, "ticker": tk,
+                      "side": "long" if side == 1 else "short", "kind": "manual",
+                      "net": round(net, 6), "pnl": round(pnl, 2),
+                      "notional": round(pos.get("notional", 0.0), 2),
+                      "entry": pos.get("entry")}
+                st.setdefault("trades", []).append(tr)
+                save_state(bid, st)
+                pf_db.save_trade({"bot_id": bid, **tr, "exit_px": None})
+                _push_mark(bid, st)
+                log(f"[{bid}] FAST CLOSE {tk} net {net * 100:+.2f}% pnl {pnl:+.2f}")
+            elif a["action"] == "set_stop" and pos and a.get("value") is not None:
+                pos["stop"] = float(a["value"]); save_state(bid, st)
+            elif a["action"] == "set_tp" and pos and a.get("value") is not None:
+                pos["tp"] = float(a["value"]); save_state(bid, st)
+            pf_db.patch("pf_position_actions", f"id=eq.{a['id']}", {"status": "done"})
+        except Exception:
+            try:
+                pf_db.patch("pf_position_actions", f"id=eq.{a['id']}", {"status": "error"})
+            except Exception:
+                pass
+
+
 def main():
     known = {"--once", "--monitor", "--status"}
     bad = [a for a in sys.argv[1:] if a not in known]
@@ -1424,6 +1580,7 @@ def main():
             break
         nxt = (time.time() // 900 + 1) * 900 + 30
         while time.time() < nxt:
+            fast_drain(states)   # honor close/adjust within seconds
             time.sleep(min(3, max(nxt - time.time(), 0.1)))
 
 

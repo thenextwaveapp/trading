@@ -1,0 +1,14 @@
+[Unit]
+Description=market scan (discovery feed -> pf_market_snapshot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=trading
+WorkingDirectory=/opt/trading
+ExecStart=/opt/trading/engine-venv/bin/python -m runtime.market_scan
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

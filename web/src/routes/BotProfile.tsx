@@ -1,9 +1,10 @@
 import { DEFAULT_BOT_COLOR, botColor } from "../lib/brand";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
 import { useAuth } from "../auth";
-import { deleteBot, useBot, useLatestBacktest } from "../db/queries";
+import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useLatestBacktest, useMyBot } from "../db/queries";
+import type { Visibility } from "../db/types";
 import type { Position, Trade } from "../api/types";
 import { variantFromBot } from "../lib/variant";
 import {
@@ -21,7 +22,7 @@ import {
 } from "../lib/format";
 import DataTable, { type Column } from "../components/DataTable";
 import BotChart from "../components/BotChart";
-import { BotLink, Coin } from "../components/cells";
+import { BackBar, BotLink, Coin } from "../components/cells";
 import s from "./BotProfile.module.css";
 
 const OP_SYM: Record<string, string> = {
@@ -139,24 +140,55 @@ const isOpen = (r: Row): r is OpenRow => "_open" in r;
 
 export default function BotProfile() {
   const d = useData();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const nav = useNavigate();
   const { name = "" } = useParams();
   const liveV = d.variants.find((x) => x.name === name);
-  // The live feed carries params for every running bot; honor the DB's
-  // visibility model before showing a bot's strategy — public, or its owner.
   const { data: bot, loading: botLoading } = useBot(name);
+  const { data: parentBot } = useMyBot(bot?.copied_from ?? null);
   const { data: bt } = useLatestBacktest(bot?.id ?? null);
   const btV = bot ? variantFromBot(bot, bt) : null;
-  // Pages must render even when the engine feed omits the bot: fall back to
-  // the DB row + latest backtest results.
   const v = liveV ? { ...liveV, color: bot ? botColor(bot) : liveV.color } : btV;
   const liveTrades = useMemo(() => d.trades.filter((t) => t.variant === name), [d.trades, name]);
   const hasLiveTrades = (liveV?.closed ?? 0) > 0 || (liveV?.open.length ?? 0) > 0 || liveTrades.length > 0;
   const isOwner = !!user && !!bot && bot.owner === user.id;
+  const [vis, setVis] = useState<Visibility>(bot?.visibility ?? "results");
+  const [copying, setCopying] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (bot?.visibility) setVis(bot.visibility);
+  }, [bot?.visibility]);
+
+  const changeVisibility = async (next: Visibility) => {
+    setVis(next);
+    if (bot && isOwner) {
+      await setBotVisibility(bot.id, next);
+    }
+  };
+
+  const onCopy = async () => {
+    if (!bot) return;
+    if (!user) {
+      nav("/signin");
+      return;
+    }
+    setCopying(true);
+    setDelErr(null);
+    const { data, error } = await copyBotToDraft(
+      bot,
+      user.id,
+      profile?.default_bot_visibility ?? "private",
+    );
+    setCopying(false);
+    if (error || !data) {
+      setDelErr(error?.message ?? "Could not copy bot.");
+      return;
+    }
+    nav(`/build/compose?bot=${encodeURIComponent(data.id)}`);
+  };
 
   const stats = useMemo(() => {
     if (!v) return null;
@@ -196,15 +228,27 @@ export default function BotProfile() {
     return { best, streak, liveDd, btDd, avgGap };
   }, [v, bt, btV, liveTrades]);
 
+  if (bot && vis === "private" && !isOwner) {
+    return (
+      <>
+        <BackBar fallbackPath="/" fallbackLabel="Fleet" />
+        <div className={s.body}>
+          <div className={s.missing}>
+            This bot is private.{" "}
+            <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/leaderboard")}>
+              Back to Leaderboard →
+            </span>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (!v || !stats) {
     if (botLoading) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
     return (
       <>
-        <div className={s.crumb}>
-          <span className={s.crumbLink} onClick={() => nav("/")}>
-            <Back /> Fleet
-          </span>
-        </div>
+        <BackBar fallbackPath="/" fallbackLabel="Fleet" />
         <div className={s.body}>
           <div className={s.missing}>
             No bot named “{name}”.{" "}
@@ -301,15 +345,11 @@ export default function BotProfile() {
 
   return (
     <>
-      <div className={s.crumb}>
-        <span className={s.crumbLink} onClick={() => nav("/")}>
-          <Back /> Fleet
-        </span>
-      </div>
+      <BackBar fallbackPath="/" fallbackLabel="Fleet" />
       <div className={s.body}>
         <section className={s.hero}>
           <svg width="104" height="104" viewBox="0 0 104 104">
-            <rect width="104" height="104" rx="26" fill="#12161D" />
+            <rect width="104" height="104" rx="52" fill="#12161D" />
             <path d={identicon(name, 60)} fill={v.color || DEFAULT_BOT_COLOR} transform="translate(22 22)" />
           </svg>
           <div className={s.heroMain}>
@@ -318,33 +358,92 @@ export default function BotProfile() {
               {statusChip}
             </div>
             <div className={s.note}>{v.note || "A paper-trading strategy variant."}</div>
+            {bot?.builder?.handle && (
+              <div className={s.note} style={{ marginTop: 2 }}>
+                by{" "}
+                <span className="lk" onClick={() => nav("/builder/" + encodeURIComponent(bot.builder!.handle))}>
+                  @{bot.builder.handle}
+                </span>
+              </div>
+            )}
             <div className={s.chips}>
               <span className="chip">Launched {dstr(d.start)}</span>
-              <span className="chip">Crypto</span>
+              <span className="chip">
+                {bot?.market === "stocks" || (bot?.spec as Record<string, unknown> | null)?.market === "equity"
+                  ? "Stocks"
+                  : "Crypto"}
+              </span>
               {grp && <span className="chip">{grp}</span>}
+              <span className="chip">
+                {vis === "public" ? "Public strategy" : vis === "results" ? "Results only" : "Private"}
+              </span>
+              {bot?.copied_from && (
+                <span
+                  className={`chip ${parentBot ? "lk" : ""}`}
+                  onClick={() => parentBot && nav("/bot/" + encodeURIComponent(parentBot.name))}
+                  title={parentBot ? `Copied from ${parentBot.name}` : "Copied from another bot"}
+                >
+                  {parentBot ? (
+                    <>
+                      Copied from <b>{parentBot.name}</b>
+                    </>
+                  ) : (
+                    "Copied strategy"
+                  )}
+                </span>
+              )}
               {v.kill && <span className="chip danger">Kill-switch active</span>}
             </div>
           </div>
-          {isOwner && (
-            <div className={s.actions}>
-              <button className={s.btn} disabled title="Controls live on the ops dashboard">
-                Pause
-              </button>
+          <div className={s.actions}>
+            {bot && (isOwner || vis === "public") && (
               <button
-                className={`${s.btn} ${s.dangerBtn}`}
-                disabled={deleting}
-                onClick={() => void onDelete()}
+                className="copyBtn"
+                disabled={copying}
+                onClick={() => void onCopy()}
               >
-                {deleting ? "Deleting…" : confirmDel ? "Confirm delete" : "Delete"}
+                {copying ? "Copying…" : "Copy"}
               </button>
-              {confirmDel && !deleting && (
-                <button className={s.btn} onClick={() => setConfirmDel(false)}>
-                  Cancel
+            )}
+            {isOwner && (
+              <>
+                <div style={{ display: "inline-flex", border: "1px solid var(--line-2)", borderRadius: 10, padding: 2, background: "var(--card-bottom)" }}>
+                  {(["private", "results", "public"] as Visibility[]).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => void changeVisibility(opt)}
+                      style={{
+                        height: 32,
+                        padding: "0 11px",
+                        border: "none",
+                        borderRadius: 7,
+                        background: vis === opt ? "#171c24" : "transparent",
+                        color: vis === opt ? "var(--fg)" : "var(--muted)",
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {opt === "private" ? "Private" : opt === "results" ? "Results only" : "Public"}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className={`${s.btn} ${s.dangerBtn}`}
+                  disabled={deleting}
+                  onClick={() => void onDelete()}
+                >
+                  {deleting ? "Deleting…" : confirmDel ? "Confirm delete" : "Delete"}
                 </button>
-              )}
-              {delErr && <span className="down" style={{ fontSize: 12 }}>{delErr}</span>}
-            </div>
-          )}
+                {confirmDel && !deleting && (
+                  <button className={s.btn} onClick={() => setConfirmDel(false)}>
+                    Cancel
+                  </button>
+                )}
+              </>
+            )}
+            {delErr && <span className="down" style={{ fontSize: 12 }}>{delErr}</span>}
+          </div>
         </section>
 
         <div className="lbl" style={{ marginBottom: 8 }}>Live performance</div>
@@ -412,9 +511,3 @@ function Stat({ label, value, cls, sub }: { label: string; value: string; cls?: 
     </div>
   );
 }
-
-const Back = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M9.5 3.5 5 8l4.5 4.5" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);

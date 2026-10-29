@@ -67,6 +67,10 @@ def iso(t):
 
 
 def klines(symbol, limit=25, start=None, interval="15m"):
+    if not str(symbol).upper().endswith("USDT"):
+        from core.service import _fetch_equity
+        rows = _fetch_equity(symbol, interval=interval, limit=limit, start=start)
+        return rows if rows else None
     url = f"{API}?symbol={symbol}&interval={interval}&limit={limit}"
     if start is not None:
         url += f"&startTime={start}"

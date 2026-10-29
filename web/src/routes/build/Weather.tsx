@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { BackBar } from "../../components/cells";
 import { saveWeatherGate, setConditionFilter, useBuildData, useMyBot } from "../../db/queries";
 import type { DbCondition } from "../../db/types";
 import { pct } from "../../lib/format";
@@ -36,7 +37,7 @@ export default function Weather() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const current = bot && bot.stage !== "draft" ? backtest : null;
+  const current = backtest;
   const done = current?.status === "done";
 
   useEffect(() => {
@@ -114,9 +115,7 @@ export default function Weather() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className="lk" onClick={() => nav("/build")}>Build</span> / <b>{bot.name}</b>
-      </div>
+      <BackBar to={withBot("/build/trials", bot.id)} label="Trials" />
       <Steps current={4} />
       <div className={p.body}>
         <section style={{ padding: "32px 0 24px" }}>
@@ -198,12 +197,13 @@ export default function Weather() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className={p.btn} onClick={() => nav("/build")}>Later</button>
+            <button className={p.btn} onClick={() => nav(withBot("/build/trials", bot.id))}>← Trials</button>
+            <button className={p.btn} onClick={() => nav(withBot("/build/compose", bot.id))}>Edit strategy</button>
             {bot.stage === "deployed" ? (
               <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/bot/" + encodeURIComponent(bot.name))}>View bot</button>
             ) : (
               <button className={`${p.btn} ${p.pri}`} disabled={!done || busy} onClick={deploy}>
-                {busy ? "Saving…" : "Deploy bot"}
+                {busy ? "Saving…" : "Deploy →"}
               </button>
             )}
           </div>

@@ -24,7 +24,9 @@ def _bar_ms(strategy):
     return int(strategy.get("_interval_ms") or M15)
 
 
-def _gapless(candles, i, L, step):
+def _gapless(candles, i, L, step, market=None):
+    if market in ("equity", "futures", "fx_spot"):
+        return candles[i]["t"] > candles[i - L]["t"] if L > 0 else True
     return candles[i]["t"] - candles[i - L]["t"] == L * step
 
 
@@ -53,7 +55,7 @@ def _entry_true(strategy, candles, j, cache):
     L = strategy["_lookback"]
     if not _index_ok(candles, j, L):
         return False
-    if not _gapless(candles, j, L, _bar_ms(strategy)):
+    if not _gapless(candles, j, L, _bar_ms(strategy), strategy.get("market")):
         return False
     if not _alive(candles, j):
         return False

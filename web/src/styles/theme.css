@@ -30,6 +30,12 @@
   --gutter: 40px;          /* page left/right inset; shrinks on mobile */
   --topbar-h: 56px;        /* mobile top app bar height */
 
+  /* radius scale — radius = meaning. Sharp for instrument/data surfaces,
+     circles for living things (avatars/bots). Pill is reserved for ~toggles. */
+  --radius: 8px;           /* containers / cards */
+  --radius-sm: 5px;        /* buttons, inputs, tags, controls */
+  --radius-pill: 999px;    /* reserved: true toggles / live states only */
+
   /* fonts */
   --font-sans: "Figtree", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
