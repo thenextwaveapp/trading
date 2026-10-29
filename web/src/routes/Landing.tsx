@@ -1,55 +1,71 @@
 import { botColor } from "../lib/brand";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import { useBots } from "../db/queries";
 import type { DbBot } from "../db/types";
-import type { Variant } from "../api/types";
+import type { Position, Variant } from "../api/types";
 import { identicon, pct, usd, windowReturn } from "../lib/format";
 import s from "./Landing.module.css";
 
-/** A single rotating spotlight of a live bot — favours ones currently in a
- *  trade — cycling every 10s, in place of a static "bots live" count. */
-function NowTrading({ variants }: { variants: Variant[] }) {
-  const roster = useMemo(
-    () => variants.slice().sort((a, b) => (b.open?.length ?? 0) - (a.open?.length ?? 0)),
-    [variants],
+function BotDot({ seed, color, size = 40 }: { seed: string; color: string; size?: number }) {
+  const inner = Math.round(size * 0.6);
+  const off = Math.round((size - inner) / 2);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: "none" }}>
+      <rect width={size} height={size} rx={size / 2} fill="#12161D" />
+      <path d={identicon(seed, inner)} fill={color} transform={`translate(${off} ${off})`} />
+    </svg>
   );
+}
+
+/** One rotating spotlight of the fleet, live — an open trade (bot, instrument,
+ *  unrealized) when there is one, otherwise a top bot "watching". Cycles every
+ *  6s. The P&L shows here only, so nothing is duplicated elsewhere on the card. */
+function LiveSpotlight({ positions, variants }: { positions: Position[]; variants: Variant[] }) {
+  const byName = useMemo(() => new Map(variants.map((v) => [v.name, v])), [variants]);
+  const items = useMemo<{ name: string; color: string; sub: ReactNode; right: ReactNode }[]>(() => {
+    if (positions.length) {
+      return positions.map((p) => ({
+        name: p.variant,
+        color: byName.get(p.variant)?.color || "#3a81d7",
+        sub: (
+          <>
+            {p.ticker} <span className={p.side === "short" ? "down" : "up"}>{p.side}</span>
+          </>
+        ),
+        right: <span className={`num ${(p.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(p.upnl, true)}</span>,
+      }));
+    }
+    return variants
+      .slice()
+      .sort((a, b) => b.ret - a.ret)
+      .slice(0, 6)
+      .map((v) => ({
+        name: v.name,
+        color: v.color || "#3a81d7",
+        sub: <span className="muted">watching</span>,
+        right: <span className={`num ${v.ret >= 0 ? "up" : "down"}`}>{pct(v.ret, true)}</span>,
+      }));
+  }, [positions, variants, byName]);
+
   const [i, setI] = useState(0);
   useEffect(() => {
-    if (roster.length <= 1) return;
-    const t = setInterval(() => setI((x) => x + 1), 10000);
+    if (items.length <= 1) return;
+    const t = setInterval(() => setI((x) => x + 1), 6000);
     return () => clearInterval(t);
-  }, [roster.length]);
+  }, [items.length]);
 
-  if (!roster.length) {
-    return (
-      <div>
-        <div className={s.statLbl}>Now trading</div>
-        <div className={s.panelStatNum} style={{ fontSize: 18 }}>—</div>
-      </div>
-    );
-  }
-  const v = roster[i % roster.length];
-  const pos = v.open?.[0];
-  const up = (pos?.upnl ?? v.ret) >= 0;
+  if (!items.length) return <div className="muted" style={{ fontSize: 13 }}>No live bots yet.</div>;
+  const it = items[i % items.length];
   return (
-    <div key={v.name} className={s.nowTrading}>
-      <div className={s.statLbl}>Now trading</div>
-      <div className={s.panelStatNum} style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 7 }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: v.color || "#3a81d7", flex: "none" }} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span>
+    <div key={it.name + i} className={s.spot}>
+      <BotDot seed={it.name} color={it.color} />
+      <div className={s.spotMain}>
+        <div className={s.spotName}>{it.name}</div>
+        <div className={s.spotSub}>{it.sub}</div>
       </div>
-      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-        {pos ? (
-          <>
-            {pos.ticker} <span className={pos.side === "short" ? "down" : "up"}>{pos.side}</span> ·{" "}
-            <span className={up ? "up" : "down"}>{usd(pos.upnl, true)}</span>
-          </>
-        ) : (
-          <>watching · <span className={up ? "up" : "down"}>{pct(v.ret, true)}</span></>
-        )}
-      </div>
+      <div className={s.spotRight}>{it.right}</div>
     </div>
   );
 }
@@ -240,30 +256,22 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
             </button>
           </div>
           <div className={s.panel}>
-            <div className={s.panelStats}>
-              <div>
-                <div className={s.statLbl}>Open positions</div>
-                <div className={s.panelStatNum}>{d.positions.length}</div>
-              </div>
-              <div>
-                <div className={s.statLbl}>Unrealized</div>
-                <div className={`${s.panelStatNum} ${d.hero.unreal >= 0 ? "up" : "down"}`}>{usd(d.hero.unreal, true)}</div>
-              </div>
-              <NowTrading variants={d.variants} />
+            <div className={s.liveHead}>
+              <span className={s.liveDot} />
+              Live fleet · marked to price
             </div>
-            {d.positions.length ? (
-              d.positions.slice(0, 4).map((pos) => (
-                <div key={pos.variant + pos.ticker + pos.t_sig} className={s.posRow}>
-                  <span>
-                    <b>{pos.ticker}</b> <span className={pos.side === "short" ? "down" : "up"} style={{ fontSize: 12 }}>{pos.side}</span>
-                    <span className="muted" style={{ fontSize: 12 }}> · {pos.variant}</span>
-                  </span>
-                  <span className={`num ${(pos.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(pos.upnl, true)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="muted" style={{ fontSize: 13, paddingTop: 12 }}>All bots watching — no open positions right now.</div>
-            )}
+            <LiveSpotlight positions={d.positions} variants={d.variants} />
+            <div className={s.liveFoot}>
+              <span><b>{d.positions.length}</b> open position{d.positions.length === 1 ? "" : "s"}</span>
+              <span className={s.footSep}>·</span>
+              <span><b>{d.variants.length}</b> bots live</span>
+              {d.positions.length > 1 && (
+                <>
+                  <span className={s.footSep}>·</span>
+                  <span className={d.hero.unreal >= 0 ? "up" : "down"}>{usd(d.hero.unreal, true)} total</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </section>

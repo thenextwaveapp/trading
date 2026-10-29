@@ -310,10 +310,54 @@
   font-weight: 650;
   letter-spacing: -0.02em;
 }
-.nowTrading {
-  min-width: 0;
+/* live-fleet spotlight card */
+.liveHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3ddc97;
+  box-shadow: 0 0 8px #3ddc97;
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.spot {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 16px 0;
   animation: nowFade 0.45s ease;
 }
+.spotMain { min-width: 0; flex: 1 1 auto; }
+.spotName {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spotSub { font-size: 13px; color: var(--muted); margin-top: 1px; }
+.spotRight { margin-left: auto; font-size: 20px; flex: none; }
+.liveFoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+.liveFoot b { color: var(--fg); font-weight: 600; }
+.footSep { opacity: 0.5; }
 @keyframes nowFade {
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
