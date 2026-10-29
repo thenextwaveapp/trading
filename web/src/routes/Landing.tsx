@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import { useBots } from "../db/queries";
 import type { DbBot } from "../db/types";
-import type { Position, Variant } from "../api/types";
+import type { Position, Trade, Variant } from "../api/types";
 import { identicon, pct, usd, windowReturn } from "../lib/format";
 import s from "./Landing.module.css";
 
@@ -22,38 +22,47 @@ function BotDot({ seed, color, size = 40 }: { seed: string; color: string; size?
 /** One rotating spotlight of the fleet, live — an open trade (bot, instrument,
  *  unrealized) when there is one, otherwise a top bot "watching". Cycles every
  *  6s. The P&L shows here only, so nothing is duplicated elsewhere on the card. */
-function LiveSpotlight({ positions, variants }: { positions: Position[]; variants: Variant[] }) {
+function LiveSpotlight({ positions, trades, variants }: { positions: Position[]; trades: Trade[]; variants: Variant[] }) {
   const byName = useMemo(() => new Map(variants.map((v) => [v.name, v])), [variants]);
-  const items = useMemo<{ name: string; color: string; sub: ReactNode; right: ReactNode }[]>(() => {
-    // Open trades first (the live action), then the rest of the fleet "watching"
-    // — so the card always has plenty to cycle through, even with one position.
+  const items = useMemo<{ name: string; color: string; tag: string; sub: ReactNode; right: ReactNode }[]>(() => {
+    const colorOf = (n: string) => byName.get(n)?.color || "#3a81d7";
+    // Open trades (live paper P&L), recent closed trades (realized), and every
+    // other live bot "watching" — the full fleet, shown in random order.
     const open = positions.map((p) => ({
-      name: p.variant,
-      color: byName.get(p.variant)?.color || "#3a81d7",
-      sub: (
-        <>
-          {p.ticker} <span className={p.side === "short" ? "down" : "up"}>{p.side}</span>
-        </>
-      ),
+      name: p.variant, color: colorOf(p.variant), tag: "live",
+      sub: (<>{p.ticker} <span className={p.side === "short" ? "down" : "up"}>{p.side}</span> <span className="muted">· open</span></>),
       right: <span className={`num ${(p.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(p.upnl, true)}</span>,
     }));
+    const closed = trades
+      .slice()
+      .sort((a, b) => (b.exit_t || 0) - (a.exit_t || 0))
+      .slice(0, 20)
+      .map((t) => ({
+        name: t.variant, color: colorOf(t.variant), tag: "closed",
+        sub: (<>{t.ticker} <span className={t.side === "short" ? "down" : "up"}>{t.side ?? ""}</span> <span className="muted">· closed</span></>),
+        right: <span className={`num ${(t.pnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(t.pnl, true)}</span>,
+      }));
     const inTrade = new Set(positions.map((p) => p.variant));
     const watching = variants
       .filter((v) => !inTrade.has(v.name))
-      .sort((a, b) => b.ret - a.ret)
       .map((v) => ({
-        name: v.name,
-        color: v.color || "#3a81d7",
+        name: v.name, color: v.color || "#3a81d7", tag: "watch",
         sub: <span className="muted">watching</span>,
         right: <span className={`num ${v.ret >= 0 ? "up" : "down"}`}>{pct(v.ret, true)}</span>,
       }));
-    return [...open, ...watching];
-  }, [positions, variants, byName]);
+    return [...open, ...closed, ...watching];
+  }, [positions, trades, variants, byName]);
 
   const [i, setI] = useState(0);
   useEffect(() => {
     if (items.length <= 1) return;
-    const t = setInterval(() => setI((x) => x + 1), 6000);
+    const t = setInterval(() => {
+      setI((cur) => {
+        let n = cur;
+        while (n === cur) n = Math.floor(Math.random() * items.length);   // random, no immediate repeat
+        return n;
+      });
+    }, 6000);
     return () => clearInterval(t);
   }, [items.length]);
 
@@ -261,7 +270,7 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
               <span className={s.liveDot} />
               Live fleet · marked to price
             </div>
-            <LiveSpotlight positions={d.positions} variants={d.variants} />
+            <LiveSpotlight positions={d.positions} trades={d.trades} variants={d.variants} />
             <div className={s.liveFoot}>
               <span><b>{d.positions.length}</b> open position{d.positions.length === 1 ? "" : "s"}</span>
               <span className={s.footSep}>·</span>
