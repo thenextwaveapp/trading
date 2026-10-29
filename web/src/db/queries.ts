@@ -19,6 +19,7 @@ import type {
   DbStrategyCondition,
   DbSweep,
   DbSweepRun,
+  DbCoin,
   DbUniverse,
   DbUniverseFilter,
   DbUniverseWithCoins,
@@ -277,6 +278,74 @@ export const useUniverseFilters = (universeId: string | null) =>
     () => (universeId ? fetchUniverseFilters(universeId) : Promise.resolve({ data: [], error: null })),
     [universeId],
   );
+export const fetchCoins = (market: string) =>
+  supabase.from("pf_coins").select("symbol, binance_symbol, name, market").eq("market", market).order("symbol");
+/** Instruments that belong to a market — the Builder's custom-universe picker. */
+export const useCoins = (market: string) =>
+  useQuery<DbCoin[]>(() => fetchCoins(market), [market], "coins:" + market);
+
+/** Create an owned universe from a hand-picked set of coins. Backtest (by slug)
+ *  and live (by universe_id) both resolve pf_universe_coins, so a custom subset
+ *  trades exactly as it backtests. `saved` controls whether it's reusable in the
+ *  dropdown; an unsaved one is a throwaway tied to a single bot. */
+export const createUniverse = async (opts: {
+  owner: string;
+  name: string;
+  market: string;
+  coins: string[];
+  saved: boolean;
+}): Promise<{ id: string; slug: string } | null> => {
+  const base =
+    (opts.name || "custom").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "custom";
+  const slug = `${base}-${crypto.randomUUID().slice(0, 8)}`;
+  const { data, error } = await supabase
+    .from("pf_universes")
+    .insert({
+      owner: opts.owner,
+      name: opts.name?.trim() || "Custom universe",
+      slug,
+      market: opts.market,
+      saved: opts.saved,
+    })
+    .select("id, slug")
+    .single();
+  if (error || !data) return null;
+  if (opts.coins.length) {
+    const rows = opts.coins.map((coin_symbol) => ({ universe_id: data.id, coin_symbol }));
+    const { error: coinErr } = await supabase.from("pf_universe_coins").insert(rows);
+    if (coinErr) {
+      await supabase.from("pf_universes").delete().eq("id", data.id); // no orphan empty universe
+      return null;
+    }
+  }
+  return { id: data.id, slug: data.slug };
+};
+
+/** Replace an owned universe's coins and metadata (name/saved/market). */
+export const updateUniverse = async (
+  id: string,
+  patch: { name?: string; saved?: boolean; market?: string; coins?: string[] },
+): Promise<boolean> => {
+  const meta: Record<string, unknown> = {};
+  if (patch.name !== undefined) meta.name = patch.name.trim() || "Custom universe";
+  if (patch.saved !== undefined) meta.saved = patch.saved;
+  if (patch.market !== undefined) meta.market = patch.market;
+  if (Object.keys(meta).length) {
+    const { error } = await supabase.from("pf_universes").update(meta).eq("id", id);
+    if (error) return false;
+  }
+  if (patch.coins) {
+    await supabase.from("pf_universe_coins").delete().eq("universe_id", id);
+    if (patch.coins.length) {
+      const { error } = await supabase
+        .from("pf_universe_coins")
+        .insert(patch.coins.map((coin_symbol) => ({ universe_id: id, coin_symbol })));
+      if (error) return false;
+    }
+  }
+  return true;
+};
+
 export const useFamilies = () => useQuery<DbFamily[]>(() => fetchFamilies(), [], "families");
 export const useProfile = (handle: string) =>
   useQuery<DbProfile>(() => fetchProfile(handle), [handle], "profile:" + handle);

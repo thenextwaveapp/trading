@@ -3,6 +3,8 @@ import { FleetCtx, EMPTY_PAYLOAD } from "./api/context";
 import { useFleet } from "./api/useFleet";
 import { useAuth } from "./auth";
 import { CandleProvider } from "./components/CandleModal";
+import { AssistantProvider } from "./assistant/AssistantProvider";
+import Assistant from "./assistant/Assistant";
 import { useTrackNav } from "./components/cells";
 import RequireAuth from "./components/RequireAuth";
 import TopBar from "./components/TopBar";
@@ -57,6 +59,7 @@ export default function App() {
   return (
     <FleetCtx.Provider value={fleet}>
       <CandleProvider>
+       <AssistantProvider>
         <div className={styles.app}>
           <TopBar />
 
@@ -84,7 +87,9 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
+          <Assistant />
         </div>
+       </AssistantProvider>
       </CandleProvider>
     </FleetCtx.Provider>
   );

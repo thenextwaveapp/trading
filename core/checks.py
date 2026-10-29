@@ -49,9 +49,12 @@ def _placebo(strategy, uni, real_trades, rounds=100, seed=7, max_samples=5_000):
                 "detail": {"reason": "no real trades"}}
     rnd = _random.Random(seed)
     L = strategy["_lookback"]
+    # Lengths without loading candles (DiskUniverse tracks them at write time);
+    # falls back to loading for a plain dict.
+    lengths = uni.lengths() if hasattr(uni, "lengths") else {tk: len(c) for tk, c in uni.items()}
     tickers, weights = [], []
-    for tk, c in uni.items():
-        count = len(c) - 1 - (L + 8)
+    for tk in uni:
+        count = lengths[tk] - 1 - (L + 8)
         if count > 0:
             tickers.append(tk)
             weights.append(count)
@@ -63,21 +66,25 @@ def _placebo(strategy, uni, real_trades, rounds=100, seed=7, max_samples=5_000):
     # replaying every real trade 100x is what made large runs crawl.
     sample_n = min(n, max_samples)
     taker, slip = DEFAULTS["taker"], DEFAULTS["slip"]
-    means = []
-    for _ in range(rounds):
-        nets = []
+    # Replay the sampling first (no candle access, same RNG order as the eager
+    # version), then group picks by ticker so each tape is loaded once instead
+    # of randomly thrashed — identical picks, so identical per-round means.
+    picks = {}
+    for r in range(rounds):
         for tk in rnd.choices(tickers, weights=weights, k=sample_n):
-            c = uni[tk]
-            i = rnd.randrange(L + 8, len(c) - 1)
+            i = rnd.randrange(L + 8, lengths[tk] - 1)
+            picks.setdefault(tk, []).append((r, i))
+    round_nets = [[] for _ in range(rounds)]
+    for tk, pk in picks.items():
+        c = uni[tk]
+        for r, i in pk:
             fake = {"entry": c[i]["c"],
                     "t_sig": c[i]["t"] + strategy.get("_interval_ms", M15),
                     "i": i}
-            ex = exit_trade(build_position(strategy, c, i, fake), c,
-                            taker, slip)
+            ex = exit_trade(build_position(strategy, c, i, fake), c, taker, slip)
             if ex:
-                nets.append(ex[0])
-        if nets:
-            means.append(sum(nets) / len(nets) * 100)
+                round_nets[r].append(ex[0])
+    means = [sum(x) / len(x) * 100 for x in round_nets if x]
     means.sort()
     p95 = means[min(len(means) - 1, int(0.95 * len(means)))] if means else 0.0
     real = sum(t["net"] for t in real_trades) / n * 100

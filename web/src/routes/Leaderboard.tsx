@@ -1,6 +1,7 @@
 import { botColor } from "../lib/brand";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAssistant } from "../assistant/AssistantProvider";
 import { useData } from "../api/context";
 import type { Variant } from "../api/types";
 import { copyBotToDraft, useBots, usePublicProfiles } from "../db/queries";
@@ -122,6 +123,14 @@ export default function Leaderboard() {
         return a.bot.name.localeCompare(b.bot.name);
       });
   }, [bots, live, days, query]);
+
+  const { setPageContext } = useAssistant();
+  useEffect(() => {
+    const label = RANGES[range]?.[0] ?? "All time";
+    const list = rows.slice(0, 18).map((r, i) => `#${i + 1} ${r.bot.name} ${pct(r.ret, true)} (${r.trades} trades, ${dol(r.equity)})`);
+    setPageContext({ screen: { title: `Leaderboard — ${label}, ${marketFilter}`, rows: list } });
+    return () => setPageContext(null);
+  }, [rows, range, marketFilter, setPageContext]);
 
   const top = rows.slice(0, 3);
 

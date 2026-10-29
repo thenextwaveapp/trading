@@ -3,9 +3,10 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, useCurrentHandle } from "../auth";
 import { useData } from "../api/context";
-import { copyBotToDraft, useBots, useProfile } from "../db/queries";
+import { copyBotToDraft, useBots, useEvents, useProfile } from "../db/queries";
 import type { DbBot } from "../db/types";
 import { BackBar } from "../components/cells";
+import FeedRow from "../components/FeedRow";
 import { DIRLBL, identicon, pct, windowReturn } from "../lib/format";
 import p from "./pages.module.css";
 import s from "./Builder.module.css";
@@ -52,6 +53,15 @@ export default function Builder() {
   const liveBots = bots.filter((x) => x.b.stage === "deployed");
   const totalTrades = bots.reduce((a, x) => a + (x.v?.closed ?? 0), 0);
 
+  const { data: events } = useEvents(60);
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  const mineNames = useMemo(() => new Set(mine.map((b) => b.name)), [mine]);
+  const botByName = useMemo(() => new Map(mine.map((b) => [b.name, b] as const)), [mine]);
+  const activity = useMemo(
+    () => (events ?? []).filter((e) => (e.bot_name ? mineNames.has(e.bot_name) : e.actor_handle === handle)).slice(0, 40),
+    [events, mineNames, handle],
+  );
+
   // Logged out with no :handle — nobody to show.
   if (!handle) {
     return (
@@ -79,7 +89,7 @@ export default function Builder() {
     <>
       <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />
 
-      <div className={p.body}>
+      <div className={`${p.narrow} ${p.body}`}>
         <section className={s.hero}>
           {profile?.avatar_url ? (
             <img src={profile.avatar_url} alt="" width={112} height={112}
@@ -152,6 +162,22 @@ export default function Builder() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        <div className={p.sectionHead}><h2 className={p.h2}>Activity</h2></div>
+        {activity.length === 0 ? (
+          <div className="muted" style={{ padding: "8px 0" }}>No activity yet.</div>
+        ) : (
+          <div className={s.feed}>
+            {(showAllActivity ? activity : activity.slice(0, 3)).map((e) => (
+              <FeedRow key={e.id} e={e} bot={e.bot_name ? botByName.get(e.bot_name) : undefined} variant={e.bot_name ? byName.get(e.bot_name) : undefined} onOpen={nav} />
+            ))}
+            {activity.length > 3 && (
+              <button className={s.more} onClick={() => setShowAllActivity((x) => !x)}>
+                {showAllActivity ? "Show less" : `Show ${activity.length - 3} more`}
+              </button>
+            )}
           </div>
         )}
       </div>

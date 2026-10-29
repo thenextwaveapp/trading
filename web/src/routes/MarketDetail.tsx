@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import CandleChart from "../components/CandleChart";
 import NewsList from "../components/NewsList";
+import { useAssistant } from "../assistant/AssistantProvider";
 import { useMarketRow, useNews } from "../db/queries";
 import { pct } from "../lib/format";
 import { fmtPrice, fmtVol } from "./Market";
@@ -27,6 +28,25 @@ export default function MarketDetail() {
     const hits = all.filter((n) => terms.some((t) => n.title.toLowerCase().includes(t)));
     return hits.length ? { rows: hits.slice(0, 8), filtered: true } : { rows: all.slice(0, 8), filtered: false };
   }, [news, row]);
+
+  // Ground the assistant in the coin the user is looking at.
+  const { setPageContext, focusOn } = useAssistant();
+  useEffect(() => {
+    if (!row) {
+      setPageContext(null);
+      return;
+    }
+    setPageContext({
+      symbol: row.symbol,
+      interval: "15m",
+      market: {
+        symbol: row.symbol, base: row.base, name: row.name,
+        price: row.price, change_pct: row.change_pct, high: row.high, low: row.low, quote_volume: row.quote_volume,
+      },
+      news: coinNews.rows.map((n) => ({ title: n.title })),
+    });
+    return () => setPageContext(null);
+  }, [row, coinNews, setPageContext]);
 
   if (loading) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
   if (!row) return <div className="muted" style={{ padding: 40 }}>{symbol} not found in the market feed.</div>;
@@ -77,7 +97,12 @@ export default function MarketDetail() {
         </div>
 
         <div className="card" style={{ padding: 18 }}>
-          <CandleChart sym={row.symbol} />
+          <CandleChart
+            sym={row.symbol}
+            onPickTime={(t) =>
+              focusOn(t, new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }))
+            }
+          />
         </div>
 
         <div style={{ marginTop: 24 }}>

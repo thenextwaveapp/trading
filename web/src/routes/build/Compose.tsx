@@ -6,9 +6,12 @@ import {
   botNameTaken,
   createBacktest,
   createDraftBot,
+  createUniverse,
   fetchLatestBacktest,
   setBotStage,
   updateDraftBot,
+  updateUniverse,
+  useCoins,
   useMyBot,
   useUniverse,
   useUniverses,
@@ -150,9 +153,56 @@ const OPS = [
 
 const LOGICS = ["AND", "OR", "NOT"] as const;
 const EXIT_CUSTOM = new Set(["exit.trailing.k", "exit.trailing.natr"]);
+// Sentinel universe value for "building a custom subset" (not a real slug).
+const CUSTOM_UNI = "__custom__";
+// Universes/coins are tagged by asset class ('crypto' / 'equity'), while the
+// market catalog ids are finer ('crypto_perp', 'crypto_spot', 'equity', …).
+const ASSET_CLASS = (marketId: string): string => (marketId.startsWith("crypto") ? "crypto" : marketId);
 
 function defaultOperand(): Operand {
   return { ind: "ROC", params: { period: 16 }, offset: 0 };
+}
+
+// Normalize a parsed/assistant-supplied condition tree into the internal shape.
+// Shared by the NL-parse path and the assistant's structured hand-off so both
+// produce an identical spec (no second guess, no lossy round-trip).
+const OP_MAP: Record<string, CondNode["op"]> = {
+  ">": "gt", "gt": "gt", ">=": "ge", "ge": "ge", "<": "lt", "lt": "lt",
+  "<=": "le", "le": "le", "==": "eq", "=": "eq", "eq": "eq", "!=": "ne", "ne": "ne",
+  "crosses_above": "crosses_above", "crosses_below": "crosses_below",
+};
+function normOperand(o: any): Operand {
+  if (typeof o === "number" && Number.isFinite(o)) return o;
+  if (typeof o === "string" && o.trim() !== "" && Number.isFinite(Number(o))) return Number(o);
+  if (o && typeof o === "object" && typeof o.ind === "string") {
+    const rawInd = o.ind.trim();
+    const found = indicatorById(rawInd) ?? indicatorById(rawInd.toUpperCase()) ?? indicatorById(rawInd.toLowerCase());
+    const ind = found ? found.id : rawInd;
+    const params: Record<string, unknown> = {};
+    if (o.params && typeof o.params === "object") {
+      for (const [k, v] of Object.entries(o.params)) {
+        params[k] = typeof v === "string" && Number.isFinite(Number(v)) ? Number(v) : v;
+      }
+    } else if (found?.params?.length) {
+      for (const pm of found.params) params[pm.name] = pm.default;
+    }
+    return { ind, params, offset: typeof o.offset === "number" ? o.offset : 0 };
+  }
+  return defaultOperand();
+}
+function normGroup(g: any): CondGroup {
+  const logic: CondGroup["logic"] = g && (g.logic === "OR" || g.logic === "NOT") ? g.logic : "AND";
+  const rawChildren = Array.isArray(g?.children) ? g.children : [];
+  const children: AnyNode[] = rawChildren
+    .map((c: any): AnyNode | null => {
+      if (!c || typeof c !== "object") return null;
+      if (Array.isArray(c.children)) return normGroup(c);
+      if (c.left === undefined || c.right === undefined) return null;
+      const op = OP_MAP[String(c.op ?? c.operator ?? "ge")] ?? "ge";
+      return { left: normOperand(c.left), op, right: normOperand(c.right) };
+    })
+    .filter((x: AnyNode | null): x is AnyNode => x !== null);
+  return { logic, children };
 }
 
 function blankSpec(universe: string): StrategySpec {
@@ -882,7 +932,7 @@ export default function Compose() {
   const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_BOT_COLOR);
   const [visibility, setVisibility] = useState<Visibility>("private");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => sp.get("prompt") ?? "");
   const [started, setStarted] = useState(() => Boolean(botId || startFamily));
   const [presetKey, setPresetKey] = useState<string>("blank");
   const [spec, setSpec] = useState<StrategySpec>(blankSpec("fleet-60"));
@@ -894,21 +944,44 @@ export default function Compose() {
   const [showUniModal, setShowUniModal] = useState(false);
   const creatingRef = useRef(false);
 
+  // Custom universe: a hand-picked subset of the current market. Coins live in
+  // local state while composing; the owned pf_universe is written at save time
+  // so the backtest (by slug) and live (by universe_id) resolve the same set.
+  const me = user?.id ?? null;
+  const [customMode, setCustomMode] = useState(false);
+  const [customCoins, setCustomCoins] = useState<string[]>([]);
+  const [customName, setCustomName] = useState("");
+  const [customSaved, setCustomSaved] = useState(false);
+  const customUni = useRef<{ id: string; slug: string } | null>(null);
+  const [coinQuery, setCoinQuery] = useState("");
+  const assetClass = ASSET_CLASS(spec.market);
+  const { data: coinList } = useCoins(assetClass);
+
   const universeList = universes ?? [];
-  const marketUniverses = useMemo(() => {
-    const eqSlugs = new Set(["mag-7", "us-equities"]);
-    return universeList.filter((u) =>
-      spec.market === "equity" ? eqSlugs.has(u.slug) : !eqSlugs.has(u.slug),
-    );
-  }, [universeList, spec.market]);
+  const marketUniverses = useMemo(
+    () =>
+      universeList.filter(
+        (u) => u.market === assetClass && u.saved && (u.owner === null || u.owner === me),
+      ),
+    [universeList, assetClass, me],
+  );
   const selectedUniverse =
     marketUniverses.find((u) => u.slug === spec.universe) ??
     universeList.find((u) => u.slug === spec.universe);
   const { data: universeDetail } = useUniverse(spec.universe || "fleet-60");
-  const uniCoins = useMemo(
+  const presetCoins = useMemo(
     () => (universeDetail?.pf_universe_coins ?? []).map((c) => c.coin_symbol),
     [universeDetail],
   );
+  const uniCoins = customMode ? customCoins : presetCoins;
+  const coinMatches = useMemo(() => {
+    const q = coinQuery.trim().toUpperCase();
+    const picked = new Set(customCoins);
+    return (coinList ?? [])
+      .filter((c) => !picked.has(c.symbol))
+      .filter((c) => !q || c.symbol.includes(q) || (c.name ?? "").toUpperCase().includes(q))
+      .slice(0, 40);
+  }, [coinList, coinQuery, customCoins]);
   const marketMeta = CATALOG.markets.find((m) => m.id === spec.market);
   const familySlug = PRESETS.find((pr) => pr.key === presetKey)?.family ?? null;
   const backtestIssues = specIssues(spec, "backtest");
@@ -933,7 +1006,18 @@ export default function Compose() {
       setVisibility(bot.visibility ?? "private");
       const s = (bot.spec as StrategySpec | null) ?? null;
       if (s && s.entry) {
-        setSpec({ ...mergeSpec(blankSpec(s.universe ?? "fleet-60"), s), name: bot.name });
+        const merged = { ...mergeSpec(blankSpec(s.universe ?? "fleet-60"), s), name: bot.name };
+        // Legacy bots encoded a hand-picked set as a universe `only` filter.
+        // Convert to the custom-universe model (the picked set IS the universe).
+        const only = (merged.filters ?? []).find((f) => f.kind === "universe") as { only?: string[] } | undefined;
+        if (only?.only?.length) {
+          setCustomMode(true);
+          setCustomCoins(only.only.map((x) => String(x).toUpperCase()));
+          customUni.current = null;
+          setSpec({ ...merged, universe: CUSTOM_UNI, filters: merged.filters.filter((f) => f.kind !== "universe") });
+        } else {
+          setSpec(merged);
+        }
         const pk = PRESETS.find((pr) => pr.family === bot.family_slug && JSON.stringify(pr.spec.entry) === JSON.stringify(s.entry))?.key;
         setPresetKey(pk ?? "blank");
       } else {
@@ -954,28 +1038,62 @@ export default function Compose() {
     const initName = slug ? base.name : "";
     setName(initName);
     setVisibility(profile?.default_bot_visibility ?? "private");
-    // Arriving from the Market page with ?coin=BTC: scope a fresh bot to that
-    // one coin (all-perps resolves to every perp; the universe filter narrows
-    // it), so "Build a bot on X" lands you in a bot trading exactly X.
+    // Arriving from the Market page with ?coin=BTC: start a custom universe of
+    // exactly that coin, so "Build a bot on X" trades X (backtest == live).
+    if (startCoin) {
+      setCustomMode(true);
+      setCustomCoins([startCoin.toUpperCase()]);
+      customUni.current = null;
+    }
     const seedSpec: StrategySpec = startCoin
-      ? { ...base, name: initName, universe: "all-perps",
-          filters: [{ kind: "universe", only: [startCoin.toUpperCase()] }] }
+      ? { ...base, name: initName, universe: CUSTOM_UNI, filters: [] }
       : { ...base, name: initName };
     setSpec(seedSpec);
     if (slug || startCoin) setStarted(true);
     setSeeded(true);
   }, [bot, botId, botLoading, seeded, startFamily, startCoin]);
 
+  // Assistant "Build" hands off via ?prompt= (plus a changing token) and we run
+  // the SAME parser the manual box uses — the one path that actually works. The
+  // token changes every click so this fires even when Compose is already mounted.
+  const parseTok = sp.get("k");
+  useEffect(() => {
+    const pr = (sp.get("prompt") || "").trim();
+    if (!parseTok || !pr) return;
+    runParse(pr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parseTok]);
+
+  // An existing bot whose universe is an owned, unsaved (throwaway) universe is
+  // edited inline as a custom selection — not shown as a dropdown preset.
+  useEffect(() => {
+    if (!seeded || customMode || !me) return;
+    const u = universeList.find((x) => x.slug === spec.universe);
+    if (u && u.owner === me && !u.saved) {
+      customUni.current = { id: u.id, slug: u.slug };
+      setCustomName(u.name === "Custom universe" ? "" : u.name);
+      setCustomSaved(false);
+      setCustomMode(true);
+    }
+  }, [seeded, customMode, me, universeList, spec.universe]);
+
+  // Load that universe's coins once they resolve (existing custom only).
+  useEffect(() => {
+    if (customMode && customUni.current && customCoins.length === 0 && presetCoins.length) {
+      setCustomCoins(presetCoins);
+    }
+  }, [customMode, customCoins.length, presetCoins]);
+
   const persistSilently = async (): Promise<string | null> => {
     if (!user || !seeded) return savedId;
     const finalName = name.trim() || "New bot";
-    const finalSpec: StrategySpec = { ...spec, name: finalName, universe: spec.universe };
+    const u = await resolveUniverse();
+    const finalSpec: StrategySpec = { ...spec, name: finalName, universe: u.slug };
     const direction = finalSpec.side === "long" ? "long" : finalSpec.side === "short" ? "short" : "both";
-    const uni = universeList.find((u) => u.slug === finalSpec.universe);
     const input = {
       name: finalName,
       family_slug: familySlug,
-      universe_id: uni?.id ?? bot?.universe_id ?? null,
+      universe_id: u.id,
       direction,
       params: { ...(bot?.params ?? {}), color },
       spec: finalSpec as unknown as Record<string, unknown>,
@@ -1013,7 +1131,7 @@ export default function Compose() {
     return null;
   };
 
-  // Silent debounced auto-save whenever setup changes.
+  // Silent debounced auto-save whenever setup changes (incl. a custom universe).
   useEffect(() => {
     if (!seeded || !started || !user) return;
     const t = setTimeout(() => {
@@ -1021,15 +1139,15 @@ export default function Compose() {
     }, 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, color, visibility, spec, familySlug, seeded, started, user]);
+  }, [name, color, visibility, spec, familySlug, seeded, started, user, customMode, customCoins, customName, customSaved]);
 
-  // ensure universe list loaded -> default slug for current market
+  // ensure universe list loaded -> default slug for current market (not in custom mode)
   useEffect(() => {
-    if (!seeded) return;
+    if (!seeded || customMode) return;
     if (marketUniverses.length && !marketUniverses.find((u) => u.slug === spec.universe)) {
       setSpec((s) => ({ ...s, universe: marketUniverses[0].slug }));
     }
-  }, [marketUniverses, seeded, spec.universe]);
+  }, [marketUniverses, seeded, spec.universe, customMode]);
 
   const setParam = (path: string, value: unknown) =>
     setSpec((s) => setPath(s, path, value));
@@ -1051,16 +1169,51 @@ export default function Compose() {
   const filterVal = (kind: string, key: string): unknown =>
     (spec.filters.find((f) => f.kind === kind) as Record<string, unknown> | undefined)?.[key];
 
-  const setUniverseFilterOnly = (raw: string) => {
-    setSpec((s) => {
-      const filters = s.filters.filter((f) => f.kind !== "universe");
-      const only = raw
-        .split(",")
-        .map((x) => x.trim().toUpperCase())
-        .filter(Boolean);
-      if (only.length) filters.push({ kind: "universe", only });
-      return { ...s, filters };
+  // --- custom universe (hand-picked subset of the market) ---
+  const enterCustom = () => {
+    setCustomCoins((cur) => (cur.length ? cur : presetCoins));
+    setCustomMode(true);
+    // drop any legacy universe filter — the picked set *is* the universe now
+    setSpec((s) => ({ ...s, universe: CUSTOM_UNI, filters: s.filters.filter((f) => f.kind !== "universe") }));
+  };
+  const exitCustom = (slug: string) => {
+    customUni.current = null;
+    setCustomMode(false);
+    setCustomCoins([]);
+    setCustomName("");
+    setCustomSaved(false);
+    setSpec((s) => ({ ...s, universe: slug }));
+  };
+  const addCoin = (sym: string) => {
+    setCustomCoins((c) => (c.includes(sym) ? c : [...c, sym]));
+    setCoinQuery("");
+  };
+  const removeCoin = (sym: string) => setCustomCoins((c) => c.filter((x) => x !== sym));
+
+  const ensureCustomUniverse = async (): Promise<{ id: string; slug: string } | null> => {
+    if (!user) return null;
+    if (customUni.current) {
+      const ok = await updateUniverse(customUni.current.id, {
+        name: customName, saved: customSaved, market: assetClass, coins: customCoins,
+      });
+      return ok ? customUni.current : null;
+    }
+    const created = await createUniverse({
+      owner: user.id, name: customName, market: assetClass, coins: customCoins, saved: customSaved,
     });
+    if (created) customUni.current = created;
+    return created;
+  };
+
+  // The universe (slug + id) to persist. In custom mode this writes/updates the
+  // owned pf_universe so the backtest and live both resolve the picked set.
+  const resolveUniverse = async (): Promise<{ slug: string; id: string | null }> => {
+    if (customMode && customCoins.length && user) {
+      const cu = await ensureCustomUniverse();
+      if (cu) return { slug: cu.slug, id: cu.id };
+    }
+    const found = universeList.find((u) => u.slug === spec.universe);
+    return { slug: spec.universe, id: found?.id ?? bot?.universe_id ?? null };
   };
 
   const loadPreset = (key: string) => {
@@ -1071,6 +1224,115 @@ export default function Compose() {
       if (!pr || key === "blank") return { ...base, name: name || "New bot" };
       return { ...mergeSpec(base, pr.spec), name: name || pr.spec.name };
     });
+  };
+
+  // Apply a parse-strategy / assistant spec (same JSON schema either way) to the
+  // Builder. Used by the NL "Parse & build" button AND the assistant's structured
+  // hand-off, so every field the conversation settled (timing, exits, days) lands
+  // exactly — no re-parse, no re-guess. Named instruments become a custom universe.
+  const applyParsedSpec = (cspec: Partial<StrategySpec> & Record<string, any>) => {
+    const defaultUni = cspec.market === "equity" ? "mag-7" : "fleet-60";
+    const next = blankSpec(defaultUni);
+    next.name = typeof cspec.name === "string" && cspec.name.trim() ? cspec.name.trim() : name || "New bot";
+    setName(next.name);
+    next.side = cspec.side === "long" || cspec.side === "short" ? cspec.side : "short";
+    next.market =
+      typeof cspec.market === "string" && CATALOG.markets.some((m) => m.id === cspec.market) ? cspec.market : "crypto_perp";
+    next.universe =
+      typeof cspec.universe === "string" && cspec.universe.trim()
+        ? cspec.universe.trim()
+        : next.market === "equity" ? "mag-7" : "fleet-60";
+    next.timeframe = typeof cspec.timeframe === "string" && cspec.timeframe.trim() ? cspec.timeframe.trim() : "15m";
+    next.fresh = typeof cspec.fresh === "boolean" ? cspec.fresh : false;
+    next.entry = normGroup(cspec.entry);
+    if (cspec.timing && typeof cspec.timing === "object") {
+      const uniq = (xs: number[]) => Array.from(new Set(xs));
+      const hrs = Array.isArray(cspec.timing.hours_utc)
+        ? uniq(cspec.timing.hours_utc.map(Number).filter((n: number) => Number.isInteger(n) && n >= 0 && n <= 23))
+        : [];
+      const dys = Array.isArray(cspec.timing.days_utc)
+        ? uniq(cspec.timing.days_utc.map(Number).filter((n: number) => Number.isInteger(n) && n >= 0 && n <= 6))
+        : [];
+      next.timing = { hours_utc: hrs.length >= 24 ? [] : hrs, days_utc: dys.length >= 7 ? [] : dys };
+    }
+    if (cspec.exit && typeof cspec.exit === "object") {
+      const baseExit = blankSpec(defaultUni).exit;
+      const stopRaw = cspec.exit.stop;
+      const stopMode =
+        stopRaw && typeof stopRaw === "object" && ["none", "hh", "dstop", "sig"].includes(stopRaw.mode) ? stopRaw.mode : "none";
+      next.exit = {
+        ...baseExit,
+        time_bars: typeof cspec.exit.time_bars === "number" && cspec.exit.time_bars >= 1 ? Math.round(cspec.exit.time_bars) : baseExit.time_bars,
+        stop: {
+          mode: stopMode,
+          window: typeof stopRaw?.window === "number" && stopRaw.window >= 1 ? Math.round(stopRaw.window) : 16,
+          param: typeof stopRaw?.param === "number" ? stopRaw.param : 0,
+        },
+        ...(typeof cspec.exit.take_profit === "number" && cspec.exit.take_profit > 0 ? { take_profit: cspec.exit.take_profit } : {}),
+      };
+    }
+    if (cspec.sizing && typeof cspec.sizing === "object") {
+      const baseSizing = blankSpec(defaultUni).sizing;
+      next.sizing = {
+        risk: typeof cspec.sizing.risk === "number" ? cspec.sizing.risk : baseSizing.risk,
+        notional_cap: typeof cspec.sizing.notional_cap === "number" ? cspec.sizing.notional_cap : baseSizing.notional_cap,
+        weight: typeof cspec.sizing.weight === "number" ? cspec.sizing.weight : baseSizing.weight,
+      };
+    }
+    next.filters = Array.isArray(cspec.filters) ? cspec.filters : [];
+
+    const onlyFilter = (next.filters as Array<{ kind?: string; only?: string[] }>).find((f) => f?.kind === "universe")?.only;
+    const picked = Array.from(
+      new Set(
+        [...(Array.isArray(cspec.coins) ? cspec.coins : []), ...(Array.isArray(onlyFilter) ? onlyFilter : [])]
+          .map((x) => String(x).toUpperCase().trim())
+          .filter(Boolean),
+      ),
+    );
+    customUni.current = null;
+    if (picked.length) {
+      setCustomMode(true);
+      setCustomCoins(picked);
+      next.universe = CUSTOM_UNI;
+      next.filters = next.filters.filter((f) => (f as { kind?: string }).kind !== "universe");
+    } else {
+      setCustomMode(false);
+      setCustomCoins([]);
+    }
+    setSpec(next);
+    setPresetKey("blank");
+    setStarted(true);
+    setErr(null);
+  };
+
+  // The one path that works: send text to the parser and apply the result. Used
+  // by the "Parse & build" box AND the assistant's Build button (via ?prompt=).
+  const runParse = (text: string) => {
+    setParsing(true);
+    setErr(null);
+    fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-strategy?text=${encodeURIComponent(text)}`,
+      { headers: { apikey: import.meta.env.VITE_SUPABASE_KEY } },
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        setParsing(false);
+        if (data.error || !data.spec || data.spec._parseError) {
+          setSpec(blankSpec("fleet-60"));
+          setPresetKey("blank");
+          setStarted(true);
+          setErr(data.error || data.spec?._parseError || "Could not parse strategy");
+          return;
+        }
+        applyParsedSpec(data.spec as Partial<StrategySpec> & Record<string, any>);
+      })
+      .catch(() => {
+        setParsing(false);
+        setSpec(blankSpec("fleet-60"));
+        setPresetKey("blank");
+        setStarted(true);
+        setErr("Could not reach parsing service");
+      });
   };
 
   const save = async (toTraining: boolean) => {
@@ -1112,14 +1374,19 @@ export default function Compose() {
       setErr("You already have a bot with that name. Pick another.");
       return;
     }
+    if (toTraining && customMode && customCoins.length === 0) {
+      setSaving(false);
+      setErr("Add at least one token to your custom universe.");
+      return;
+    }
 
-    const finalSpec: StrategySpec = { ...spec, name: finalName, universe: spec.universe };
+    const u = await resolveUniverse();
+    const finalSpec: StrategySpec = { ...spec, name: finalName, universe: u.slug };
     const direction = finalSpec.side === "long" ? "long" : finalSpec.side === "short" ? "short" : "both";
-    const uni = universeList.find((u) => u.slug === finalSpec.universe);
     const input = {
       name: finalName,
       family_slug: familySlug,
-      universe_id: uni?.id ?? bot?.universe_id ?? null,
+      universe_id: u.id,
       direction,
       params: { ...(bot?.params ?? {}), color },
       spec: finalSpec as unknown as Record<string, unknown>,
@@ -1175,7 +1442,7 @@ export default function Compose() {
     }
     const { error } = await createBacktest({
       bot_id: id,
-      universe_id: uni?.id ?? bot?.universe_id ?? null,
+      universe_id: u.id,
     });
     if (error) {
       await setBotStage(id, "draft");
@@ -1274,163 +1541,7 @@ export default function Compose() {
                       setErr("Describe the strategy you want to parse.");
                       return;
                     }
-                    setParsing(true);
-                    setErr(null);
-                    const opMap: Record<string, CondNode["op"]> = {
-                      ">": "gt",
-                      "gt": "gt",
-                      ">=": "ge",
-                      "ge": "ge",
-                      "<": "lt",
-                      "lt": "lt",
-                      "<=": "le",
-                      "le": "le",
-                      "==": "eq",
-                      "=": "eq",
-                      "eq": "eq",
-                      "!=": "ne",
-                      "ne": "ne",
-                      "crosses_above": "crosses_above",
-                      "crosses_below": "crosses_below",
-                    };
-                    const normOperand = (o: any): Operand => {
-                      if (typeof o === "number" && Number.isFinite(o)) return o;
-                      if (typeof o === "string" && o.trim() !== "" && Number.isFinite(Number(o))) return Number(o);
-                      if (o && typeof o === "object" && typeof o.ind === "string") {
-                        const rawInd = o.ind.trim();
-                        const found =
-                          indicatorById(rawInd) ??
-                          indicatorById(rawInd.toUpperCase()) ??
-                          indicatorById(rawInd.toLowerCase());
-                        const ind = found ? found.id : rawInd;
-                        const params: Record<string, unknown> = {};
-                        if (o.params && typeof o.params === "object") {
-                          for (const [k, v] of Object.entries(o.params)) {
-                            params[k] = typeof v === "string" && Number.isFinite(Number(v)) ? Number(v) : v;
-                          }
-                        } else if (found?.params?.length) {
-                          for (const pm of found.params) params[pm.name] = pm.default;
-                        }
-                        return { ind, params, offset: typeof o.offset === "number" ? o.offset : 0 };
-                      }
-                      return defaultOperand();
-                    };
-                    const normGroup = (g: any): CondGroup => {
-                      const logic: CondGroup["logic"] =
-                        g && (g.logic === "OR" || g.logic === "NOT") ? g.logic : "AND";
-                      const rawChildren = Array.isArray(g?.children) ? g.children : [];
-                      const children: AnyNode[] = rawChildren
-                        .map((c: any): AnyNode | null => {
-                          if (!c || typeof c !== "object") return null;
-                          if (Array.isArray(c.children)) return normGroup(c);
-                          if (c.left === undefined || c.right === undefined) return null;
-                          const op = opMap[String(c.op ?? c.operator ?? "ge")] ?? "ge";
-                          return { left: normOperand(c.left), op, right: normOperand(c.right) };
-                        })
-                        .filter((x: AnyNode | null): x is AnyNode => x !== null);
-                      return { logic, children };
-                    };
-
-                    fetch(
-                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-strategy?text=${encodeURIComponent(text)}`,
-                      { headers: { apikey: import.meta.env.VITE_SUPABASE_KEY } },
-                    )
-                      .then((r) => r.json())
-                      .then((data) => {
-                        setParsing(false);
-                        if (data.error || !data.spec || data.spec._parseError) {
-                          setSpec(blankSpec("fleet-60"));
-                          setPresetKey("blank");
-                          setStarted(true);
-                          setErr(data.error || data.spec?._parseError || "Could not parse strategy");
-                          return;
-                        }
-                        const cspec = data.spec as Partial<StrategySpec> & Record<string, any>;
-                        const isEq = cspec.market === "equity";
-                        const defaultUni = isEq ? "mag-7" : "fleet-60";
-                        const next = blankSpec(defaultUni);
-                        next.name = typeof cspec.name === "string" && cspec.name.trim() ? cspec.name.trim() : name || "New bot";
-                        setName(next.name);
-                        next.side = cspec.side === "long" || cspec.side === "short" ? cspec.side : "short";
-                        next.market =
-                          typeof cspec.market === "string" && CATALOG.markets.some((m) => m.id === cspec.market)
-                            ? cspec.market
-                            : "crypto_perp";
-                        next.universe =
-                          typeof cspec.universe === "string" && cspec.universe.trim()
-                            ? cspec.universe.trim()
-                            : next.market === "equity"
-                              ? "mag-7"
-                              : "fleet-60";
-                        next.timeframe =
-                          typeof cspec.timeframe === "string" && cspec.timeframe.trim()
-                            ? cspec.timeframe.trim()
-                            : "15m";
-                        next.fresh = typeof cspec.fresh === "boolean" ? cspec.fresh : false;
-                        next.entry = normGroup(cspec.entry);
-                        if (cspec.timing && typeof cspec.timing === "object") {
-                          const hrs = Array.isArray(cspec.timing.hours_utc)
-                            ? cspec.timing.hours_utc.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 23)
-                            : [];
-                          const dys = Array.isArray(cspec.timing.days_utc)
-                            ? cspec.timing.days_utc.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
-                            : [];
-                          next.timing = {
-                            hours_utc: hrs.length >= 24 ? [] : hrs,
-                            days_utc: dys.length >= 7 ? [] : dys,
-                          };
-                        }
-                        if (cspec.exit && typeof cspec.exit === "object") {
-                          const baseExit = blankSpec(defaultUni).exit;
-                          const stopRaw = cspec.exit.stop;
-                          const stopMode =
-                            stopRaw && typeof stopRaw === "object" && ["none", "hh", "dstop", "sig"].includes(stopRaw.mode)
-                              ? stopRaw.mode
-                              : "none";
-                          next.exit = {
-                            ...baseExit,
-                            time_bars:
-                              typeof cspec.exit.time_bars === "number" && cspec.exit.time_bars >= 1
-                                ? Math.round(cspec.exit.time_bars)
-                                : baseExit.time_bars,
-                            stop: {
-                              mode: stopMode,
-                              window:
-                                typeof stopRaw?.window === "number" && stopRaw.window >= 1
-                                  ? Math.round(stopRaw.window)
-                                  : 16,
-                              param: typeof stopRaw?.param === "number" ? stopRaw.param : 0,
-                            },
-                            ...(typeof cspec.exit.take_profit === "number" && cspec.exit.take_profit > 0
-                              ? { take_profit: cspec.exit.take_profit }
-                              : {}),
-                          };
-                        }
-                        if (cspec.sizing && typeof cspec.sizing === "object") {
-                          const baseSizing = blankSpec(defaultUni).sizing;
-                          next.sizing = {
-                            risk: typeof cspec.sizing.risk === "number" ? cspec.sizing.risk : baseSizing.risk,
-                            notional_cap:
-                              typeof cspec.sizing.notional_cap === "number"
-                                ? cspec.sizing.notional_cap
-                                : baseSizing.notional_cap,
-                            weight: typeof cspec.sizing.weight === "number" ? cspec.sizing.weight : baseSizing.weight,
-                          };
-                        }
-                        next.filters = Array.isArray(cspec.filters) ? cspec.filters : [];
-
-                        setSpec(next);
-                        setPresetKey("blank");
-                        setStarted(true);
-                        setErr(null);
-                      })
-                      .catch(() => {
-                        setParsing(false);
-                        setSpec(blankSpec("fleet-60"));
-                        setPresetKey("blank");
-                        setStarted(true);
-                        setErr("Could not reach parsing service");
-                      });
+                    runParse(text);
                   }}
                 >
                   {parsing ? "Parsing…" : "Parse & build"}
@@ -1489,6 +1600,9 @@ export default function Compose() {
             {/* Market + Universe */}
             <div className={r.formRow}>
               <h2 className={r.h2}>Market &amp; universe</h2>
+              <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
+                A universe is a subset of a market — pick a ready-made one or build your own.
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginTop: 12 }}>
                 <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <span className={r.label}>Market</span>
@@ -1497,18 +1611,20 @@ export default function Compose() {
                     value={spec.market}
                     onChange={(e) => {
                       const nextMarket = e.target.value;
-                      setSpec((s) => {
-                        const isEq = nextMarket === "equity";
-                        const eqSlugs = ["mag-7", "us-equities"];
-                        const nextUni = isEq
-                          ? eqSlugs.includes(s.universe)
-                            ? s.universe
-                            : "mag-7"
-                          : eqSlugs.includes(s.universe)
-                            ? "fleet-60"
-                            : s.universe;
-                        return { ...s, market: nextMarket, universe: nextUni };
-                      });
+                      setCustomMode(false);
+                      customUni.current = null;
+                      setCustomCoins([]);
+                      setCustomName("");
+                      setCustomSaved(false);
+                      const first = universeList.find(
+                        (u) => u.market === ASSET_CLASS(nextMarket) && u.saved && (u.owner === null || u.owner === me),
+                      );
+                      setSpec((s) => ({
+                        ...s,
+                        market: nextMarket,
+                        universe: first?.slug ?? s.universe,
+                        filters: s.filters.filter((f) => f.kind !== "universe"),
+                      }));
                     }}
                   >
                     {CATALOG.markets.map((m) => (
@@ -1523,19 +1639,76 @@ export default function Compose() {
                   <span className={r.label}>Universe</span>
                   <select
                     className={r.input}
-                    value={spec.universe}
-                    onChange={(e) => setSpec((s) => ({ ...s, universe: e.target.value }))}
+                    value={customMode ? CUSTOM_UNI : spec.universe}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === CUSTOM_UNI) enterCustom();
+                      else exitCustom(v);
+                    }}
                   >
                     {marketUniverses.map((u) => (
                       <option key={u.id} value={u.slug}>
                         {u.name ?? u.slug}
                       </option>
                     ))}
+                    <option value={CUSTOM_UNI}>Custom — pick tokens…</option>
                   </select>
-                  <span className="lbl">{selectedUniverse?.description ?? ""}</span>
+                  <span className="lbl">
+                    {customMode
+                      ? `${customCoins.length} token${customCoins.length === 1 ? "" : "s"} picked`
+                      : (selectedUniverse?.description ?? "")}
+                  </span>
                 </label>
                 <ParamControl spec={spec} path="timeframe" onChange={setParam} />
               </div>
+
+              {customMode && (
+                <div className={r.uniPicker}>
+                  <input
+                    className={r.input}
+                    placeholder={`Search ${spec.market === "equity" ? "stocks" : "coins"} to add…`}
+                    value={coinQuery}
+                    onChange={(e) => setCoinQuery(e.target.value)}
+                  />
+                  {coinQuery.trim() && (
+                    <div className={r.coinResults}>
+                      {coinMatches.length === 0 ? (
+                        <div className="lbl" style={{ padding: "8px 10px" }}>No matches.</div>
+                      ) : (
+                        coinMatches.map((c) => (
+                          <button type="button" key={c.symbol} className={r.coinOpt} onClick={() => addCoin(c.symbol)}>
+                            <span className="num">{c.symbol}</span>
+                            {c.name && <span className="lbl">{c.name}</span>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  {customCoins.length > 0 ? (
+                    <div className={r.chips}>
+                      {customCoins.map((c) => (
+                        <button type="button" key={c} className={r.chip} onClick={() => removeCoin(c)} title="Remove">
+                          {c} <span aria-hidden>×</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="lbl" style={{ marginTop: 8 }}>No tokens yet — search above and click to add.</div>
+                  )}
+                  <label className={r.saveUni}>
+                    <input type="checkbox" checked={customSaved} onChange={(e) => setCustomSaved(e.target.checked)} />
+                    <span>Save this universe for reuse</span>
+                  </label>
+                  {customSaved && (
+                    <input
+                      className={r.input}
+                      placeholder="Universe name (e.g. My majors)"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Direction / fresh / sizing */}
@@ -1677,15 +1850,6 @@ export default function Compose() {
                       style={{ width: 100 }}
                     />
                   )}
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span className={r.label}>Universe only (comma-separated tickers)</span>
-                  <input
-                    className={r.input}
-                    value={((filterVal("universe", "only") as string[] | undefined) ?? []).join(", ")}
-                    onChange={(e) => setUniverseFilterOnly(e.target.value)}
-                    placeholder="e.g. BTC, ETH"
-                  />
                 </label>
                 {spec.filters.length > 0 && (
                   <div className="lbl" style={{ color: "#d29922" }}>

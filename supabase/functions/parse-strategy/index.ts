@@ -6,11 +6,12 @@ Return ONLY a single compact JSON object (no markdown fences, no commentary) mat
 {
   "name": "Short descriptive bot name (max 28 chars)",
   "side": "short" | "long",
-  "market": "crypto_perp" | "crypto_spot" | "equity",
-  "universe": "fleet-60" | "majors" | "all-perps" | "top100-vol" | "mag-7" | "us-equities",
+  "market": "crypto_perp" | "crypto_spot" | "equity" | "fx_spot",
+  "universe": "fleet-60" | "majors" | "all-perps" | "top100-vol" | "mag-7" | "us-equities" | "fx-majors",
+  "coins": ["BTC", "ETH"]  (optional — BARE tickers when the strategy names specific instruments; omit for a broad preset universe),
   "timeframe": "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d",
   "fresh": boolean,
-  "timing": { "hours_utc": number[], "days_utc": number[] },
+  "timing": { "hours_utc": number[] (0-23 UTC), "days_utc": number[] (Monday=0 .. Sunday=6, so weekdays = [0,1,2,3,4]; empty = any day) },
   "entry": {
     "logic": "AND" | "OR" | "NOT",
     "children": [
@@ -54,7 +55,10 @@ Rules for indicators & operands:
   - "BBANDS_upperband", "BBANDS_middleband", "BBANDS_lowerband" (params: {"timeperiod": 20, "nbdevup": 2, "nbdevdn": 2})
   - "MACD_macd", "MACD_macdsignal", "MACD_macdhist" (params: {"fastperiod": 12, "slowperiod": 26, "signalperiod": 9})
   - "VWAP", "OBV" (params: {})
-- If the user mentions stocks / equities / Mag 7 / S&P / Nasdaq / AAPL / NVDA / TSLA / SPY, set "market": "equity" and "universe": "mag-7" or "us-equities". Otherwise default to "market": "crypto_perp" and "universe": "fleet-60" (or "majors" if they ask for majors/BTC/ETH).`;
+- If the user mentions stocks / equities / Mag 7 / S&P / Nasdaq / AAPL / NVDA / TSLA / SPY, set "market": "equity" and "universe": "mag-7" or "us-equities".
+- If the user mentions forex / FX / currencies / currency pairs (e.g. EUR/USD, EURUSD, GBPUSD, USDJPY, cable, dollar-yen), set "market": "fx_spot" and "universe": "fx-majors". For specific pairs, also put their BARE tickers in "coins" using these exact symbols: EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, USDCAD, NZDUSD. FX has NO volume, so do not use volume indicators (VOL_RATIO, OBV, MFI, VWAP) for fx_spot.
+- Otherwise default to "market": "crypto_perp" and "universe": "fleet-60" (or "majors" if they ask for majors/BTC/ETH).
+- Universe vs coins: if the user names specific instruments to trade (e.g. "short SOL and AVAX", "BTC only", "just ETH and DOGE"), put their BARE tickers (no USDT suffix, uppercase) in "coins" AND still set "universe" to the market default as a fallback. If they describe a broad set (majors, top 100, all perps, Mag 7, US equities), use "universe" and OMIT "coins". Never express a specific-instrument set as a filter.`;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

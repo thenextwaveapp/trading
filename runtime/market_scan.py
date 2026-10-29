@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import core.env  # noqa: F401  (loads .env)
+from core.service import fetch_candles   # routes non-USDT symbols to Yahoo
 from . import pf_db
 
 TICKER = "https://fapi.binance.com/fapi/v1/ticker/24hr"
@@ -23,6 +24,8 @@ CG_MARKETS = ("https://api.coingecko.com/api/v3/coins/markets"
               "?vs_currency=usd&order=market_cap_desc&per_page=250&page=")
 TOP_N = 300
 POLL_SECONDS = 60
+# non-crypto markets refresh on a slower cadence (Yahoo daily bars, market hours)
+NONCRYPTO_SECONDS = 600
 
 
 CG_KEY = os.environ.get("CG_API_KEY", "")
@@ -115,17 +118,58 @@ def scan_once():
     return len(rows)
 
 
+def scan_market(market):
+    """Snapshot a non-crypto market (equity / fx_spot) from the tradeable set in
+    pf_coins, via Yahoo daily bars. One provider per market, driven by the same
+    instruments the Builder can trade — so the discovery board never drifts from
+    what's buildable. Missing fields (fx has no volume) stay null, not faked."""
+    now = datetime.now(timezone.utc).isoformat()
+    coins = pf_db.get("pf_coins", f"market=eq.{market}&select=symbol,binance_symbol,name") or []
+    rows = []
+    for c in coins:
+        ysym, base = c.get("binance_symbol"), c.get("symbol")
+        if not ysym:
+            continue
+        try:
+            k = fetch_candles(ysym, "1d", limit=5)
+        except Exception:
+            continue
+        if not k or len(k) < 2:
+            continue
+        last, prev = k[-1], k[-2]
+        rows.append({
+            "symbol": ysym, "base": base, "market": market, "name": c.get("name"),
+            "price": last["c"],
+            "change_pct": (last["c"] / prev["c"] - 1) * 100 if prev["c"] else 0.0,
+            "high": last["h"], "low": last["l"],
+            "quote_volume": last.get("v") if market == "equity" else None,
+            "trades": None, "updated_at": now,
+        })
+    for i in range(0, len(rows), 200):
+        _upsert(rows[i:i + 200])
+    return len(rows)
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not pf_db.enabled():
         sys.exit("SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
     once = "--once" in argv
+    last_noncrypto = 0.0
     while True:
         try:
             n = scan_once()
-            print(f"market_scan: upserted {n} instruments")
+            print(f"market_scan: upserted {n} crypto instruments")
         except Exception as e:
-            print(f"market_scan error: {e}", file=sys.stderr)
+            print(f"market_scan crypto error: {e}", file=sys.stderr)
+        if once or (time.time() - last_noncrypto) >= NONCRYPTO_SECONDS:
+            for mkt in ("equity", "fx_spot"):
+                try:
+                    m = scan_market(mkt)
+                    print(f"market_scan: upserted {m} {mkt} instruments")
+                except Exception as e:
+                    print(f"market_scan {mkt} error: {e}", file=sys.stderr)
+            last_noncrypto = time.time()
         if once:
             return 0
         time.sleep(POLL_SECONDS)

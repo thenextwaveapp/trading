@@ -65,6 +65,8 @@ export interface DbUniverse {
   name: string;
   description: string | null;
   owner: string | null;
+  market: string;
+  saved: boolean;
 }
 
 export interface DbUniverseWithCoins extends DbUniverse {
@@ -88,6 +90,7 @@ export interface DbCoin {
   symbol: string;
   binance_symbol: string;
   name: string | null;
+  market: string;
 }
 
 export interface DbProfile {

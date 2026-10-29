@@ -29,6 +29,23 @@
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
 }
+.feed {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--card-bottom);
+  padding: 4px 8px;
+}
+.more {
+  width: 100%;
+  padding: 11px 8px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.more:hover { color: var(--fg); }
 .bc {
   padding: 18px;
   display: flex;

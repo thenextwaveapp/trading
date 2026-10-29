@@ -2,6 +2,7 @@ import { DEFAULT_BOT_COLOR, botColor } from "../lib/brand";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
+import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth } from "../auth";
 import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useLatestBacktest, useMyBot } from "../db/queries";
 import type { Visibility } from "../db/types";
@@ -23,6 +24,7 @@ import {
 import DataTable, { type Column } from "../components/DataTable";
 import BotChart from "../components/BotChart";
 import { BackBar, BotLink, Coin } from "../components/cells";
+import p from "./pages.module.css";
 import s from "./BotProfile.module.css";
 
 const OP_SYM: Record<string, string> = {
@@ -161,6 +163,25 @@ export default function BotProfile() {
   useEffect(() => {
     if (bot?.visibility) setVis(bot.visibility);
   }, [bot?.visibility]);
+
+  const { setPageContext } = useAssistant();
+  useEffect(() => {
+    if (!v) {
+      setPageContext(null);
+      return;
+    }
+    const list = [
+      `Return ${pct(v.ret, true)}`,
+      `Equity ${dol(v.equity)}`,
+      `${v.closed} closed trades`,
+      v.win != null ? `Win rate ${v.win.toFixed(0)}%` : "",
+      ...(v.open ?? []).slice(0, 8).map(
+        (o) => `Open: ${o.ticker} ${o.side}${o.upct != null ? ` ${(o.upct * 100).toFixed(1)}%` : ""}`,
+      ),
+    ].filter(Boolean);
+    setPageContext({ screen: { title: `Bot profile: ${name}`, rows: list } });
+    return () => setPageContext(null);
+  }, [v, name, setPageContext]);
 
   const changeVisibility = async (next: Visibility) => {
     setVis(next);
@@ -346,7 +367,7 @@ export default function BotProfile() {
   return (
     <>
       <BackBar fallbackPath="/" fallbackLabel="Fleet" />
-      <div className={s.body}>
+      <div className={`${p.narrow} ${s.body}`}>
         <section className={s.hero}>
           <svg width="104" height="104" viewBox="0 0 104 104">
             <rect width="104" height="104" rx="52" fill="#12161D" />

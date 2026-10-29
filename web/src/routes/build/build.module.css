@@ -386,6 +386,68 @@
   border-color: var(--border-hover);
 }
 
+/* custom universe picker */
+.uniPicker {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: #0d1117;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.coinResults {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card-bottom);
+}
+.coinOpt {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.coinOpt:first-child { border-top: none; }
+.coinOpt:hover { background: #0c1219; }
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #10141a;
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--down); color: var(--down); }
+.saveUni {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--fg-2);
+  cursor: pointer;
+  margin-top: 2px;
+}
+
 /* timing controls */
 .timingGrid {
   display: grid;

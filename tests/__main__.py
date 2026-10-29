@@ -20,6 +20,8 @@ SUITES = [
     "selftest_worker",       # worker DB write-back + stage transitions
     "selftest_spec_runtime", # DB-fleet exits on the post-signal tape
     "selftest_params",       # typed parameter registry + capability map
+    "selftest_indicators_std",  # pure-Python standard indicators match TA-Lib
+    "selftest_stream_universe",  # disk-backed streaming universe == eager dict
     "selftest_timing",       # UTC hour/day signal windows
     "selftest_exits_side",   # side-aware stops + two-sided trailing
     "selftest_service",      # service capability gates before data loading

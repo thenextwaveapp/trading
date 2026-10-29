@@ -10,9 +10,15 @@ const IVS = ["15m", "1h", "4h", "1d"] as const;
 /** Embedded price chart for a symbol — same lib + data path as CandleModal,
  *  without the trade overlay. The web only renders; candles come from the
  *  shared fetchCandles. */
-export default function CandleChart({ sym, height = 440 }: { sym: string; height?: number }) {
+export default function CandleChart({ sym, height = 440, onPickTime }: {
+  sym: string;
+  height?: number;
+  onPickTime?: (tMs: number) => void;
+}) {
   const elRef = useRef<HTMLDivElement>(null);
   const [iv, setIv] = useState<(typeof IVS)[number]>("1h");
+  const pickRef = useRef(onPickTime);
+  pickRef.current = onPickTime;
 
   useEffect(() => {
     const el = elRef.current;
@@ -21,6 +27,12 @@ export default function CandleChart({ sym, height = 440 }: { sym: string; height
     const ser: ISeriesApi<"Candlestick"> = chart.addCandlestickSeries({
       upColor: "#3DDC97", downColor: "#FF5C6C",
       wickUpColor: "#3DDC97", wickDownColor: "#FF5C6C", borderVisible: false,
+    });
+    // Reverse lt(): local-shifted seconds -> real ms, so a click maps to a bar.
+    chart.subscribeClick((param) => {
+      if (param.time == null || !pickRef.current) return;
+      const sec = Number(param.time);
+      pickRef.current(sec * 1000 + new Date(sec * 1000).getTimezoneOffset() * 60000);
     });
     let dead = false;
     (async () => {

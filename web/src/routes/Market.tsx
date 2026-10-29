@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAssistant } from "../assistant/AssistantProvider";
 import { useMarket, useNews } from "../db/queries";
 import type { DbMarketRow } from "../db/types";
 import { pct } from "../lib/format";
@@ -28,37 +29,76 @@ function range24(r: DbMarketRow): number {
   return (r.high - r.low) / r.low * 100;
 }
 
-const SORTS = [
-  ["volume", "Top volume"],
-  ["gainers", "Gainers"],
-  ["losers", "Losers"],
-  ["volatile", "Most volatile"],
+type ColKey = "coin" | "price" | "change" | "range" | "volume" | "mcap";
+interface SortBy { key: ColKey; dir: "asc" | "desc" }
+
+// Preset shortcuts map onto the same column-sort state as the header clicks.
+const SORTS: readonly [string, string, SortBy][] = [
+  ["volume", "Top volume", { key: "volume", dir: "desc" }],
+  ["gainers", "Gainers", { key: "change", dir: "desc" }],
+  ["losers", "Losers", { key: "change", dir: "asc" }],
+  ["volatile", "Most volatile", { key: "range", dir: "desc" }],
 ] as const;
-type Sort = (typeof SORTS)[number][0];
+const colVal = (r: DbMarketRow, key: ColKey): number | string => {
+  switch (key) {
+    case "coin": return r.base ?? "";
+    case "price": return r.price ?? 0;
+    case "change": return r.change_pct ?? 0;
+    case "range": return range24(r);
+    case "volume": return r.quote_volume ?? 0;
+    case "mcap": return r.market_cap ?? 0;
+  }
+};
 const PAGE_SIZE = 25;
+
+type MarketId = "crypto" | "equity" | "fx_spot";
+const MARKETS: [MarketId, string][] = [["crypto", "Crypto"], ["equity", "Stocks"], ["fx_spot", "FX"]];
+const HERO: Record<MarketId, { title: string; sub: string }> = {
+  crypto: { title: "Crypto market", sub: "The most-traded USDT perpetuals, live." },
+  equity: { title: "US equities", sub: "The stocks Paper Fleet can trade, by the day's move." },
+  fx_spot: { title: "FX majors", sub: "The seven major USD currency pairs." },
+};
+// Capability columns: what each market actually provides (no faked blanks).
+const HAS_VOLUME = (m: MarketId) => m !== "fx_spot";   // FX spot has no central volume
+const HAS_MCAP = (m: MarketId) => m === "crypto";      // only crypto is enriched with market cap
+const DEFAULT_SORT: Record<MarketId, SortBy> = {
+  crypto: { key: "volume", dir: "desc" },
+  equity: { key: "volume", dir: "desc" },
+  fx_spot: { key: "change", dir: "desc" },
+};
 
 export default function Market() {
   const nav = useNavigate();
-  const { data: rows, loading } = useMarket("crypto");
+  const [market, setMarket] = useState<MarketId>("crypto");
+  const { data: rows, loading } = useMarket(market);
   const { data: news } = useNews(10);
-  const [sort, setSort] = useState<Sort>("volume");
+  const [sortBy, setSortBy] = useState<SortBy>({ key: "volume", dir: "desc" });
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
 
+  const changeMarket = (m: MarketId) => {
+    setMarket(m);
+    setSortBy(DEFAULT_SORT[m]);
+    setPage(0);
+  };
+
   const query = q.trim().toUpperCase();
-  useEffect(() => setPage(0), [sort, query]);
+  useEffect(() => setPage(0), [sortBy, query]);
+
+  const toggleCol = (key: ColKey) =>
+    setSortBy((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "coin" ? "asc" : "desc" }));
+  const arrow = (key: ColKey) => (sortBy.key === key ? (sortBy.dir === "asc" ? " ↑" : " ↓") : "");
 
   const view = useMemo(() => {
     let xs = (rows ?? []).slice();
     if (query) xs = xs.filter((r) => r.base.includes(query) || r.symbol.includes(query));
-    const cmp: Record<Sort, (a: DbMarketRow, b: DbMarketRow) => number> = {
-      volume: (a, b) => (b.quote_volume ?? 0) - (a.quote_volume ?? 0),
-      gainers: (a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0),
-      losers: (a, b) => (a.change_pct ?? 0) - (b.change_pct ?? 0),
-      volatile: (a, b) => range24(b) - range24(a),
-    };
-    return xs.sort(cmp[sort]);
-  }, [rows, sort, query]);
+    const mul = sortBy.dir === "asc" ? 1 : -1;
+    return xs.sort((a, b) => {
+      const av = colVal(a, sortBy.key), bv = colVal(b, sortBy.key);
+      if (typeof av === "string" || typeof bv === "string") return String(av).localeCompare(String(bv)) * mul;
+      return (av - bv) * mul;
+    });
+  }, [rows, sortBy, query]);
 
   const movers = useMemo(
     () => (rows ?? []).filter((r) => r.price != null).slice()
@@ -69,14 +109,21 @@ export default function Market() {
   const pages = Math.max(1, Math.ceil(view.length / PAGE_SIZE));
   const pageRows = view.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
+  const { setPageContext } = useAssistant();
+  useEffect(() => {
+    const list = view.slice(0, 20).map((r) => `${r.base} ${fmtPrice(r.price)} ${pct(r.change_pct, true)} 24h`);
+    setPageContext({ screen: { title: `${HERO[market].title} — sorted by ${sortBy.key} ${sortBy.dir}`, rows: list } });
+    return () => setPageContext(null);
+  }, [view, sortBy, market, setPageContext]);
+
   return (
     <div className={p.narrow}>
       <div className={p.body} style={{ paddingTop: 28 }}>
         <section className={s.hero}>
           <div>
-            <div className={s.heroTitle}>Crypto market</div>
+            <div className={s.heroTitle}>{HERO[market].title}</div>
             <div className={s.heroSub}>
-              {rows?.length ?? 0} perpetuals, live. Find a setup, open the chart, build a bot on it.
+              {rows?.length ?? 0} instruments. {HERO[market].sub} Find a setup, open the chart, build a bot on it.
             </div>
           </div>
           <div className={s.movers}>
@@ -97,15 +144,21 @@ export default function Market() {
 
         <div className={s.filters}>
           <div className={p.seg}>
-            {(["crypto", "stocks", "predictions"] as const).map((m) => (
-              <button key={m} className={`${p.segBtn} ${m === "crypto" ? p.sel : ""}`} disabled={m !== "crypto"}>
-                {m === "crypto" ? "Crypto" : m === "stocks" ? "Stocks · soon" : "Predictions · soon"}
+            {MARKETS.map(([m, label]) => (
+              <button key={m} className={`${p.segBtn} ${m === market ? p.sel : ""}`} onClick={() => changeMarket(m)}>
+                {label}
               </button>
             ))}
           </div>
           <div className={p.seg}>
-            {SORTS.map(([k, label]) => (
-              <button key={k} className={`${p.segBtn} ${sort === k ? p.sel : ""}`} onClick={() => setSort(k)}>{label}</button>
+            {SORTS.map(([k, label, preset]) => (
+              <button
+                key={k}
+                className={`${p.segBtn} ${sortBy.key === preset.key && sortBy.dir === preset.dir ? p.sel : ""}`}
+                onClick={() => setSortBy(preset)}
+              >
+                {label}
+              </button>
             ))}
           </div>
           <input className={p.search} placeholder="Search coins" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginLeft: "auto" }} />
@@ -122,12 +175,12 @@ export default function Market() {
                 <thead>
                   <tr>
                     <th className={s.num}>#</th>
-                    <th className={s.left}>Coin</th>
-                    <th>Price</th>
-                    <th>24h</th>
-                    <th>24h range</th>
-                    <th>Volume</th>
-                    <th>Market cap</th>
+                    <th className={`${s.left} ${s.sortable}`} onClick={() => toggleCol("coin")}>Coin{arrow("coin")}</th>
+                    <th className={s.sortable} onClick={() => toggleCol("price")}>Price{arrow("price")}</th>
+                    <th className={s.sortable} onClick={() => toggleCol("change")}>24h{arrow("change")}</th>
+                    <th className={s.sortable} onClick={() => toggleCol("range")}>24h range{arrow("range")}</th>
+                    {HAS_VOLUME(market) && <th className={s.sortable} onClick={() => toggleCol("volume")}>Volume{arrow("volume")}</th>}
+                    {HAS_MCAP(market) && <th className={s.sortable} onClick={() => toggleCol("mcap")}>Market cap{arrow("mcap")}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -146,8 +199,8 @@ export default function Market() {
                         <td className="num">{fmtPrice(r.price)}</td>
                         <td className={`num ${up ? "up" : "down"}`}>{pct(r.change_pct, true)}</td>
                         <td className="num muted">{range24(r).toFixed(1)}%</td>
-                        <td className="num muted">{fmtVol(r.quote_volume)}</td>
-                        <td className="num muted">{r.market_cap ? fmtVol(r.market_cap) : "–"}</td>
+                        {HAS_VOLUME(market) && <td className="num muted">{fmtVol(r.quote_volume)}</td>}
+                        {HAS_MCAP(market) && <td className="num muted">{r.market_cap ? fmtVol(r.market_cap) : "–"}</td>}
                       </tr>
                     );
                   })}

@@ -52,6 +52,13 @@
   padding: 0 14px 12px;
   white-space: nowrap;
 }
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable:hover {
+  color: var(--fg);
+}
 .table td {
   padding: 12px 14px;
   border-top: 1px solid var(--line);

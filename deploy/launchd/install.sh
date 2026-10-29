@@ -1,4 +1,10 @@
 #!/bin/bash
+# DEV-ONLY — NOT production. Production runs on the non-US Hetzner VPS via
+# systemd (see deploy/README.md and deploy/systemd/). Do NOT run these agents
+# against the production Supabase: a local worker races the VPS for the same job
+# queue. Use launchd only as the sole host (single-user) or for local dev against
+# a dev/branch DB.
+#
 # Install the paper fleet + dashboard as launchd agents (survive terminal
 # closes, auto-restart on crash, auto-start on login). Run once:
 #   bash deploy/launchd/install.sh

@@ -17,9 +17,12 @@ import csv
 import gzip
 import json
 import os
+import shutil
 import sys
+import tempfile
 import time
 import urllib.request
+from collections import OrderedDict
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -212,6 +215,93 @@ def _with_interval(body, strategy):
     return out
 
 
+class DiskUniverse:
+    """A read-only {ticker: candles} mapping that keeps only an LRU of tapes in
+    RAM — each symbol's candles live in a per-symbol temp file and are loaded on
+    access. Drop-in for the eager dict the engine used to hold, so backtest /
+    checks / conditions run unchanged; peak memory is ~`lru` tapes instead of the
+    whole universe. `materialize()` writes symbols one at a time (cache-then-
+    fetch), so building it never holds more than one tape either.
+    """
+    def __init__(self, lru=1):   # every access pattern is sequential -> 1 tape resident
+        self._dir = tempfile.mkdtemp(prefix="pf_uni_")
+        self._files: dict = {}          # ticker -> path (insertion order = universe order)
+        self._lens: dict = {}           # ticker -> bar count
+        self._lru: OrderedDict = OrderedDict()
+        self._cap = max(1, lru)
+        self._t0 = None                 # min first-bar time / max last-bar time
+        self._t1 = None
+
+    def put(self, ticker, candles):
+        if not candles:
+            return
+        path = os.path.join(self._dir, f"{ticker}.json.gz")
+        with gzip.open(path, "wt") as f:
+            json.dump(candles, f)
+        self._files[ticker] = path
+        self._lens[ticker] = len(candles)
+        t0, t1 = candles[0]["t"], candles[-1]["t"]
+        self._t0 = t0 if self._t0 is None else min(self._t0, t0)
+        self._t1 = t1 if self._t1 is None else max(self._t1, t1)
+
+    def span(self):
+        return self._t0, self._t1
+
+    def _load(self, ticker):
+        if ticker in self._lru:
+            self._lru.move_to_end(ticker)
+            return self._lru[ticker]
+        path = self._files[ticker]
+        with gzip.open(path, "rt") as f:
+            rows = json.load(f)
+        self._lru[ticker] = rows
+        while len(self._lru) > self._cap:
+            self._lru.popitem(last=False)
+        return rows
+
+    # mapping protocol (what backtest_universe / checks / conditions use)
+    def __getitem__(self, tk):
+        return self._load(tk)
+
+    def get(self, tk, default=None):
+        return self._load(tk) if tk in self._files else default
+
+    def __contains__(self, tk):
+        return tk in self._files
+
+    def __iter__(self):
+        return iter(self._files)
+
+    def keys(self):
+        return self._files.keys()
+
+    def __len__(self):
+        return len(self._files)
+
+    def items(self):
+        for tk in self._files:
+            yield tk, self._load(tk)
+
+    def values(self):
+        for tk in self._files:
+            yield self._load(tk)
+
+    def lengths(self):
+        """{ticker: bar count} without loading any tape (from the write-time index)."""
+        return dict(self._lens)
+
+    def close(self):
+        self._lru.clear()
+        shutil.rmtree(self._dir, ignore_errors=True)
+        self._files, self._lens = {}, {}
+
+
+def _close_universe(uni):
+    """Release a DiskUniverse's temp files; a plain dict needs nothing."""
+    if isinstance(uni, DiskUniverse):
+        uni.close()
+
+
 def _resolve_universe(body):
     """-> ({ticker: candles}, meta). Resolves a universe slug (fleet-60 /
     majors), `symbols`, or inline `candles`; optional `window` = {start, end}
@@ -241,27 +331,37 @@ def _resolve_universe(body):
             "provide universe, symbols, candles, or candles_by_ticker")
     items = dict(list(uni.items())[:MAX_SYMBOLS])
 
+    # Stream symbols to a disk-backed universe one tape at a time so we never
+    # hold the whole universe in RAM (a 5m/2yr all-perps run is gigabytes).
     cached, seen = _read_cache(items, interval, start, end)
+    du = DiskUniverse()
+    for tk in list(cached.keys()):
+        du.put(tk, cached.pop(tk))      # pop -> each cached tape freed after write
+    del cached
     missing = {tk: sym for tk, sym in items.items() if sym not in seen}
     for tk, sym in missing.items():
         rows = fetch_candles(sym, interval, limit, start, end)
         if rows:
-            cached[tk] = rows
-
-    cached = {tk: rows for tk, rows in cached.items() if rows}
-    if not cached:
+            du.put(tk, rows)
+            rows = None
+    if len(du) == 0:
+        du.close()
         raise ValueError("no candles for this universe/window")
     any_eq = any(_is_equity_symbol(sym) for sym in items.values())
     source = ("yahoo" if any_eq else "cache" if not missing else
               "binance" if not seen else "cache+binance")
-    return cached, {"source": source, "bars": sum(len(v) for v in cached.values())}
+    return du, {"source": source, "bars": sum(du.lengths().values())}
 
 
 def _window_meta(uni, meta):
-    ts = [k["t"] for rows in uni.values() for k in (rows[0], rows[-1])]
+    if isinstance(uni, DiskUniverse):
+        lo, hi = uni.span()                 # tracked at write time — no reload
+    else:
+        ts = [k["t"] for rows in uni.values() for k in (rows[0], rows[-1])]
+        lo, hi = min(ts), max(ts)
     return {
-        "start": _iso_date(min(ts)),
-        "end": _iso_date(max(ts)),
+        "start": _iso_date(lo),
+        "end": _iso_date(hi),
         "bars": meta.get("bars", 0),
         "symbols": len(uni),
         "source": meta.get("source", "unknown"),
@@ -345,12 +445,15 @@ def ep_backtest(body):
         uni, meta = _resolve_universe(_with_interval(body, s))
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
-    res = (backtest(s, next(iter(uni.values())))
-           if len(uni) == 1 else backtest_universe(s, uni))
-    return 200, {"ok": True, "stats": res["stats"],
-                 "trades": res["trades"][:1000],
-                 "window": _window_meta(uni, meta),
-                 "issues": issues}
+    try:
+        res = (backtest(s, next(iter(uni.values())))
+               if len(uni) == 1 else backtest_universe(s, uni))
+        return 200, {"ok": True, "stats": res["stats"],
+                     "trades": res["trades"][:1000],
+                     "window": _window_meta(uni, meta),
+                     "issues": issues}
+    finally:
+        _close_universe(uni)
 
 
 def ep_checks(body):
@@ -365,7 +468,10 @@ def ep_checks(body):
         uni, _meta = _resolve_universe(_with_interval(body, s))
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
-    return 200, {"ok": True, **run_checks(s, uni), "issues": issues}
+    try:
+        return 200, {"ok": True, **run_checks(s, uni), "issues": issues}
+    finally:
+        _close_universe(uni)
 
 
 def ep_evaluate(body):
@@ -386,22 +492,25 @@ def ep_evaluate(body):
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
 
-    res = backtest_universe(s, uni)
-    checks = run_checks(s, uni, base=res)
-    conditions = conditions_breakdown(res["trades"], uni,
-                                      bar_ms=s.get("_interval_ms", 900_000))
-    return 200, {
-        "ok": True,
-        "stats": res["stats"],
-        "trades": res["trades"][:1000],
-        "window": _window_meta(uni, meta),
-        "checks": checks["checks"],
-        "checks_passed": checks["passed"],
-        "checks_total": checks["total"],
-        "conditions": conditions,
-        "issues": issues,
-        **_gap_recovery(res["trades"], res["stats"].get("equity_curve") or []),
-    }
+    try:
+        res = backtest_universe(s, uni)
+        checks = run_checks(s, uni, base=res)
+        conditions = conditions_breakdown(res["trades"], uni,
+                                          bar_ms=s.get("_interval_ms", 900_000))
+        return 200, {
+            "ok": True,
+            "stats": res["stats"],
+            "trades": res["trades"][:1000],
+            "window": _window_meta(uni, meta),
+            "checks": checks["checks"],
+            "checks_passed": checks["passed"],
+            "checks_total": checks["total"],
+            "conditions": conditions,
+            "issues": issues,
+            **_gap_recovery(res["trades"], res["stats"].get("equity_curve") or []),
+        }
+    finally:
+        _close_universe(uni)
 
 
 def _sweep_stats(stats):
@@ -492,6 +601,8 @@ def ep_sweep(body):
         completed += 1
         runs.append(row)
 
+    for _k, (u, _m) in data_cache.items():   # release disk-backed tapes
+        _close_universe(u)
     return 200, {"ok": True, "count": count, "completed": completed,
                  "window": window, "runs": runs, "issues": base_issues}
 

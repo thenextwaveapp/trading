@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
+import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth } from "../auth";
 import { updateBuilderProfile, uploadAvatar } from "../db/queries";
 import { DEFAULT_BOT_COLOR, FLEET_PALETTE } from "../lib/brand";
@@ -13,6 +14,7 @@ export default function Settings() {
   const d = useData();
   const nav = useNavigate();
   const { profile, user, refreshProfile, signOut } = useAuth();
+  const assistant = useAssistant();
   const [tab, setTab] = useState("Sharing");
 
   const [displayName, setDisplayName] = useState("");
@@ -193,6 +195,19 @@ export default function Settings() {
                 <div className={p.seg}>
                   <button className={`${p.segBtn} ${botsOnBoard ? p.sel : ""}`} onClick={() => setBotsOnBoard(true)}>Shown</button>
                   <button className={`${p.segBtn} ${!botsOnBoard ? p.sel : ""}`} onClick={() => setBotsOnBoard(false)}>Hidden</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Assistant</div>
+                  <div className="lbl" style={{ marginTop: 3 }}>
+                    The chart-aware helper in the corner that answers questions and drafts bots.
+                  </div>
+                </div>
+                <div className={p.seg}>
+                  <button className={`${p.segBtn} ${assistant.enabled ? p.sel : ""}`} onClick={() => assistant.setEnabled(true)}>On</button>
+                  <button className={`${p.segBtn} ${!assistant.enabled ? p.sel : ""}`} onClick={() => assistant.setEnabled(false)}>Off</button>
                 </div>
               </div>
             </div>

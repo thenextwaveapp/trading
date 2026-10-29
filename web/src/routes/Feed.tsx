@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { botColor } from "../lib/brand";
+import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth, useCurrentHandle } from "../auth";
 import { useData } from "../api/context";
 import type { Variant } from "../api/types";
@@ -12,20 +12,11 @@ import {
   useMyFollows,
   usePublicProfiles,
 } from "../db/queries";
-import type { DbBot, DbEvent, DbProfile } from "../db/types";
+import type { DbBot, DbProfile } from "../db/types";
 import { dol, identicon, pct } from "../lib/format";
 import { RowsSkeleton } from "../components/Skeleton";
+import FeedRow from "../components/FeedRow";
 import s from "./Feed.module.css";
-
-function rel(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
 
 function Avatar({ seed, color, url, size = 38 }: { seed: string; color: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt="" width={size} height={size} style={{ borderRadius: "50%", objectFit: "cover", background: "#12161D", flex: "none" }} />;
@@ -58,7 +49,6 @@ export default function Feed() {
   const { data: myFollows } = useMyFollows(user?.id ?? null);
 
   const [tab, setTab] = useState<Tab>("recent");
-  const [liked, setLiked] = useState<Set<string>>(new Set());
   const [follows, setFollows] = useState<Set<string> | null>(null);
 
   const followed = follows ?? new Set((myFollows ?? []).map((f) => f.builder));
@@ -96,8 +86,23 @@ export default function Feed() {
     return xs.slice(0, 50);
   }, [events, tab, topBotNames, botMap, followed]);
 
-  const toggleLike = (id: string) =>
-    setLiked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const { setPageContext } = useAssistant();
+  useEffect(() => {
+    const rows = feed.slice(0, 18).map((e) => {
+      const nm = e.bot_name ?? (e.actor_handle ? "@" + e.actor_handle : "Someone");
+      const pay = (e.payload ?? {}) as Record<string, unknown>;
+      const tk = String(pay.ticker ?? "");
+      const net = typeof pay.net === "number" ? ` (${(pay.net * 100).toFixed(1)}%)` : "";
+      if (e.type === "entered") return `${nm} opened ${tk}`.trim();
+      if (e.type === "exited") return `${nm} exited ${tk}${net}`.trim();
+      if (e.type === "copied") return `${nm} copied ${String(pay.from_bot_name ?? "a bot")}`;
+      if (e.type === "followed") return `${nm} followed a builder`;
+      if (e.type === "kill_switch") return `${nm} tripped its loss limit`;
+      return `${nm} ${e.type}`;
+    });
+    setPageContext({ screen: { title: `Activity feed — ${tab} tab`, rows } });
+    return () => setPageContext(null);
+  }, [feed, tab, setPageContext]);
 
   const toggleFollow = async (builderId: string) => {
     if (!user) return nav("/signin");
@@ -126,17 +131,17 @@ export default function Feed() {
             {tab === "following" ? "Follow some builders to see their trades here." : "Nothing here yet."}
           </div>
         ) : (
-          feed.map((e) => (
-            <Post
-              key={e.id}
-              e={e}
-              bot={e.bot_name ? botMap.get(e.bot_name) : undefined}
-              variant={e.bot_name ? liveByName.get(e.bot_name) : undefined}
-              liked={liked.has(e.id)}
-              onLike={() => toggleLike(e.id)}
-              nav={nav}
-            />
-          ))
+          <div className={s.list}>
+            {feed.map((e) => (
+              <FeedRow
+                key={e.id}
+                e={e}
+                bot={e.bot_name ? botMap.get(e.bot_name) : undefined}
+                variant={e.bot_name ? liveByName.get(e.bot_name) : undefined}
+                onOpen={nav}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -194,107 +199,6 @@ export default function Feed() {
           </div>
         )}
       </aside>
-    </div>
-  );
-}
-
-function Post({ e, bot, variant, liked, onLike, nav }: {
-  e: DbEvent; bot?: DbBot; variant?: Variant; liked: boolean; onLike: () => void; nav: (p: string) => void;
-}) {
-  const pay = e.payload ?? {};
-  const color = bot ? botColor(bot) : "#5e8fd8";
-  const builderHandle = bot?.builder?.handle ?? e.actor_handle ?? null;
-  const name = e.bot_name ?? (e.actor_handle ? "@" + e.actor_handle : "Someone");
-
-  // social (non-trade) events render as a slim row
-  if (e.type !== "entered" && e.type !== "exited") {
-    const verb =
-      e.type === "followed" ? "followed a builder"
-        : e.type === "copied" ? `copied ${String(pay.from_bot_name ?? "a bot")}`
-          : e.type === "kill_switch" ? "hit its kill switch" : e.type;
-    return (
-      <div className={`card ${s.post}`}>
-        <div className={s.pHead}>
-          <Avatar seed={e.actor_handle ? "@" + e.actor_handle : name} color={e.type === "kill_switch" ? "#ff5c6c" : "#3ddc97"} size={38} />
-          <div className={s.pWho}>
-            <div className={s.pName}>{e.actor_handle ? "@" + e.actor_handle : name} <span className="muted" style={{ fontWeight: 400 }}>{verb}</span></div>
-          </div>
-          <span className={s.pTime}>{rel(e.ts)}</span>
-        </div>
-      </div>
-    );
-  }
-
-  const ticker = String(pay.ticker ?? "");
-  const entered = e.type === "entered";
-  const side = (pay.side as string) ?? bot?.direction ?? null;
-  const openPos = variant?.open?.find((o) => o.ticker === ticker);
-  const unreal = openPos?.upct != null ? openPos.upct * 100 : null;
-  const net = typeof pay.net === "number" ? pay.net * 100 : null;
-  const shownPct = entered ? unreal : net;
-  const up = (shownPct ?? 0) >= 0;
-
-  return (
-    <div className={`card ${s.post}`}>
-      <div className={s.pHead}>
-        <Avatar seed={name} color={color} size={38} />
-        <div className={s.pWho}>
-          <div className={s.pName}>
-            <span className="lk" onClick={() => nav("/bot/" + encodeURIComponent(name))}>{name}</span>
-          </div>
-          {builderHandle && (
-            <div className={s.pSub}>
-              <span className="lk" onClick={() => nav("/builder/" + encodeURIComponent(builderHandle))}>@{builderHandle}</span>
-            </div>
-          )}
-        </div>
-        <span className={s.pTime}>{rel(e.ts)}</span>
-      </div>
-
-      <div className={s.trade}>
-        <div className={s.tradeTop}>
-          <div>
-            <div className={s.tkrRow}>
-              <span className={s.tkr}>{ticker}</span>
-              {side && <span className={`${s.sideChip} ${side === "short" ? s.sideShort : s.sideLong}`}>{side.toUpperCase()}</span>}
-            </div>
-            {entered && pay.entry != null && <div className={s.price}>Entry ${Number(pay.entry).toLocaleString(undefined, { maximumFractionDigits: 8 })}</div>}
-          </div>
-          <div>
-            <div className={`num ${s.pnl} ${shownPct == null ? "muted" : up ? "up" : "down"}`}>
-              {shownPct == null ? "—" : pct(shownPct, true)}
-            </div>
-            <div className={s.pnlLbl}>{entered ? "Unrealized" : "Realized"}</div>
-          </div>
-        </div>
-
-        <button className={`copyBtn block ${s.mimic}`} onClick={() => nav("/bot/" + encodeURIComponent(name))}>
-          Copy
-        </button>
-
-        <div className={s.tradeFoot}>
-          <span className={s.statusDot}>
-            <span className={entered ? "liveDot" : ""} style={!entered ? { width: 6, height: 6, borderRadius: "50%", background: "var(--muted)", display: "inline-block" } : undefined} />
-            {entered ? "New trade" : "Closed"}
-          </span>
-          <span>{entered ? "Opened" : "Closed"} {new Date(e.ts).toLocaleDateString()}</span>
-        </div>
-      </div>
-
-      <div className={s.actions}>
-        <button className={s.action} aria-label="Comment">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 3.5h12v8H6l-3 2.5v-2.5H2z" /></svg>
-        </button>
-        <button className={s.action} aria-label="Repost">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M3 5.5 5 3.5 7 5.5M5 3.5v6a1 1 0 0 0 1 1h5M13 10.5l-2 2-2-2M11 12.5v-6a1 1 0 0 0-1-1H5" /></svg>
-        </button>
-        <button className={`${s.action} ${liked ? s.liked : ""}`} aria-label="Like" onClick={onLike}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4"><path d="M8 13.5S2 10 2 5.8A2.8 2.8 0 0 1 8 4a2.8 2.8 0 0 1 6 1.8C14 10 8 13.5 8 13.5Z" /></svg>
-        </button>
-        <button className={s.action} aria-label="Share" style={{ marginLeft: "auto" }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M14 2 7 9M14 2l-4.5 12-2.5-5-5-2.5L14 2Z" /></svg>
-        </button>
-      </div>
     </div>
   );
 }

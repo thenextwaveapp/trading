@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   createChart,
   LineStyle,
@@ -28,10 +28,15 @@ export interface CandleReq {
   entry: number;
   stop?: number | null;
   tp?: number | null;
+  exit?: number | null; // exit fill price (closed trades)
   exit_t?: number | null;
   kind?: string | null;
   side?: string | null;
+  goto?: string; // navigate here when opening (e.g. the bot profile); modal sits on top
 }
+
+const fmtPx = (n?: number | null) =>
+  n == null ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: n < 1 ? 6 : n < 100 ? 4 : 2 });
 
 const CandleCtx = createContext<(r: CandleReq) => void>(() => {});
 export const useCandle = () => useContext(CandleCtx);
@@ -46,11 +51,21 @@ const IVMS: Record<string, number> = {
 export function CandleProvider({ children }: { children: ReactNode }) {
   const [req, setReq] = useState<CandleReq | null>(null);
   const loc = useLocation();
+  const nav = useNavigate();
+  const openPath = useRef<string | null>(null);
   const open = useCallback((r: CandleReq) => {
-    if (r.sym) setReq(r);
-  }, []);
-  // Close the chart on navigation.
-  useEffect(() => setReq(null), [loc.pathname]);
+    if (!r.sym) return;
+    openPath.current = r.goto ?? loc.pathname;
+    setReq(r);
+    if (r.goto && r.goto !== loc.pathname) nav(r.goto);
+  }, [loc.pathname, nav]);
+  // Close the chart once the user navigates away from where it was opened.
+  useEffect(() => {
+    if (openPath.current != null && loc.pathname !== openPath.current) {
+      setReq(null);
+      openPath.current = null;
+    }
+  }, [loc.pathname]);
   return (
     <CandleCtx.Provider value={open}>
       {children}
@@ -62,6 +77,7 @@ export function CandleProvider({ children }: { children: ReactNode }) {
 function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
   const elRef = useRef<HTMLDivElement>(null);
   const [iv, setIv] = useState("15m");
+  const nav = useNavigate();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -88,6 +104,7 @@ function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
     priceLine(req.entry, "#58a6ff", "entry");
     priceLine(req.stop, "#FF5C6C", "stop");
     priceLine(req.tp, "#3DDC97", "tp");
+    priceLine(req.exit, "#d29922", "exit");
 
     let data: Candle[] = [];
     let loading = false;
@@ -176,6 +193,9 @@ function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
       <div className={s.box}>
         <div className={s.head}>
           <b className={s.title}>{req.title}</b>
+          <button className={s.mkt} onClick={() => nav("/market/" + encodeURIComponent(req.sym))}>
+            Market ↗
+          </button>
           <div className={s.iv}>
             {Object.keys(IVMS).map((k) => (
               <button key={k} className={`${s.ivb} ${iv === k ? s.sel : ""}`} onClick={() => setIv(k)}>
@@ -188,6 +208,32 @@ function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
           </button>
         </div>
         <div ref={elRef} className={s.chart} />
+        <div className={s.readout}>
+          <div className={s.cell}>
+            <span className={s.k}>Entry</span>
+            <span className={s.v} style={{ color: "#58a6ff" }}>{fmtPx(req.entry)}</span>
+          </div>
+          <div className={s.cell}>
+            <span className={s.k}>Exit</span>
+            <span className={s.v} style={{ color: req.exit != null ? "#d29922" : undefined }}>
+              {req.exit != null ? fmtPx(req.exit) : req.exit_t ? "—" : "Open"}
+            </span>
+          </div>
+          <div className={s.cell}>
+            <span className={s.k}>Stop loss</span>
+            <span className={s.v} style={{ color: req.stop != null ? "#FF5C6C" : undefined }}>{fmtPx(req.stop)}</span>
+          </div>
+          <div className={s.cell}>
+            <span className={s.k}>Take profit</span>
+            <span className={s.v} style={{ color: req.tp != null ? "#3DDC97" : undefined }}>{fmtPx(req.tp)}</span>
+          </div>
+          {req.side && (
+            <div className={s.cell}>
+              <span className={s.k}>Side</span>
+              <span className={`${s.v} ${req.side === "short" ? "down" : "up"}`}>{req.side.toUpperCase()}</span>
+            </div>
+          )}
+        </div>
         <div className={s.hint}>scroll left to load older history · drag to pan · wheel to zoom</div>
       </div>
     </div>
