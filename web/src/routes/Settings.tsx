@@ -151,13 +151,13 @@ export default function Settings() {
                     View builder profile
                   </button>
                 )}
-                <button className={`${p.btn} ${p.sm}`} onClick={() => signOut()}>Sign out</button>
+                <button className={`${p.btn} ${p.sm}`} onClick={() => signOut()}>Log out</button>
               </div>
             </div>
           ) : (
             <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 14 }}>
-              <div className="lbl">You're not signed in. Sign in to see your profile, build strategies, and run your own fleet.</div>
-              <button className={`${p.btn} ${p.sm}`} style={{ width: "fit-content" }} onClick={() => nav("/signin")}>Sign in</button>
+              <div className="lbl">You're not logged in. Log in to see your profile, build strategies, and run your own fleet.</div>
+              <button className={`${p.btn} ${p.sm}`} style={{ width: "fit-content" }} onClick={() => nav("/signin")}>Log in</button>
             </div>
           )
         )}

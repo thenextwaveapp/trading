@@ -114,7 +114,7 @@ export default function TopBar() {
             </span>
           </>
         ) : (
-          <button className={s.link} onClick={go("/signin")}>Sign in</button>
+          <button className={s.link} onClick={go("/signin")}>Log in</button>
         )}
       </div>
 

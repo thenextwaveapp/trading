@@ -169,13 +169,13 @@ export default function Sidebar({
       <button
         className={s.ni}
         onClick={() => nav(user ? "/settings" : "/?auth=signin")}
-        title={user ? `@${myHandle ?? "account"}` : "Sign in"}
+        title={user ? `@${myHandle ?? "account"}` : "Log in"}
       >
         <svg className={s.niIc} width="17" height="17" viewBox="0 0 16 16" fill="none">
           <circle cx="8" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.3" />
           <path d="M2.5 14c0-3 2.5-4.6 5.5-4.6S13.5 11 13.5 14" stroke="currentColor" strokeWidth="1.3" />
         </svg>
-        <span className={s.txt}>{user ? `@${myHandle ?? "you"}` : "Sign in"}</span>
+        <span className={s.txt}>{user ? `@${myHandle ?? "you"}` : "Log in"}</span>
       </button>
     </aside>
   );

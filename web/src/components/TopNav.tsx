@@ -42,7 +42,7 @@ export default function TopNav({ onAuth }: { onAuth: (mode: "signin" | "signup")
         </button>
         <nav className={s.links}>
           <button className={s.link} onClick={() => nav("/leaderboard")}>Leaderboard</button>
-          <button className={s.link} onClick={() => onAuth("signin")}>Sign in</button>
+          <button className={s.link} onClick={() => onAuth("signin")}>Log in</button>
           <button className={s.cta} onClick={() => onAuth("signup")}>Start free</button>
         </nav>
       </div>

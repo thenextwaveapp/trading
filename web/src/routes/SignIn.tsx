@@ -19,10 +19,10 @@ export default function SignIn() {
       <Shell>
         <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ fontSize: 15 }}>
-            Signed in as <b>@{profile?.handle ?? user.email ?? "…"}</b>
+            Logged in as <b>@{profile?.handle ?? user.email ?? "…"}</b>
           </div>
           <button style={btn("primary")} onClick={() => nav(next)}>Go to your roster</button>
-          <button style={btn()} onClick={() => signOut()}>Sign out</button>
+          <button style={btn()} onClick={() => signOut()}>Log out</button>
         </div>
       </Shell>
     );
@@ -56,9 +56,9 @@ export default function SignIn() {
 
       {step === "email" ? (
         <>
-          <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Start free</h1>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", marginBottom: 4 }}>Start free</h1>
           <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
-            Build bots, train them, and run your own paper fleet. No password — we email you a sign-in link.
+            Build bots, train them, and run your own paper fleet. No password — we email you a link to log in.
           </div>
 
           <button style={btn()} onClick={google}>
@@ -71,15 +71,15 @@ export default function SignIn() {
             <input style={input} type="email" placeholder="you@email.com" value={email}
               autoComplete="email" autoFocus required onChange={(e) => setEmail(e.target.value)} />
             <button style={btn("primary")} type="submit" disabled={busy}>
-              {busy ? "…" : "Email me a sign-in link"}
+              {busy ? "…" : "Log in"}
             </button>
           </form>
         </>
       ) : (
         <>
-          <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Check your email</h1>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, letterSpacing: "-0.03em", marginBottom: 4 }}>Check your email</h1>
           <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-            We sent a sign-in link to <b>{email}</b>. Open it on this device to finish signing in.
+            We sent a login link to <b>{email}</b>. Open it on this device to finish logging in.
           </div>
           <button style={linkBtn} onClick={() => { setStep("email"); setErr(null); }}>
             Use a different email
@@ -103,21 +103,21 @@ function Divider() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div className="card" style={{ width: "100%", maxWidth: 380, padding: 28 }}>{children}</div>
+      <div className="card" style={{ width: "100%", maxWidth: 460, padding: 40, borderRadius: 20 }}>{children}</div>
     </div>
   );
 }
 
 const input: React.CSSProperties = {
-  height: 44, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border)",
-  background: "#0d1117", color: "var(--fg)", fontSize: 14,
+  height: 52, padding: "0 16px", borderRadius: 12, border: "1px solid var(--border)",
+  background: "#0d1117", color: "var(--fg)", fontSize: 15,
 };
 const linkBtn: React.CSSProperties = {
   background: "none", border: "none", color: "var(--accent, #5e8fd8)", cursor: "pointer", padding: 0, fontSize: 13,
 };
 function btn(kind?: "primary"): React.CSSProperties {
   return {
-    height: 44, borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer",
+    height: 52, borderRadius: 12, fontSize: 15, fontWeight: 500, cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
     border: kind === "primary" ? "none" : "1px solid var(--border)",
     background: kind === "primary" ? "var(--accent, #5e8fd8)" : "transparent",

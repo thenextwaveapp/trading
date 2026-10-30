@@ -46,7 +46,7 @@ export default function AuthModal({
 
   return (
     <div className={s.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={s.panel} role="dialog" aria-modal="true" aria-label={signup ? "Create your account" : "Sign in"}>
+      <div className={s.panel} role="dialog" aria-modal="true" aria-label={signup ? "Create your account" : "Log in"}>
         <div className={s.head}>
           <span className={s.brand}>
             <Plane /> paper fleet
@@ -64,8 +64,8 @@ export default function AuthModal({
               <div className={s.title}>{signup ? "Create your account" : "Welcome back"}</div>
               <div className={s.sub}>
                 {signup
-                  ? "Free, paper money only. No password — we email you a sign-in link."
-                  : "No password — we email you a sign-in link."}
+                  ? "Free, paper money only. No password — we email you a link to log in."
+                  : "No password — we email you a link to log in."}
               </div>
             </div>
 
@@ -93,7 +93,7 @@ export default function AuthModal({
                 />
               </div>
               <button className={s.key} type="submit" disabled={busy}>
-                {busy ? "…" : "Email me a sign-in link"}
+                {busy ? "…" : "Log in"}
               </button>
             </form>
 
@@ -101,7 +101,7 @@ export default function AuthModal({
 
             <p className={s.swap}>
               {signup ? (
-                <>Already have an account? <button onClick={() => setMode("signin")}>Sign in</button></>
+                <>Already have an account? <button onClick={() => setMode("signin")}>Log in</button></>
               ) : (
                 <>New here? <button onClick={() => setMode("signup")}>Create an account</button></>
               )}
@@ -112,7 +112,7 @@ export default function AuthModal({
           <>
             <div className={s.title}>Check your email</div>
             <div className={s.sub}>
-              We sent a sign-in link to <b>{email}</b>. Open it on this device to finish.
+              We sent a login link to <b>{email}</b>. Open it on this device to finish.
             </div>
             {err && <div className={s.err}>{err}</div>}
             <button className={s.switch} onClick={() => { setStep("email"); setErr(null); }}>

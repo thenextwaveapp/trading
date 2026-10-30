@@ -2016,7 +2016,7 @@ export default function Compose() {
                 Continue to training →
               </button>
             )}
-            {!user && <div className="lbl">Sign in to save this strategy to your roster.</div>}
+            {!user && <div className="lbl">Log in to save this strategy to your roster.</div>}
             {err && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13 }}>{err}</div>}
           </div>
         </section>

@@ -90,7 +90,7 @@ export default function Deploy() {
 
   const makeFleet = async (): Promise<string | null> => {
     if (!user) {
-      setErr("Sign in again to create a fleet.");
+      setErr("Log in again to create a fleet.");
       return null;
     }
     const { data, error } = await createFleet(user.id);

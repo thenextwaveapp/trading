@@ -66,7 +66,7 @@ export default function Builder() {
   if (!handle) {
     return (
       <div className={p.body} style={{ padding: 24 }}>
-        <div className="muted">Sign in to see your builder profile.</div>
+        <div className="muted">Log in to see your builder profile.</div>
         <button className={`${p.btn} ${p.sm}`} style={{ marginTop: 12 }} onClick={() => nav("/signin")}>
           Sign in
         </button>
