@@ -28,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .strategy import parse, StrategyError
 from .backtest import backtest, backtest_universe
+from .timeframes import interval_ms
 from .checks import run_checks
 from .conditions import conditions_breakdown
 from .mapping import variant_to_spec
@@ -445,8 +446,18 @@ def ep_backtest(body):
         uni, meta = _resolve_universe(_with_interval(body, s))
     except (ValueError, KeyError) as e:
         return 400, {"ok": False, "error": str(e)}
+    # cross-series data for multi-timeframe / cross-asset operands: a list of
+    # {symbol, tf, candles, interval_ms?}. Supported on a single-instrument run.
+    aux_series = None
+    raw = body.get("aux")
+    if raw and len(uni) == 1:
+        aux_series = {}
+        for e in raw:
+            sym, tf = e.get("symbol"), e.get("tf")
+            ms = e.get("interval_ms") or interval_ms(tf or s["_timeframe"])
+            aux_series[(sym, tf)] = (e["candles"], ms)
     try:
-        res = (backtest(s, next(iter(uni.values())))
+        res = (backtest(s, next(iter(uni.values())), aux_series=aux_series)
                if len(uni) == 1 else backtest_universe(s, uni))
         return 200, {"ok": True, "stats": res["stats"],
                      "trades": res["trades"][:1000],

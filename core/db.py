@@ -72,6 +72,23 @@ def universe_symbols(slug):
         return None
 
 
+def coin_symbols(tickers):
+    """[ticker, ...] -> {ticker: binance_symbol} from pf_coins. Used to resolve
+    a cross-asset operand's symbol (e.g. "BTC") to a fetchable exchange symbol,
+    the same table universes resolve against. {} if the DB is off or a read
+    fails (the caller treats an unresolved symbol as no data)."""
+    tickers = [t for t in dict.fromkeys(tickers) if t]
+    if not tickers or not enabled():
+        return {}
+    try:
+        coins = _get("pf_coins",
+                     {"symbol": f"in.({','.join(tickers)})",
+                      "select": "symbol,binance_symbol"})
+        return {c["symbol"]: c["binance_symbol"] for c in coins}
+    except Exception:
+        return {}
+
+
 def _resolve(slug):
     unis = _get("pf_universes", {"slug": f"eq.{slug}", "select": "id,definition"})
     if not unis:

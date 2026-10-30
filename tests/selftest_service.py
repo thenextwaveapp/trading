@@ -40,10 +40,8 @@ def main():
 
     spec = base_spec()
     for path, value, issue_id in (
-        ("side", "both", "side.both"),
         ("exit.stop.mode", "trail", "stop.trail"),
         ("exit.limit", 0.01, "exit.limit"),
-        ("exit.exit_conditions", ENTRY, "exit.exit_conditions"),
     ):
         blocked = set_path(spec, path, value)
         code, out = ep_validate({"spec": blocked})
@@ -57,6 +55,23 @@ def main():
               f"{issue_id} should stop a backtest before loading data")
         check(any(i["id"] == issue_id for i in out.get("issues", [])),
               f"{issue_id} issue should be returned by backtest")
+
+    ec = set_path(spec, "exit.exit_conditions", ENTRY)
+    code, out = ep_validate({"spec": ec})
+    check(code == 200 and out.get("ok"),
+          f"exit conditions should validate as executable, got {out}")
+    code, out = ep_backtest({"spec": ec, "candles": candles()})
+    check(code == 200 and out.get("ok"),
+          f"exit conditions should run in a backtest, got {out.get('error')}")
+
+    both = set_path(set_path(set_path(spec, "side", "both"),
+                             "entry_long", ENTRY), "entry_short", ENTRY)
+    code, out = ep_validate({"spec": both})
+    check(code == 200 and out.get("ok"),
+          f"a well-formed two-sided bot should validate, got {out}")
+    code, out = ep_backtest({"spec": both, "candles": candles()})
+    check(code == 200 and out.get("ok"),
+          f"a two-sided bot should run a backtest, got {out.get('error')}")
 
     filtered = set_path(spec, "filters", [{"kind": "btc_bear"}])
     code, out = ep_validate({"spec": filtered})

@@ -6,10 +6,18 @@ position (stop/tp) from core.build_position — the same functions the backteste
 runs, so a bot trades live exactly as it backtested (core/selftest.py for
 entries, core/selftest_exit.py for exits).
 
-Scope: only specs with proven live==backtest parity — side long/short (not
-both), stop mode hh/dstop/none/sig, no trailing stop, no resting-limit order,
-no extra exit conditions, not `partial`. covered() is the gate; anything it
-rejects stays on the legacy run_signals path. Covers pump_short
+Scope: only specs with proven live==backtest parity — side long/short/both,
+stop mode hh/dstop/none/sig, no resting-limit order, not `partial`. A two-sided
+bot runs both its books; direction and exit come from whichever fires (ties skip
+the bar). Cross-series operands (multi-timeframe / cross-asset) are covered: the
+fleet resolves each referenced symbol (pf_coins), fetches its tape, and aligns it
+causally per bar — entry and exit alike. A trailing stop is covered: its NATR
+fraction is measured at entry by the shared
+core.build_position, so the ratchet is identical live and in backtest. A
+discretionary exit_conditions tree is covered: it runs through the same
+core.exit_trade live as in backtest, with its indicator history warmed from the
+same pre-entry bars. covered() is the gate; anything it rejects stays on the
+legacy run_signals path. Covers pump_short
 (base/strict/fast/slow/loose/hold24/buf2/vol3/veto/wick30) and capit_long.
 
 Exits are unchanged: paper_fleet.run_exits() drives check_exit() over the
@@ -26,11 +34,38 @@ because they are live-account concerns, not strategy logic.
 import time
 
 from core import parse, entry_signal
+from core import db as coredb
 from core.backtest import build_position, exit_trade
 from core.conditions import cell_at
-from core.timeframes import DAY_MS, DEFAULT_TIMEFRAME
+from core.evaluator import build_aux
+from core.strategy import _collect_requires
+from core.timeframes import DAY_MS, DEFAULT_TIMEFRAME, interval_ms
 from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
                           TAKER, SLIP, KILL_DD, KILL_LOOKBACK, KILL_PAUSE)
+
+# How many bars of a cross-series tape to fetch per cycle — enough for an
+# indicator's warm-up plus alignment against the base scan window.
+_AUX_BARS = 250
+
+
+def _cross_aux(reqs, base, base_ms, base_tf, own_symbol, resolve, fetch, cache):
+    """Build the evaluator `aux` for cross-series operands: for each required
+    (symbol, tf) — symbol None means this instrument, tf None means the base tf —
+    resolve the exchange symbol, fetch that tape (cached per (symbol, tf) across
+    the cycle), and align it causally to `base`. An unresolved or empty series is
+    dropped, so the operand reads None (False) — never stale or fabricated data."""
+    series_by_key = {}
+    for sym, tf in reqs:
+        rsym = resolve(sym) if sym else own_symbol
+        if not rsym:
+            continue
+        rtf = tf or base_tf
+        ck = (rsym, rtf)
+        if ck not in cache:
+            cache[ck] = fetch(rsym, None, _AUX_BARS, rtf) or []
+        if cache[ck]:
+            series_by_key[(sym, tf)] = (cache[ck], interval_ms(rtf))
+    return build_aux(base, base_ms, series_by_key) if series_by_key else None
 
 M15 = 900_000
 
@@ -45,19 +80,16 @@ def covered(spec):
     try:
         if spec.get("partial"):
             return False
-        if spec.get("side") not in ("long", "short"):
+        if spec.get("side") not in ("long", "short", "both"):
             return False
-        exit_ = spec.get("exit") or {}
-        if exit_.get("trailing"):
-            return False
-        if exit_.get("limit") is not None:          # resting-order path (capit_lim)
-            return False
-        if exit_.get("exit_conditions"):
-            return False
-        stop = (exit_.get("stop") or {}).get("mode", "none")
-        if stop not in _COVERED_STOPS:              # excludes trail / sig / ext
-            return False
-        parse(spec)                                 # must validate (known inds/ops)
+        strat = parse(spec)                         # validates + builds _books
+        for book in strat["_books"]:                # every book must be covered
+            ex = book["exit"] or {}
+            if ex.get("limit") is not None:         # resting-order path (capit_lim)
+                return False
+            stop = (ex.get("stop") or {}).get("mode", "none")
+            if stop not in _COVERED_STOPS:          # excludes legacy trail / ext
+                return False
         return True
     except Exception:
         return False
@@ -123,15 +155,24 @@ def _weather_ok(weather, btc, t_sig):
 
 
 def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
-                     weather=None, btc=None, log=lambda *_: None, notes=None):
+                     weather=None, btc=None, log=lambda *_: None, notes=None,
+                     fetch=None, resolve=None):
     """Entry pass for one spec-driven bot. Mutates `st` (positions, equity
     bookkeeping, kill-switch, last_sig_t) exactly as run_signals does. `notes`
     is the shared feed-event list; `log` the fleet logger. Exits are handled
-    elsewhere by run_exits()."""
+    elsewhere by run_exits().
+
+    `fetch`/`resolve` supply cross-series data (multi-timeframe / cross-asset):
+    fetch(symbol, start, limit, tf) -> candles, resolve(ticker) -> exchange
+    symbol. Absent (or a bot with no cross-series operands) means base-tape
+    only, exactly as before."""
     notes = notes if notes is not None else []
     strat = parse(spec)
-    side = 1 if strat["side"] == "long" else -1
-    stop_mode = ((spec.get("exit") or {}).get("stop") or {}).get("mode", "none")
+    reqs = strat.get("_requires") or []
+    base_tf = strat.get("_timeframe", DEFAULT_TIMEFRAME)
+    base_ms = strat.get("_interval_ms", M15)
+    aux_cache = {}                                  # per-cycle cross-series fetches
+    resolve = resolve or (lambda _t: None)
 
     open_tk = {p["ticker"] for p in st["positions"]} \
         | {o["ticker"] for o in st.get("orders", [])}
@@ -141,9 +182,16 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
         if not cnd:
             continue
         i = len(cnd) - 1
-        sig = entry_signal(strat, cnd, i)
+        aux = _cross_aux(reqs, cnd, base_ms, base_tf, universe.get(tk),
+                         resolve, fetch, aux_cache) \
+            if reqs and fetch is not None else None
+        sig = entry_signal(strat, cnd, i, None, aux)
         if sig is None:
             continue
+        # direction and stop mode come from the book that fired (a two-sided
+        # bot can open long on one bar and short on another).
+        side = sig["dir"]
+        stop_mode = (sig["_book"]["exit"].get("stop") or {}).get("mode", "none")
         max_t = max(max_t, sig["t_sig"])
         if sig["t_sig"] <= st["last_sig_t"]:
             continue
@@ -175,6 +223,15 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
         # position (stop/tp) straight from core — same object the backtest built
         pos = build_position(strat, cnd, i, sig)
         entry, stop = pos["entry"], pos["stop"]
+        # if the firing book's exit tree reads another series, remember what it
+        # needs so the exit pass can fetch and align the same data.
+        ec = (sig["_book"]["exit"] or {}).get("exit_conditions")
+        if ec:
+            er = set()
+            _collect_requires(ec, er)
+            if er:
+                pos["exit_requires"] = sorted(
+                    er, key=lambda x: (x[0] or "", x[1] or ""))
 
         if stop_mode == "none" or stop == 0.0:
             basis = _capit_sl_basis(cnd, i, strat.get("_interval_ms", M15))
@@ -204,20 +261,35 @@ def new_state():
 
 
 def run_exits_spec(name, st, fetch, *, notes, interval=DEFAULT_TIMEFRAME,
-                   log=lambda *_: None):
+                   log=lambda *_: None, resolve=None):
     """Resolve open positions via core.exit_trade (== legacy check_exit, proven
     in selftest_exit). `fetch(symbol, start, limit, interval) -> candles` supplies the
-    post-signal tape; the engine passes its real klines fetcher, tests a stub."""
+    post-signal tape; the engine passes its real klines fetcher, tests a stub.
+    `resolve(ticker) -> exchange symbol` lets a cross-series exit tree read
+    another instrument, aligned to the same post-signal tape."""
+    resolve = resolve or (lambda _t: None)
     for pos in list(st["positions"]):
-        cnd = fetch(pos["symbol"], pos["t_sig"],
-                    min(pos["hold"] + 8, 1500), interval)
+        # An exit-condition tree needs its indicators warmed with the same
+        # pre-entry history the backtest saw, so fetch `exit_lookback` bars
+        # before t_sig. Positions without one keep the exact legacy fetch
+        # (start at t_sig) so their parity is untouched. exit_trade bisects by
+        # t_sig, so the extra leading bars only feed indicator warm-up.
+        L = pos.get("exit_lookback", 0) if pos.get("exit_conditions") else 0
+        step = pos.get("interval_ms", M15)
+        start_t = pos["t_sig"] - (L + 1) * step if L else pos["t_sig"]
+        limit = min(pos["hold"] + 8 + ((L + 1) if L else 0), 1500)
+        cnd = fetch(pos["symbol"], start_t, limit, interval)
         if not cnd:
             continue
         # `i` indexes the entry scan's candle list, while `cnd` is a fresh
         # fetch starting at t_sig. Drop it so exit_trade locates the first
         # post-signal bar by timestamp instead of indexing past the slice.
         tape_pos = {k: v for k, v in pos.items() if k != "i"}
-        ex = exit_trade(tape_pos, cnd, TAKER, SLIP)
+        # if the exit tree reads another series, fetch + align it to this tape
+        er = pos.get("exit_requires")
+        aux = _cross_aux(er, cnd, step, interval, pos["symbol"], resolve, fetch,
+                         {}) if er else None
+        ex = exit_trade(tape_pos, cnd, TAKER, SLIP, aux)
         if ex is None:
             continue
         net, exit_t, kind = ex
@@ -264,6 +336,18 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
     didn't resolve ({} / missing) manages open positions only, opens none."""
     notes = notes if notes is not None else []
     btc = _candles_for(candles, DEFAULT_TIMEFRAME).get("BTC")
+    # resolve every cross-asset ticker any bot references (e.g. "BTC") to its
+    # exchange symbol, once per cycle, from the same pf_coins table universes use.
+    want = set()
+    for bot in bots:
+        try:
+            for sym, _tf in parse(bot["spec"]).get("_requires", []):
+                if sym:
+                    want.add(sym)
+        except Exception:
+            pass
+    sym_map = coredb.coin_symbols(want) if want else {}
+    resolve = lambda t: sym_map.get(t)
     for bot in bots:
         st = states.setdefault(bot["id"], new_state())
         iv = _bot_interval(bot["spec"])
@@ -274,7 +358,7 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
         bot_fetch = lambda sym, start, limit, _iv=iv: fetch(
             sym, start, limit, _iv)
         run_exits_spec(bot["name"], st, bot_fetch, notes=notes,
-                       interval=iv, log=log)
+                       interval=iv, log=log, resolve=resolve)
         uni = universes.get(bot["id"]) or {}
         if not uni:
             log(f"[{bot['name']}] SKIP entries: universe did not resolve")
@@ -284,5 +368,6 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
                       if bot_candles.get(tk)}
             run_spec_signals(bot["name"], bot["spec"], st, uni, scoped,
                              gate=gate, weather=bot.get("condition_filter"),
-                             btc=btc, log=log, notes=notes)
+                             btc=btc, log=log, notes=notes,
+                             fetch=bot_fetch, resolve=resolve)
     return notes

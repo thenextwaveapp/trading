@@ -2,7 +2,11 @@
 
 Run: python3 -m tests.selftest_exits_side
 """
+import math
+import random
+
 from core.backtest import build_position, exit_trade
+from core.evaluator import entry_signal
 from core.strategy import parse
 
 M15 = 900_000
@@ -77,10 +81,13 @@ def main():
                              trailing=tr), c, 30, signal())
     sp = build_position(spec("short", {"mode": "dstop", "param": 0.05},
                              trailing=tr), c, 30, signal())
-    check(lp.get("trail_k") == 3.0 and lp.get("natr") == 24,
-          "long positions must carry the trailing config")
-    check(sp.get("trail_k") == 3.0 and sp.get("natr") == 24,
-          "short positions must carry the trailing config")
+    # natr is the NATR fraction measured at entry (not the window in bars), so
+    # trail_k * natr is a sane trailing distance. flat() candles span ~10% so
+    # NATR lands around 0.1; assert it's a fraction, not the raw window 24.
+    check(lp.get("trail_k") == 3.0 and 0 < lp.get("natr") < 1,
+          f"long trailing config must carry a NATR fraction, got {lp.get('natr')}")
+    check(sp.get("trail_k") == 3.0 and 0 < sp.get("natr") < 1,
+          f"short trailing config must carry a NATR fraction, got {sp.get('natr')}")
 
     # long: rise, then fall through the ratcheted stop
     long_c = [
@@ -128,8 +135,65 @@ def main():
     check(got0 is not None and got0[2] == "sl",
           f"short no-stop + trailing should stop out, got {got0}")
 
+    # --- trailing live-parity ------------------------------------------------
+    # The live scanner builds the position from a shallow recent tape (110 bars,
+    # paper_fleet.py); the backtest from full history. The windowed NATR must
+    # make both resolve the SAME trade — no Wilder warmup drift.
+    tot = resolved = mism = 0
+    kinds = {}
+    for side in ("long", "short"):
+        st = parse({"name": "p", "side": side, "timeframe": "15m",
+                    "entry": {"logic": "AND", "children": [
+                        {"left": {"ind": "close"}, "op": "gt", "right": 0}]},
+                    "exit": {"time_bars": 24,
+                             "stop": {"mode": "dstop", "param": 0.25},
+                             "trailing": {"k": 3.0, "natr": 24}}})
+        for seed in range(25):
+            r = random.Random(seed)
+            px, cc = 100.0, []
+            for i in range(240):
+                px = max(px * math.exp(r.gauss(0, 0.02)), 1e-6)
+                cc.append({"t": T0 + i * M15, "o": px, "h": px * 1.012,
+                           "l": px * 0.988, "c": px, "v": 10.0})
+            cache = {}
+            for i in range(60, len(cc) - 30):
+                sig = entry_signal(st, cc, i, cache)
+                if sig is None:
+                    continue
+                pb = build_position(st, cc, i, sig)            # full history
+                eb = exit_trade(pb, cc, TAKER, SLIP)
+                tape = cc[i - 109:i + 1]                       # 110-bar live scan
+                sl = entry_signal(st, tape, len(tape) - 1, {})
+                if sl is None:
+                    continue
+                pl = build_position(st, tape, len(tape) - 1, sl)
+                live_pos = {k: v for k, v in pl.items() if k != "i"}
+                el = exit_trade(live_pos, cc, TAKER, SLIP)     # bisect to t_sig
+                tot += 1
+                if pb["natr"] != pl["natr"]:
+                    mism += 1
+                    if mism <= 3:
+                        print(f"  NATR DRIFT side={side} seed={seed} i={i}: "
+                              f"{pb['natr']} vs {pl['natr']}")
+                    continue
+                if eb is not None:
+                    resolved += 1
+                    kinds[eb[2]] = kinds.get(eb[2], 0) + 1
+                if eb != el:
+                    mism += 1
+                    if mism <= 3:
+                        print(f"  EXIT DIVERGE side={side} seed={seed} i={i}: "
+                              f"bt={eb} live={el}")
+    print(f"  trailing parity: compared {tot}, resolved {resolved}, "
+          f"by kind {kinds}")
+    check(resolved > 0, "trailing parity test was vacuous")
+    check(kinds.get("sl", 0) > 0,
+          "no trailing stop-out occurred — parity test not exercising the trail")
+    check(mism == 0, f"{mism} trailing position(s) diverged live vs backtest")
+
     if ok:
-        print("PASS: hh/dstop/sig are side-aware and trailing works long+short")
+        print("PASS: hh/dstop/sig are side-aware and trailing works long+short, "
+              "live == backtest")
     return 0 if ok else 1
 
 

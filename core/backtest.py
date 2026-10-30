@@ -18,7 +18,8 @@ stops on either side.
 """
 from bisect import bisect_left
 
-from .evaluator import entry_signal, M15
+from .evaluator import build_aux, entry_signal, M15
+from .expr import eval_node
 
 DEFAULTS = {
     "taker": 0.00045,
@@ -29,11 +30,31 @@ DEFAULTS = {
 }
 
 
+def _natr_frac(candles, i, window):
+    """Windowed NATR fraction at bar i: the mean true range over `window` bars
+    divided by the close. Non-recursive (unlike Wilder/TA-Lib NATR), so it
+    depends only on bars [i-window, i] — identical in backtest and live for any
+    tape that holds them. Same true-range form as spec_runtime._capit_sl_basis.
+    Falls back to 2% when the tape is too short to measure it."""
+    if window < 1 or i < window:
+        return 0.02
+    trs = [max(candles[j]["h"], candles[j - 1]["c"])
+           - min(candles[j]["l"], candles[j - 1]["c"])
+           for j in range(i - window + 1, i + 1)]
+    close = candles[i]["c"]
+    return (sum(trs) / window) / close if close else 0.02
+
+
 def build_position(strategy, candles, i, sig):
-    """Construct the position (entry, side, hold, stop level, tp, trailing)
-    from the strategy's exit rule and the firing signal at bar i."""
-    ex = strategy.get("exit", {})
-    side = 1 if strategy["side"] == "long" else -1
+    """Construct the position (entry, side, hold, stop level, tp, trailing) from
+    the firing signal at bar i and its book's exit rule. The signal carries its
+    direction (`dir`) and book (`_book`); a hand-built signal without them falls
+    back to the strategy's single side/exit (single-side bots only)."""
+    book = sig.get("_book")
+    ex = book["exit"] if book else strategy.get("exit", {})
+    side = sig.get("dir")
+    if side is None:
+        side = 1 if strategy["side"] == "long" else -1
     entry = sig["entry"]
     stopspec = ex.get("stop", {"mode": "none", "param": 0.0})
     mode, param = stopspec.get("mode", "none"), stopspec.get("param", 0.0)
@@ -75,19 +96,33 @@ def build_position(strategy, candles, i, sig):
             pos["tp_close"] = True
     tr = ex.get("trailing")
     if tr:
-        pos["trail_k"], pos["natr"] = tr.get("k"), tr.get("natr")
+        # exit_trade trails at `extreme * (1 ± trail_k * natr)`, so natr must be
+        # the NATR *fraction* measured at entry — not the window in bars. Use a
+        # windowed mean-true-range / close (same form as _capit_sl_basis), not
+        # TA-Lib's Wilder NATR: it is non-recursive, so it converges at exactly
+        # `window` bars and gives bit-identical values whether the engine sees
+        # the full backtest history or the live scanner's shallower tape.
+        pos["trail_k"] = tr.get("k")
+        pos["natr"] = _natr_frac(candles, i, tr.get("natr", 24))
+    ec = ex.get("exit_conditions")
+    if ec:
+        pos["exit_conditions"] = ec
+        pos["exit_lookback"] = ex.get("_exit_lookback", 0)
     return pos
 
 
-def exit_trade(pos, candles, taker, slip):
+def exit_trade(pos, candles, taker, slip, aux=None):
     """Resolve a position to (net, exit_t, kind). Order: stop breach, then
-    take-profit, then trailing ratchet, then time exit at `hold`. net is the
-    side-signed return minus both-leg taker fees + slippage. None if candles
-    run out first."""
+    take-profit, then exit_conditions, then trailing ratchet, then time exit at
+    `hold`. net is the side-signed return minus both-leg taker fees + slippage.
+    None if candles run out first. `aux` supplies cross-series data so an
+    exit_conditions tree can read another timeframe/instrument, same as entry."""
     entry, hold, side = pos["entry"], pos["hold"], pos.get("side", -1)
     step = pos.get("interval_ms", M15)
     level, extreme = pos["stop"], entry
     trail_k, natr, tp = pos.get("trail_k"), pos.get("natr"), pos.get("tp")
+    ec = pos.get("exit_conditions")
+    ec_cache = {} if ec is not None else None
     fee = 2 * taker + slip
     start = pos.get("i")
     if start is None:
@@ -103,6 +138,10 @@ def exit_trade(pos, candles, taker, slip):
                 return side * (k["c"] / entry - 1) - fee, k["t"] + step, "tp"
         elif tp and ((k["l"] <= tp) if side < 0 else (k["h"] >= tp)):
             return side * (tp / entry - 1) - fee, k["t"] + M15, "tp"
+        # discretionary exit: close on the bar the tree first fires (at close),
+        # after the hard risk exits (stop, take-profit) have had their say.
+        if ec is not None and eval_node(candles, ec, start + n - 1, ec_cache, aux):
+            return side * (k["c"] / entry - 1) - fee, k["t"] + step, "cond"
         if trail_k and natr:
             if side < 0:
                 extreme = min(extreme, k["l"])
@@ -159,7 +198,8 @@ def summarize(trades, cfg):
     }
 
 
-def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
+def backtest(strategy, candles, cfg=None, start=0, entry_delay=0,
+             aux_series=None):
     """Run `strategy` over one instrument's candle list. Returns
     {trades, stats}. `start` skips leading bars; entry_signal refuses to fire
     before the strategy's lookback is satisfied, so start=0 fires as soon as a
@@ -167,12 +207,19 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
 
     `entry_delay` fills `d` bars after the signal (enter at candles[i+d]'s
     close instead of the signal close). The stop reference still comes from
-    the signal bar; only the fill moves."""
+    the signal bar; only the fill moves.
+
+    `aux_series` supplies cross-series data for multi-timeframe / cross-asset
+    operands: {(symbol, tf): (candles, interval_ms)}. It is aligned to this
+    tape once (causally, no lookahead) before the run. strategy["_requires"]
+    lists the (symbol, tf) keys the bot needs."""
     cfg = {**DEFAULTS, **(cfg or {})}
     taker, slip = cfg["taker"], cfg["slip"]
+    aux = build_aux(candles, strategy.get("_interval_ms", M15), aux_series) \
+        if aux_series else None
     trades, cache, open_until = [], {}, -1
     for i in range(start, len(candles)):
-        sig = entry_signal(strategy, candles, i, cache)
+        sig = entry_signal(strategy, candles, i, cache, aux)
         if not sig or sig["t_sig"] < open_until:
             continue
         fi = i + entry_delay
@@ -183,7 +230,7 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0):
             "t_sig": candles[fi]["t"] + strategy.get("_interval_ms", M15),
             "i": fi}
         pos = build_position(strategy, candles, i, fsig)  # i -> stop window
-        ex = exit_trade(pos, candles, taker, slip)
+        ex = exit_trade(pos, candles, taker, slip, aux)
         if ex is None:
             continue
         net, exit_t, kind = ex

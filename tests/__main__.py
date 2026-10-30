@@ -13,6 +13,7 @@ SUITES = [
     "selftest",             # spec parser vs legacy signal
     "selftest_backtest",    # backtest ledger reproduces legacy trade-for-trade
     "selftest_exit",        # exit logic (stop / tp / time)
+    "selftest_exit_conditions",  # exit_conditions tree: backtest == live parity
     "selftest_momo",        # momentum entry
     "selftest_universe",    # universe resolution from market data
     "selftest_db_universe",  # universe resolution against the DB (mocked)
@@ -22,8 +23,11 @@ SUITES = [
     "selftest_params",       # typed parameter registry + capability map
     "selftest_indicators_std",  # pure-Python standard indicators match TA-Lib
     "selftest_stream_universe",  # disk-backed streaming universe == eager dict
-    "selftest_timing",       # UTC hour/day signal windows
+    "selftest_timing",       # UTC hour/day/date signal windows
+    "selftest_arith",        # arithmetic operands (spreads/ratios) in expr
+    "selftest_multiseries",  # multi-timeframe + cross-asset operands, causal
     "selftest_exits_side",   # side-aware stops + two-sided trailing
+    "selftest_side_both",    # two-sided bots: book routing, conflict skip, live
     "selftest_service",      # service capability gates before data loading
     "selftest_sweep",        # parameter grid expansion + per-run sweep results
     "selftest_challenges",   # challenge lock-set, predicates, judges

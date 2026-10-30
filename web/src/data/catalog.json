@@ -96,25 +96,6 @@
       ]
     },
     {
-      "id": "ADX",
-      "label": "Average Directional Movement Index",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "high",
-        "low",
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "ADXR",
       "label": "Average Directional Movement Index Rating",
       "category": "Momentum Indicators",
@@ -254,42 +235,6 @@
         "close"
       ],
       "params": []
-    },
-    {
-      "id": "CCI",
-      "label": "Commodity Channel Index",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "high",
-        "low",
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "CMO",
-      "label": "Chande Momentum Oscillator",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
     },
     {
       "id": "CMOU",
@@ -864,119 +809,6 @@
       ]
     },
     {
-      "id": "MACD_macd",
-      "label": "Moving Average Convergence/Divergence",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "fastperiod",
-          "type": "int",
-          "default": 12,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "slowperiod",
-          "type": "int",
-          "default": 26,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "signalperiod",
-          "type": "int",
-          "default": 9,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "MACD_macdhist",
-      "label": "Moving Average Convergence/Divergence",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "fastperiod",
-          "type": "int",
-          "default": 12,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "slowperiod",
-          "type": "int",
-          "default": 26,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "signalperiod",
-          "type": "int",
-          "default": 9,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "MACD_macdsignal",
-      "label": "Moving Average Convergence/Divergence",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "fastperiod",
-          "type": "int",
-          "default": 12,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "slowperiod",
-          "type": "int",
-          "default": 26,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "signalperiod",
-          "type": "int",
-          "default": 9,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "MFI",
-      "label": "Money Flow Index",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "high",
-        "low",
-        "close",
-        "volume"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "MINUS_DI",
       "label": "Minus Directional Indicator",
       "category": "Momentum Indicators",
@@ -1008,23 +840,6 @@
           "name": "timeperiod",
           "type": "int",
           "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "MOM",
-      "label": "Momentum",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 10,
           "min": null,
           "max": null
         }
@@ -1162,23 +977,6 @@
           "name": "timeperiod",
           "type": "int",
           "default": 10,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "RSI",
-      "label": "Relative Strength Index",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
           "min": null,
           "max": null
         }
@@ -1641,25 +1439,6 @@
       "params": []
     },
     {
-      "id": "WILLR",
-      "label": "Williams' %R",
-      "category": "Momentum Indicators",
-      "inputs": [
-        "high",
-        "low",
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "ACCBANDS_lowerband",
       "label": "Acceleration Bands",
       "category": "Overlap Studies",
@@ -1717,137 +1496,6 @@
       ]
     },
     {
-      "id": "BBANDS_lowerband",
-      "label": "Bollinger Bands",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 20,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "nbdevup",
-          "type": "float",
-          "default": 2.0,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "nbdevdn",
-          "type": "float",
-          "default": 2.0,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "matype",
-          "type": "int",
-          "default": 0,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "BBANDS_middleband",
-      "label": "Bollinger Bands",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 20,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "nbdevup",
-          "type": "float",
-          "default": 2.0,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "nbdevdn",
-          "type": "float",
-          "default": 2.0,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "matype",
-          "type": "int",
-          "default": 0,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "BBANDS_upperband",
-      "label": "Bollinger Bands",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 20,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "nbdevup",
-          "type": "float",
-          "default": 2.0,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "nbdevdn",
-          "type": "float",
-          "default": 2.0,
-          "min": null,
-          "max": null
-        },
-        {
-          "name": "matype",
-          "type": "int",
-          "default": 0,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "DEMA",
-      "label": "Double Exponential Moving Average",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 30,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "DONCHIAN_lowerband",
       "label": "Donchian Channels",
       "category": "Overlap Studies",
@@ -1896,23 +1544,6 @@
           "name": "timeperiod",
           "type": "int",
           "default": 20,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "EMA",
-      "label": "Exponential Moving Average",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 30,
           "min": null,
           "max": null
         }
@@ -2277,23 +1908,6 @@
       ]
     },
     {
-      "id": "SMA",
-      "label": "Simple Moving Average",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 30,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "SUPERTREND_supertrend",
       "label": "SuperTrend",
       "category": "Overlap Studies",
@@ -2370,23 +1984,6 @@
       ]
     },
     {
-      "id": "TEMA",
-      "label": "Triple Exponential Moving Average",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 30,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "TRIMA",
       "label": "Triangular Moving Average",
       "category": "Overlap Studies",
@@ -2410,23 +2007,6 @@
       "inputs": [
         "close",
         "volume"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 30,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "WMA",
-      "label": "Weighted Moving Average",
-      "category": "Overlap Studies",
-      "inputs": [
-        "close"
       ],
       "params": [
         {
@@ -3581,25 +3161,6 @@
       ]
     },
     {
-      "id": "ATR",
-      "label": "Average True Range",
-      "category": "Volatility Indicators",
-      "inputs": [
-        "high",
-        "low",
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
       "id": "CVI",
       "label": "Chaikin's Volatility",
       "category": "Volatility Indicators",
@@ -3644,25 +3205,6 @@
           "name": "slowperiod",
           "type": "int",
           "default": 25,
-          "min": null,
-          "max": null
-        }
-      ]
-    },
-    {
-      "id": "NATR",
-      "label": "Normalized Average True Range",
-      "category": "Volatility Indicators",
-      "inputs": [
-        "high",
-        "low",
-        "close"
-      ],
-      "params": [
-        {
-          "name": "timeperiod",
-          "type": "int",
-          "default": 14,
           "min": null,
           "max": null
         }
@@ -3802,16 +3344,6 @@
       "params": []
     },
     {
-      "id": "OBV",
-      "label": "On Balance Volume",
-      "category": "Volume Indicators",
-      "inputs": [
-        "close",
-        "volume"
-      ],
-      "params": []
-    },
-    {
       "id": "PVI",
       "label": "Positive Volume Index",
       "category": "Volume Indicators",
@@ -3931,6 +3463,191 @@
       ]
     },
     {
+      "id": "ADX",
+      "label": "Average Directional Index",
+      "category": "momentum",
+      "inputs": [
+        "high",
+        "low",
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "CCI",
+      "label": "Commodity Channel Index",
+      "category": "momentum",
+      "inputs": [
+        "high",
+        "low",
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "CMO",
+      "label": "Chande Momentum Oscillator",
+      "category": "momentum",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "MACD_macd",
+      "label": "MACD",
+      "category": "momentum",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "fastperiod",
+          "type": "int",
+          "default": 12,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "slowperiod",
+          "type": "int",
+          "default": 26,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "signalperiod",
+          "type": "int",
+          "default": 9,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "MACD_macdhist",
+      "label": "MACD Histogram",
+      "category": "momentum",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "fastperiod",
+          "type": "int",
+          "default": 12,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "slowperiod",
+          "type": "int",
+          "default": 26,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "signalperiod",
+          "type": "int",
+          "default": 9,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "MACD_macdsignal",
+      "label": "MACD Signal",
+      "category": "momentum",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "fastperiod",
+          "type": "int",
+          "default": 12,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "slowperiod",
+          "type": "int",
+          "default": 26,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "signalperiod",
+          "type": "int",
+          "default": 9,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "MFI",
+      "label": "Money Flow Index",
+      "category": "momentum",
+      "inputs": [
+        "high",
+        "low",
+        "close",
+        "volume"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "MOM",
+      "label": "Momentum",
+      "category": "momentum",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 10,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
       "id": "ROC",
       "label": "Rate of Change",
       "category": "momentum",
@@ -3942,6 +3659,127 @@
           "name": "period",
           "type": "int",
           "default": 16,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "RSI",
+      "label": "Relative Strength Index",
+      "category": "momentum",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "WILLR",
+      "label": "Williams %R",
+      "category": "momentum",
+      "inputs": [
+        "high",
+        "low",
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "DEMA",
+      "label": "Double EMA",
+      "category": "overlap",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 30,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "EMA",
+      "label": "Exponential Moving Average",
+      "category": "overlap",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 30,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "SMA",
+      "label": "Simple Moving Average",
+      "category": "overlap",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 30,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "TEMA",
+      "label": "Triple EMA",
+      "category": "overlap",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 30,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "WMA",
+      "label": "Weighted Moving Average",
+      "category": "overlap",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 30,
           "min": 1,
           "max": 1000
         }
@@ -3988,6 +3826,147 @@
       "label": "Volume",
       "category": "price",
       "inputs": [
+        "volume"
+      ],
+      "params": []
+    },
+    {
+      "id": "ATR",
+      "label": "Average True Range",
+      "category": "volatility",
+      "inputs": [
+        "high",
+        "low",
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "BBANDS_lowerband",
+      "label": "Bollinger Lower",
+      "category": "volatility",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 5,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "nbdevup",
+          "type": "float",
+          "default": 2.0,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "nbdevdn",
+          "type": "float",
+          "default": 2.0,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "BBANDS_middleband",
+      "label": "Bollinger Middle",
+      "category": "volatility",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 5,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "nbdevup",
+          "type": "float",
+          "default": 2.0,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "nbdevdn",
+          "type": "float",
+          "default": 2.0,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "BBANDS_upperband",
+      "label": "Bollinger Upper",
+      "category": "volatility",
+      "inputs": [
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 5,
+          "min": 1,
+          "max": 1000
+        },
+        {
+          "name": "nbdevup",
+          "type": "float",
+          "default": 2.0,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "nbdevdn",
+          "type": "float",
+          "default": 2.0,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "NATR",
+      "label": "Normalized ATR",
+      "category": "volatility",
+      "inputs": [
+        "high",
+        "low",
+        "close"
+      ],
+      "params": [
+        {
+          "name": "timeperiod",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "id": "OBV",
+      "label": "On Balance Volume",
+      "category": "volume",
+      "inputs": [
+        "close",
         "volume"
       ],
       "params": []
@@ -4119,10 +4098,10 @@
         {
           "value": "both",
           "label": "Both",
-          "backtest": false,
-          "live": false,
-          "status": "unsupported",
-          "reason": "The entry tree has no direction output, so a 'both' spec can only trade one book. Express the long and short books as separate strategies."
+          "backtest": true,
+          "live": true,
+          "status": "ok",
+          "reason": ""
         }
       ],
       "visible_if": null,
@@ -4474,6 +4453,28 @@
       "reason": ""
     },
     {
+      "key": "timing.dates",
+      "label": "Dates (UTC)",
+      "kind": "date_list",
+      "default": [],
+      "group": "timing",
+      "help": "Specific UTC calendar dates a signal may fire, measured at bar close. Each entry is an ISO date \"YYYY-MM-DD\" or an inclusive range \"YYYY-MM-DD/YYYY-MM-DD\". Empty means every date.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
+      "reason": ""
+    },
+    {
       "key": "exit.time_bars",
       "label": "Max hold",
       "kind": "int",
@@ -4677,12 +4678,12 @@
         "path": "exit.trailing",
         "exists": true
       },
-      "status": "partial",
+      "status": "ok",
       "backtest": true,
-      "live": false,
+      "live": true,
       "sweep": true,
       "in_default": false,
-      "reason": "Trailing exits are backtested but not yet pinned for live parity, so live deployment is blocked."
+      "reason": ""
     },
     {
       "key": "exit.trailing.natr",
@@ -4702,12 +4703,12 @@
         "path": "exit.trailing",
         "exists": true
       },
-      "status": "partial",
+      "status": "ok",
       "backtest": true,
-      "live": false,
+      "live": true,
       "sweep": true,
       "in_default": false,
-      "reason": "Trailing exits are backtested but not yet pinned for live parity, so live deployment is blocked."
+      "reason": ""
     },
     {
       "key": "exit.limit",
@@ -4737,7 +4738,7 @@
       "kind": "condition",
       "default": null,
       "group": "exit",
-      "help": "Additional condition tree evaluated after entry.",
+      "help": "A condition tree that closes the position on the bar it first fires, after the stop and take-profit have had their say.",
       "min": null,
       "max": null,
       "step": null,
@@ -4746,12 +4747,12 @@
       "choices": [],
       "options": [],
       "visible_if": null,
-      "status": "unsupported",
-      "backtest": false,
-      "live": false,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
       "sweep": true,
       "in_default": false,
-      "reason": "Exit conditions are parsed but not executed by the backtest or live engine."
+      "reason": ""
     },
     {
       "key": "sizing.risk",
@@ -4848,10 +4849,10 @@
       "label": "Two-sided book",
       "path": "side",
       "op": "eq",
-      "backtest": false,
-      "live": false,
-      "status": "unsupported",
-      "reason": "Entry trees do not emit a direction; both sides cannot be resolved from one signal.",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": "",
       "value": "both"
     },
     {
@@ -4915,9 +4916,9 @@
       "path": "exit.trailing",
       "op": "exists",
       "backtest": true,
-      "live": false,
-      "status": "partial",
-      "reason": "Backtested, but live parity is not pinned; deployment stays on the legacy engine or is refused."
+      "live": true,
+      "status": "ok",
+      "reason": ""
     },
     {
       "id": "exit.limit",
@@ -4934,10 +4935,10 @@
       "label": "Exit conditions",
       "path": "exit.exit_conditions",
       "op": "exists",
-      "backtest": false,
-      "live": false,
-      "status": "unsupported",
-      "reason": "Parsed but not executed by either engine."
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": ""
     },
     {
       "id": "exit.tp_close",
@@ -4949,6 +4950,16 @@
       "status": "ok",
       "reason": "",
       "value": true
+    },
+    {
+      "id": "operand.cross_series",
+      "label": "Multi-timeframe / cross-asset operand",
+      "path": "entry",
+      "op": "cross_series",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": ""
     },
     {
       "id": "filters",
@@ -5035,6 +5046,6 @@
   "counts": {
     "indicators": 212,
     "markets": 6,
-    "spec_params": 21
+    "spec_params": 22
   }
 }

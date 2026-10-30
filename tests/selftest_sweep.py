@@ -97,7 +97,7 @@ def main():
     check(ns[0] == 0 and ns[1] > 0, f"condition variants should differ, got {ns}")
 
     body = {"spec": base_spec(), "candles": candles(), "axes": [
-        {"path": "side", "values": ["both"]},
+        {"path": "exit.stop.mode", "values": ["trail"]},
     ]}
     code, out = ep_sweep(body)
     check(code == 200 and out.get("ok") and out.get("completed") == 0,

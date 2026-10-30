@@ -36,7 +36,7 @@ def main():
     check(all(p.group in group_ids for p in PARAMS),
           "every parameter must belong to a declared group")
     check(all(p.kind in ("int", "float", "bool", "enum", "int_list",
-                         "string", "condition") for p in PARAMS),
+                         "date_list", "string", "condition") for p in PARAMS),
           "unknown parameter kind in registry")
     check(len({f["id"] for f in FEATURES}) == len(FEATURES),
           "feature ids must be unique")
@@ -68,9 +68,13 @@ def main():
         check(PARAM_BY_KEY[key].percent,
               f"{key} should be presented as a percentage")
 
-    both = set_path(spec, "side", "both")
-    check(any(i["id"] == "side.both" for i in blocking_issues(both, "backtest")),
-          "side both must be blocked until direction is modeled")
+    both = set_path(set_path(set_path(spec, "side", "both"),
+                             "entry_long", ENTRY), "entry_short", ENTRY)
+    parse(both)
+    check(not blocking_issues(both, "backtest"),
+          "a well-formed two-sided bot must not block the backtest")
+    check(not blocking_issues(both, "live"),
+          "a two-sided bot runs live — both books resolve from the one engine")
 
     trail = set_path(spec, "exit.stop.mode", "trail")
     check(any(i["id"] == "stop.trail" for i in blocking_issues(trail, "backtest")),
@@ -80,17 +84,20 @@ def main():
     parse(trailing)
     check(not blocking_issues(trailing, "backtest"),
           "trailing should be usable in the lab")
-    check(any(i["id"] == "exit.trailing" for i in blocking_issues(trailing, "live")),
-          "trailing must block live until parity is pinned")
+    check(not blocking_issues(trailing, "live"),
+          "trailing now resolves identically live (windowed NATR), so it must "
+          "not block live")
 
     limit = set_path(spec, "exit.limit", 0.01)
     check(any(i["id"] == "exit.limit" for i in blocking_issues(limit, "backtest")),
           "resting limits must block the spec backtest")
 
     exits = set_path(spec, "exit.exit_conditions", ENTRY)
-    check(any(i["id"] == "exit.exit_conditions"
-              for i in blocking_issues(exits, "backtest")),
-          "unexecuted exit conditions must block")
+    parse(exits)
+    check(not blocking_issues(exits, "backtest"),
+          "exit conditions now execute in the backtest, so they must not block")
+    check(not blocking_issues(exits, "live"),
+          "exit conditions run live with warmed history, so they must not block")
 
     filtered = set_path(spec, "filters", [{"kind": "btc_bear"}])
     parse(filtered)

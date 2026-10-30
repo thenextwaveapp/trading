@@ -94,13 +94,7 @@ PARAMS = (
         options=(
             _opt("short", "Short"),
             _opt("long", "Long"),
-            _opt(
-                "both", "Both",
-                backtest=False, live=False, status="unsupported",
-                reason="The entry tree has no direction output, so a 'both' "
-                       "spec can only trade one book. Express the long and "
-                       "short books as separate strategies.",
-            ),
+            _opt("both", "Both"),
         ),
         live=True,
     ),
@@ -163,6 +157,13 @@ PARAMS = (
         live=True,
     ),
     Param(
+        "timing.dates", "Dates (UTC)", "date_list", [], "timing",
+        help="Specific UTC calendar dates a signal may fire, measured at bar "
+             "close. Each entry is an ISO date \"YYYY-MM-DD\" or an inclusive "
+             "range \"YYYY-MM-DD/YYYY-MM-DD\". Empty means every date.",
+        in_default=False, live=True,
+    ),
+    Param(
         "exit.time_bars", "Max hold", "int", 16, "exit",
         help="Bars from entry to the time exit.",
         min=1, step=1, unit="bar", live=True,
@@ -215,20 +216,14 @@ PARAMS = (
              "trailing; delete it to disable.",
         min=0, step=0.1, in_default=False,
         visible_if={"path": "exit.trailing", "exists": True},
-        live=False,
-        status="partial",
-        reason="Trailing exits are backtested but not yet pinned for live "
-               "parity, so live deployment is blocked.",
+        live=True,
     ),
     Param(
         "exit.trailing.natr", "Trailing ATR window", "int", 24, "exit",
         help="Bars in the NATR used by the trailing stop.",
         min=1, step=1, unit="bar", in_default=False,
         visible_if={"path": "exit.trailing", "exists": True},
-        live=False,
-        status="partial",
-        reason="Trailing exits are backtested but not yet pinned for live "
-               "parity, so live deployment is blocked.",
+        live=True,
     ),
     Param(
         "exit.limit", "Resting limit", "float", None, "exit",
@@ -240,10 +235,9 @@ PARAMS = (
     ),
     Param(
         "exit.exit_conditions", "Exit conditions", "condition", None, "exit",
-        help="Additional condition tree evaluated after entry.",
-        in_default=False, status="unsupported", backtest=False, live=False,
-        reason="Exit conditions are parsed but not executed by the backtest "
-               "or live engine.",
+        help="A condition tree that closes the position on the bar it first "
+             "fires, after the stop and take-profit have had their say.",
+        in_default=False, backtest=True, live=True,
     ),
     Param(
         "sizing.risk", "Risk per trade", "float", 0.0075, "sizing",
@@ -285,12 +279,8 @@ def _feature(id: str, label: str, path: str, *, op: str = "eq",
 FEATURES = (
     _feature("side.short", "Short book", "side", value="short", live=True),
     _feature("side.long", "Long book", "side", value="long", live=True),
-    _feature(
-        "side.both", "Two-sided book", "side", value="both",
-        backtest=False, live=False, status="unsupported",
-        reason="Entry trees do not emit a direction; both sides cannot be "
-               "resolved from one signal.",
-    ),
+    _feature("side.both", "Two-sided book", "side", value="both",
+             backtest=True, live=True),
     _feature("stop.none", "No stop", "exit.stop.mode", value="none", live=True),
     _feature("stop.hh", "Signal-window extreme stop", "exit.stop.mode",
              value="hh", live=True),
@@ -305,9 +295,7 @@ FEATURES = (
     ),
     _feature(
         "exit.trailing", "Trailing exit", "exit.trailing", op="exists",
-        backtest=True, live=False, status="partial",
-        reason="Backtested, but live parity is not pinned; deployment stays "
-               "on the legacy engine or is refused.",
+        backtest=True, live=True,
     ),
     _feature(
         "exit.limit", "Resting limit", "exit.limit", op="exists",
@@ -316,11 +304,14 @@ FEATURES = (
     ),
     _feature(
         "exit.exit_conditions", "Exit conditions", "exit.exit_conditions",
-        op="exists", backtest=False, live=False, status="unsupported",
-        reason="Parsed but not executed by either engine.",
+        op="exists", backtest=True, live=True,
     ),
     _feature("exit.tp_close", "Take profit on close", "exit.tp_close",
              value=True, live=True),
+    _feature(
+        "operand.cross_series", "Multi-timeframe / cross-asset operand",
+        "entry", op="cross_series", backtest=True, live=True,
+    ),
     _feature(
         "filters", "Live regime filters", "filters", op="nonempty",
         backtest=True, live=True, status="partial",
@@ -372,19 +363,26 @@ def default_spec() -> dict:
     return spec
 
 
-def normalize_spec(spec: dict) -> dict:
+def _clean_exit(ex: dict) -> dict:
     """Drop empty optional objects so they cannot masquerade as features."""
+    if ex.get("trailing") in (None, {}, False):
+        ex.pop("trailing", None)
+    if ex.get("limit") is None:
+        ex.pop("limit", None)
+    if not ex.get("exit_conditions"):
+        ex.pop("exit_conditions", None)
+    if ex.get("take_profit") is None:
+        ex.pop("take_profit", None)
+    return ex
+
+
+def normalize_spec(spec: dict) -> dict:
+    """Drop empty optional objects so they cannot masquerade as features. A
+    two-sided bot carries exit_long/exit_short instead of one exit; clean each."""
     out = deepcopy(spec)
-    ex = out.get("exit")
-    if isinstance(ex, dict):
-        if ex.get("trailing") in (None, {}, False):
-            ex.pop("trailing", None)
-        if ex.get("limit") is None:
-            ex.pop("limit", None)
-        if not ex.get("exit_conditions"):
-            ex.pop("exit_conditions", None)
-        if ex.get("take_profit") is None:
-            ex.pop("take_profit", None)
+    for key in ("exit", "exit_long", "exit_short"):
+        if isinstance(out.get(key), dict):
+            _clean_exit(out[key])
     return out
 
 
@@ -395,9 +393,39 @@ def timing_sets(spec: dict) -> tuple[frozenset, frozenset]:
     return frozenset(hours), frozenset(days)
 
 
+def _uses_cross_series(spec: dict) -> bool:
+    """True if any operand in the spec's condition trees reads another
+    timeframe/instrument (carries tf or symbol)."""
+    def op_cross(o):
+        if not isinstance(o, dict):
+            return False
+        if "ind" in o:
+            return o.get("tf") is not None or o.get("symbol") is not None
+        if "op" in o:
+            return op_cross(o.get("left")) or op_cross(o.get("right"))
+        return False
+
+    def node_cross(n):
+        if not isinstance(n, dict):
+            return False
+        if "children" in n:
+            return any(node_cross(c) for c in n["children"])
+        return op_cross(n.get("left")) or op_cross(n.get("right"))
+
+    trees = [spec[k] for k in ("entry", "entry_long", "entry_short")
+             if spec.get(k)]
+    for xk in ("exit", "exit_long", "exit_short"):
+        ex = spec.get(xk)
+        if isinstance(ex, dict) and ex.get("exit_conditions"):
+            trees.append(ex["exit_conditions"])
+    return any(node_cross(t) for t in trees)
+
+
 def _feature_active(f: dict, spec: dict) -> bool:
-    v = get_path(spec, f["path"])
     op = f.get("op", "eq")
+    if op == "cross_series":
+        return _uses_cross_series(spec)
+    v = get_path(spec, f["path"])
     if op == "exists":
         return v is not None
     if op == "nonempty":

@@ -24,7 +24,8 @@ Three references fused:
 - a **military command center** — command a force
 - **Hyperliquid** — real perps, real P&L, don't lie
 
-Every stat is a verified track record. Backtest == live.
+Every stat is a verified track record. One engine tests a strategy and trades
+it — no bot grades its own homework.
 
 Make it fun to raise Bots, keep the scoreboard honest, and let the market write
 the story.
@@ -221,8 +222,8 @@ web  ──insert pf_backtests / pf_sweeps (pending)──▶  DB  ◀──drai
 
 The web **never calls the engine**. It enqueues work by inserting a row; the
 worker is the only thing that runs a bot, through the same `core/` engine the
-Lab and live Fleet use (so backtest↔live parity holds); it writes results back
-to the DB, the single source of truth the web reads.
+Lab and live Fleet use (the test and the live trade run the same code path); it
+writes results back to the DB, the single source of truth the web reads.
 
 | Dir | What |
 |---|---|

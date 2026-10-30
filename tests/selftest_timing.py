@@ -94,9 +94,40 @@ def main():
     check(len(empty) == len(all_sigs),
           "empty timing should behave like no timing")
 
+    # one-off calendar dates (measured at bar close, UTC)
+    def fired_dates(sigs):
+        return sorted({close_dt(s["t_sig"] - M15).date().isoformat()
+                       for _, s in sigs})
+
+    one = signals({**SPEC, "timing": {"dates": ["2024-01-03"]}}, c)
+    check(len(one) == 96 and fired_dates(one) == ["2024-01-03"],
+          f"a single date should fire only that whole UTC day, got {fired_dates(one)}")
+
+    rng = signals({**SPEC, "timing": {"dates": ["2024-01-04/2024-01-06"]}}, c)
+    check(fired_dates(rng) == ["2024-01-04", "2024-01-05", "2024-01-06"],
+          f"an inclusive range should fire across its days, got {fired_dates(rng)}")
+
+    mixed = signals({**SPEC, "timing":
+                     {"dates": ["2024-01-02", "2024-01-05/2024-01-06"]}}, c)
+    check(fired_dates(mixed) == ["2024-01-02", "2024-01-05", "2024-01-06"],
+          f"single + range should union, got {fired_dates(mixed)}")
+
+    date_hour = signals({**SPEC, "timing":
+                         {"dates": ["2024-01-03"], "hours_utc": [3]}}, c)
+    check(len(date_hour) == 4 and fired_dates(date_hour) == ["2024-01-03"],
+          f"dates AND hours should both apply, got {len(date_hour)}")
+
+    for bad in (["2024-13-01"], ["2024-01-06/2024-01-04"], ["nope"], "x"):
+        try:
+            parse({**SPEC, "timing": {"dates": bad}})
+            check(False, f"bad timing.dates {bad!r} must be rejected")
+        except Exception:
+            pass
+
     if ok:
         print(f"PASS: {len(hours)} hour-3, {len(days)} Tuesday, "
-              f"{len(fresh)} fresh-session signals; close-time UTC semantics")
+              f"{len(fresh)} fresh-session signals; dates/ranges; "
+              f"close-time UTC semantics")
     return 0 if ok else 1
 
 
