@@ -43,9 +43,20 @@ import { withBot } from "./stages";
 
 // ---- types matching core/expr.py + core/strategy.py ----
 
-type Operand =
-  | number
-  | { ind: string; params?: Record<string, unknown>; offset?: number };
+interface IndOperand {
+  ind: string;
+  params?: Record<string, unknown>;
+  offset?: number;
+  tf?: string;        // read the indicator on another timeframe
+  symbol?: string;    // read the indicator on another instrument (ticker)
+}
+interface ArithOperand {
+  op: "add" | "sub" | "mul" | "div";
+  left: Operand;
+  right: Operand;
+  offset?: number;
+}
+type Operand = number | IndOperand | ArithOperand;
 
 interface CondNode {
   left: Operand;
@@ -66,9 +77,16 @@ function isGroup(n: AnyNode): n is CondGroup {
 
 function validOperand(o: Operand): boolean {
   if (typeof o === "number" && Number.isFinite(o)) return true;
-  if (typeof o === "object" && o !== null && "ind" in (o as object)) {
-    const v = o as { ind: string };
-    return typeof v.ind === "string" && v.ind.length > 0;
+  if (typeof o === "object" && o !== null) {
+    if ("ind" in o) {
+      const v = o as IndOperand;
+      return typeof v.ind === "string" && v.ind.length > 0;
+    }
+    if ("op" in o) {
+      const a = o as ArithOperand;
+      return ARITH.some((x) => x.v === a.op)
+        && validOperand(a.left) && validOperand(a.right);
+    }
   }
   return false;
 }
@@ -125,6 +143,7 @@ interface FilterCfg {
 interface TimingCfg {
   hours_utc: number[];
   days_utc: number[];
+  dates?: string[];
 }
 
 interface StrategySpec {
@@ -139,6 +158,29 @@ interface StrategySpec {
   exit: ExitCfg;
   sizing: SizingCfg;
   filters: FilterCfg[];
+  // side: "both" — the short book's entry/exit (the long book stays in
+  // entry/exit above). Serialized to entry_long/exit_long/entry_short/exit_short.
+  entry_short?: CondGroup;
+  exit_short?: ExitCfg;
+}
+
+// State (entry/exit = long when both) -> wire spec. A two-sided bot emits
+// entry_long/exit_long/entry_short/exit_short and drops the bare entry/exit;
+// a single-side bot drops the short book.
+function toWireSpec(spec: StrategySpec): Record<string, unknown> {
+  const out = { ...spec } as Record<string, unknown>;
+  if (spec.side === "both") {
+    out.entry_long = spec.entry;
+    out.exit_long = spec.exit;
+    out.entry_short = spec.entry_short ?? { logic: "AND", children: [] };
+    out.exit_short = spec.exit_short ?? spec.exit;
+    delete out.entry;
+    delete out.exit;
+  } else {
+    delete out.entry_short;
+    delete out.exit_short;
+  }
+  return out;
 }
 
 const OPS = [
@@ -152,6 +194,12 @@ const OPS = [
 ];
 
 const LOGICS = ["AND", "OR", "NOT"] as const;
+const ARITH = [
+  { v: "add", l: "+" },
+  { v: "sub", l: "−" },
+  { v: "mul", l: "×" },
+  { v: "div", l: "÷" },
+] as const;
 const EXIT_CUSTOM = new Set(["exit.trailing.k", "exit.trailing.natr"]);
 // Sentinel universe value for "building a custom subset" (not a real slug).
 const CUSTOM_UNI = "__custom__";
@@ -171,9 +219,23 @@ const OP_MAP: Record<string, CondNode["op"]> = {
   "<=": "le", "le": "le", "==": "eq", "=": "eq", "eq": "eq", "!=": "ne", "ne": "ne",
   "crosses_above": "crosses_above", "crosses_below": "crosses_below",
 };
+const ARITH_MAP: Record<string, ArithOperand["op"]> = {
+  add: "add", "+": "add", sub: "sub", "-": "sub",
+  mul: "mul", "*": "mul", div: "div", "/": "div",
+};
 function normOperand(o: any): Operand {
   if (typeof o === "number" && Number.isFinite(o)) return o;
   if (typeof o === "string" && o.trim() !== "" && Number.isFinite(Number(o))) return Number(o);
+  if (o && typeof o === "object" && o.left !== undefined && o.right !== undefined
+      && ARITH_MAP[String(o.op)]) {
+    const out: ArithOperand = {
+      op: ARITH_MAP[String(o.op)],
+      left: normOperand(o.left),
+      right: normOperand(o.right),
+    };
+    if (typeof o.offset === "number" && o.offset !== 0) out.offset = o.offset;
+    return out;
+  }
   if (o && typeof o === "object" && typeof o.ind === "string") {
     const rawInd = o.ind.trim();
     const found = indicatorById(rawInd) ?? indicatorById(rawInd.toUpperCase()) ?? indicatorById(rawInd.toLowerCase());
@@ -186,7 +248,10 @@ function normOperand(o: any): Operand {
     } else if (found?.params?.length) {
       for (const pm of found.params) params[pm.name] = pm.default;
     }
-    return { ind, params, offset: typeof o.offset === "number" ? o.offset : 0 };
+    const out: IndOperand = { ind, params, offset: typeof o.offset === "number" ? o.offset : 0 };
+    if (typeof o.tf === "string" && o.tf) out.tf = o.tf;
+    if (typeof o.symbol === "string" && o.symbol) out.symbol = o.symbol;
+    return out;
   }
   return defaultOperand();
 }
@@ -215,15 +280,25 @@ function groupLabel(id: string): string {
 }
 
 function mergeSpec(base: StrategySpec, incoming: Partial<StrategySpec>): StrategySpec {
-  return {
+  const inc = incoming as any;
+  // a two-sided wire spec carries entry_long/exit_long/entry_short/exit_short;
+  // fold it back into the editor's shape (entry/exit = long book, + *_short).
+  const out: any = {
     ...base,
     ...incoming,
-    entry: incoming.entry ?? base.entry,
+    entry: inc.entry ?? inc.entry_long ?? base.entry,
     timing: { ...base.timing, ...(incoming.timing ?? {}) },
-    exit: { ...base.exit, ...(incoming.exit ?? {}) },
+    exit: { ...base.exit, ...(inc.exit ?? inc.exit_long ?? {}) },
     sizing: { ...base.sizing, ...(incoming.sizing ?? {}) },
     filters: incoming.filters ?? base.filters,
+    entry_short: inc.entry_short ?? base.entry_short,
+    exit_short: inc.exit_short
+      ? { ...base.exit, ...inc.exit_short }
+      : base.exit_short,
   };
+  delete out.entry_long;
+  delete out.exit_long;
+  return out as StrategySpec;
 }
 
 const PRESETS: { key: string; label: string; family: string | null; spec: StrategySpec }[] = [
@@ -345,22 +420,34 @@ function OperandEditor({
   market: string;
 }) {
   const isInd = typeof value === "object" && value !== null && "ind" in (value as object);
+  const isExpr = typeof value === "object" && value !== null && "op" in (value as object);
+  const mode = isInd ? "ind" : isExpr ? "expr" : "const";
   const inds = useMemo(() => indicatorsForMarket(market), [market]);
   const ind = isInd ? (value as { ind: string }).ind : "";
   const indMeta = ind ? indicatorById(ind) : undefined;
+  const tfOptions = ((specParam("timeframe")?.options ?? []) as {
+    value: string; label: string;
+  }[]);
 
-  if (!isInd) {
+  const setMode = (m: string) => {
+    if (m === mode) return;
+    if (m === "const") onChange(0);
+    else if (m === "ind") onChange(defaultOperand());
+    else onChange({ op: "sub", left: defaultOperand(), right: 0 });
+  };
+  const modeSelect = (
+    <select className={r.input} style={{ width: 110 }} value={mode}
+      onChange={(e) => setMode(e.target.value)}>
+      <option value="const">Constant</option>
+      <option value="ind">Indicator</option>
+      <option value="expr">Expression</option>
+    </select>
+  );
+
+  if (mode === "const") {
     return (
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <select
-          className={r.input}
-          style={{ width: 110 }}
-          value="const"
-          onChange={() => onChange(defaultOperand())}
-        >
-          <option value="const">Constant</option>
-          <option value="ind">Indicator</option>
-        </select>
+        {modeSelect}
         <input
           className={r.input}
           type="number"
@@ -373,20 +460,38 @@ function OperandEditor({
     );
   }
 
-  const v = value as { ind: string; params?: Record<string, unknown>; offset?: number };
+  if (mode === "expr") {
+    const e = value as ArithOperand;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {modeSelect}
+        <div style={{
+          display: "flex", flexDirection: "column", gap: 6,
+          border: "1px solid var(--line-2)", borderRadius: 8, padding: 8,
+          background: "#0a0d12",
+        }}>
+          <OperandEditor value={e.left} market={market}
+            onChange={(l) => onChange({ ...e, left: l })} />
+          <select className={r.input} style={{ width: 70, alignSelf: "flex-start" }}
+            value={e.op}
+            onChange={(ev) => onChange({ ...e, op: ev.target.value as ArithOperand["op"] })}>
+            {ARITH.map((a) => (
+              <option key={a.v} value={a.v}>{a.l}</option>
+            ))}
+          </select>
+          <OperandEditor value={e.right} market={market}
+            onChange={(rr) => onChange({ ...e, right: rr })} />
+        </div>
+      </div>
+    );
+  }
+
+  const v = value as IndOperand;
   const params = v.params ?? {};
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        <select
-          className={r.input}
-          style={{ width: 110 }}
-          value="ind"
-          onChange={() => onChange(0)}
-        >
-          <option value="ind">Indicator</option>
-          <option value="const">Constant</option>
-        </select>
+        {modeSelect}
         <select
           className={r.input}
           style={{ flex: "1 1 200px", minWidth: 180 }}
@@ -443,7 +548,37 @@ function OperandEditor({
             style={{ width: 70 }}
           />
         </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span className="lbl">timeframe</span>
+          <select
+            className={r.input}
+            value={v.tf ?? ""}
+            onChange={(e) => onChange({ ...v, tf: e.target.value || undefined })}
+            style={{ width: 90 }}
+          >
+            <option value="">base</option>
+            {tfOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span className="lbl">symbol</span>
+          <input
+            className={r.input}
+            value={v.symbol ?? ""}
+            placeholder="base"
+            onChange={(e) => onChange({ ...v, symbol: e.target.value.trim() || undefined })}
+            style={{ width: 90 }}
+          />
+        </label>
       </div>
+      {(v.tf || v.symbol) && (
+        <span className="lbl" style={{ fontSize: 11, paddingLeft: 4 }}>
+          Reads {v.symbol || "this instrument"} on the {v.tf || "base"} timeframe,
+          aligned to the most recent closed bar.
+        </span>
+      )}
     </div>
   );
 }
@@ -593,6 +728,35 @@ function NodeEditor({
       >
         ×
       </button>
+    </div>
+  );
+}
+
+
+function DirTabs({ dir, onDir }: {
+  dir: "long" | "short";
+  onDir: (d: "long" | "short") => void;
+}) {
+  return (
+    <div style={{
+      display: "inline-flex", gap: 3, marginBottom: 12,
+      border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 3,
+    }}>
+      {(["long", "short"] as const).map((d) => (
+        <button
+          key={d}
+          type="button"
+          onClick={() => onDir(d)}
+          style={{
+            padding: "5px 14px", fontSize: 13, borderRadius: 4, border: "none",
+            cursor: "pointer", fontWeight: dir === d ? 600 : 400,
+            background: dir === d ? "var(--accent)" : "transparent",
+            color: dir === d ? "#fff" : "var(--muted)",
+          }}
+        >
+          {d === "long" ? "Long book" : "Short book"}
+        </button>
+      ))}
     </div>
   );
 }
@@ -822,15 +986,25 @@ function daysSummary(days: number[]): string {
 function TimingControl({
   hours,
   days,
+  dates,
   onHours,
   onDays,
+  onDates,
 }: {
   hours: number[];
   days: number[];
+  dates: string[];
   onHours: (hours: number[]) => void;
   onDays: (days: number[]) => void;
+  onDates: (dates: string[]) => void;
 }) {
   const range = hoursRange(hours);
+  const [dateDraft, setDateDraft] = useState("");
+  const addDate = () => {
+    const v = dateDraft.trim();
+    if (v && !dates.includes(v)) onDates([...dates, v]);
+    setDateDraft("");
+  };
   return (
     <div className={r.timingGrid}>
       <label>
@@ -910,6 +1084,47 @@ function TimingControl({
         </details>
         <span className="lbl" style={{ fontSize: 11, marginTop: 6 }}>
           Weekdays are Monday through Friday. Every day is the default.
+        </span>
+      </label>
+
+      <label>
+        <span className={r.label}>Dates (UTC)</span>
+        <div className={r.timeRow}>
+          <input
+            className={r.input}
+            value={dateDraft}
+            placeholder="2026-11-05 or 2026-11-05/2026-11-10"
+            onChange={(e) => setDateDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addDate();
+              }
+            }}
+          />
+          <button type="button" className="lbl" style={{ whiteSpace: "nowrap" }}
+            onClick={addDate}>
+            + Add
+          </button>
+        </div>
+        {dates.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {dates.map((d) => (
+              <span key={d} style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
+                padding: "3px 8px", fontSize: 12,
+              }}>
+                <span className="num">{d}</span>
+                <button type="button" aria-label={`Remove ${d}`}
+                  style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}
+                  onClick={() => onDates(dates.filter((x) => x !== d))}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
+        <span className="lbl" style={{ fontSize: 11, marginTop: 6 }}>
+          A single ISO date or an inclusive range. Empty means every date.
         </span>
       </label>
     </div>
@@ -1096,7 +1311,7 @@ export default function Compose() {
       universe_id: u.id,
       direction,
       params: { ...(bot?.params ?? {}), color },
-      spec: finalSpec as unknown as Record<string, unknown>,
+      spec: toWireSpec(finalSpec),
       visibility,
     };
     const currentId = savedId ?? bot?.id ?? null;
@@ -1117,7 +1332,7 @@ export default function Compose() {
         owner: user.id,
         ...input,
         name: candidate,
-        spec: { ...finalSpec, name: candidate } as unknown as Record<string, unknown>,
+        spec: { ...toWireSpec(finalSpec), name: candidate },
       });
       if (data?.id) {
         setSavedId(data.id);
@@ -1152,11 +1367,41 @@ export default function Compose() {
   const setParam = (path: string, value: unknown) =>
     setSpec((s) => setPath(s, path, value));
 
+  // Which book the two-sided editor is editing (long/short). Ignored unless
+  // side === "both". Seed the short book the first time a bot goes two-sided.
+  const [dir, setDir] = useState<"long" | "short">("long");
+  useEffect(() => {
+    if (spec.side === "both" && (!spec.entry_short || !spec.exit_short)) {
+      setSpec((s) => ({
+        ...s,
+        entry_short: s.entry_short ?? { logic: "AND", children: [] },
+        exit_short: s.exit_short ?? JSON.parse(JSON.stringify(s.exit)),
+      }));
+    }
+  }, [spec.side, spec.entry_short, spec.exit_short]);
+
   const clearIssue = (issue: { id: string; path: string }) => {
-    if (issue.id === "side.both") setParam("side", "short");
-    else if (issue.id === "stop.trail") setParam("exit.stop.mode", "none");
+    if (issue.id === "stop.trail") setParam("exit.stop.mode", "none");
     else setParam(issue.path, undefined);
   };
+
+  // Two-sided editing: when on the short book, exit controls read/write the
+  // short exit. ParamControl keys off "exit.*", so we hand it a spec whose
+  // `exit` IS the short exit and rewrite the write path to "exit_short.*".
+  const isBoth = spec.side === "both";
+  const shortExit = isBoth && dir === "short";
+  const exitViewSpec = shortExit
+    ? ({ ...spec, exit: spec.exit_short ?? spec.exit } as StrategySpec)
+    : spec;
+  const exitChange = shortExit
+    ? (path: string, val: unknown) =>
+        setParam(path.replace(/^exit(?=\.|$)/, "exit_short"), val)
+    : setParam;
+  const setActiveExit = (updater: (ex: ExitCfg) => ExitCfg) =>
+    setSpec((s) =>
+      s.side === "both" && dir === "short"
+        ? { ...s, exit_short: updater(s.exit_short ?? s.exit) }
+        : { ...s, exit: updater(s.exit) });
 
   const updateFilter = (kind: string, on: boolean) => {
     setSpec((s) => {
@@ -1345,7 +1590,12 @@ export default function Compose() {
       setErr("Give the bot a name.");
       return;
     }
-    const entryErr = validateEntry(spec.entry);
+    let entryErr = validateEntry(spec.entry);
+    if (entryErr && spec.side === "both") entryErr = `Long book — ${entryErr}`;
+    if (!entryErr && spec.side === "both") {
+      const se = validateEntry(spec.entry_short ?? { logic: "AND", children: [] });
+      if (se) entryErr = `Short book — ${se}`;
+    }
   if (toTraining && entryErr) {
       setErr(entryErr);
       return;
@@ -1389,7 +1639,7 @@ export default function Compose() {
       universe_id: u.id,
       direction,
       params: { ...(bot?.params ?? {}), color },
-      spec: finalSpec as unknown as Record<string, unknown>,
+      spec: toWireSpec(finalSpec),
       visibility,
     };
 
@@ -1735,19 +1985,34 @@ export default function Compose() {
             {/* Entry conditions */}
             <div className={r.formRow}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <h2 className={r.h2}>{groupLabel("entry")} conditions</h2>
-                <span className="lbl">{spec.entry.children.length} top-level</span>
+                <h2 className={r.h2}>
+                  {groupLabel("entry")} conditions
+                  {isBoth && <span className="lbl"> · {dir === "short" ? "short" : "long"} book</span>}
+                </h2>
+                <span className="lbl">
+                  {(isBoth && dir === "short"
+                    ? spec.entry_short?.children.length ?? 0
+                    : spec.entry.children.length)} top-level
+                </span>
               </div>
               <div className={r.label} style={{ margin: "4px 0 12px" }}>
-                Compose the condition tree. Indicators available depend on the market.
+                {isBoth
+                  ? "Two-sided bot: compose the long and short books separately. When flat, whichever fires opens; if both fire, the bar is skipped."
+                  : "Compose the condition tree. Indicators available depend on the market."}
               </div>
               <div style={{ maxWidth: 240, marginBottom: 14 }}>
                 <ParamControl spec={spec} path="fresh" onChange={setParam} />
               </div>
+              {isBoth && <DirTabs dir={dir} onDir={setDir} />}
               <NodeEditor
-                node={spec.entry}
+                node={isBoth && dir === "short"
+                  ? (spec.entry_short ?? { logic: "AND", children: [] })
+                  : spec.entry}
                 market={spec.market}
-                onChange={(n) => setSpec((s) => ({ ...s, entry: n as CondGroup }))}
+                onChange={(n) => setSpec((s) =>
+                  s.side === "both" && dir === "short"
+                    ? { ...s, entry_short: n as CondGroup }
+                    : { ...s, entry: n as CondGroup })}
                 onRemove={() => {}}
               />
             </div>
@@ -1762,54 +2027,96 @@ export default function Compose() {
               <TimingControl
                 hours={spec.timing?.hours_utc ?? []}
                 days={spec.timing?.days_utc ?? []}
+                dates={spec.timing?.dates ?? []}
                 onHours={(hours) =>
                   setSpec((s) => ({ ...s, timing: { ...s.timing, hours_utc: hours } }))
                 }
                 onDays={(days) =>
                   setSpec((s) => ({ ...s, timing: { ...s.timing, days_utc: days } }))
                 }
+                onDates={(dates) =>
+                  setSpec((s) => ({ ...s, timing: { ...s.timing, dates } }))
+                }
               />
             </div>
 
             {/* Exit */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>{groupLabel("exit")}</h2>
+              <h2 className={r.h2}>
+                {groupLabel("exit")}
+                {isBoth && <span className="lbl"> · {dir === "short" ? "short" : "long"} book</span>}
+              </h2>
+              {isBoth && <div style={{ marginTop: 10 }}><DirTabs dir={dir} onDir={setDir} /></div>}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginTop: 12 }}>
                 {paramsForGroup("exit")
                   .filter((p) => p.kind !== "condition" && p.status !== "unsupported")
                   .filter((p) => !EXIT_CUSTOM.has(p.key))
                   .map((p) => (
-                    <ParamControl key={p.key} spec={spec} path={p.key} onChange={setParam} />
+                    <ParamControl key={p.key} spec={exitViewSpec} path={p.key} onChange={exitChange} />
                   ))}
               </div>
               <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <input
                     type="checkbox"
-                    checked={Boolean(spec.exit.trailing)}
+                    checked={Boolean(exitViewSpec.exit.trailing)}
                     onChange={(e) => {
                       if (e.target.checked) {
                         const k = specParam("exit.trailing.k")?.default ?? 3;
                         const natr = specParam("exit.trailing.natr")?.default ?? 24;
-                        setParam("exit.trailing", { k, natr });
+                        exitChange("exit.trailing", { k, natr });
                       } else {
-                        setParam("exit.trailing", undefined);
+                        exitChange("exit.trailing", undefined);
                       }
                     }}
                   />
                   <span className="lbl">Trailing stop</span>
                 </label>
-                {spec.exit.trailing && (
+                {exitViewSpec.exit.trailing && (
                   <>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginTop: 12 }}>
-                      <ParamControl spec={spec} path="exit.trailing.k" onChange={setParam} showNote={false} />
-                      <ParamControl spec={spec} path="exit.trailing.natr" onChange={setParam} showNote={false} />
+                      <ParamControl spec={exitViewSpec} path="exit.trailing.k" onChange={exitChange} showNote={false} />
+                      <ParamControl spec={exitViewSpec} path="exit.trailing.natr" onChange={exitChange} showNote={false} />
                     </div>
-                    <div className="lbl" style={{ marginTop: 8, color: "#d29922" }}>
-                      Trailing exits are backtested but not yet pinned for live
-                      parity, so live deployment is blocked.
+                    <div className="lbl" style={{ marginTop: 8, fontSize: 11 }}>
+                      Ratchets a stop {exitViewSpec.exit.trailing?.k ?? 3}× the NATR behind
+                      the best price since entry.
                     </div>
                   </>
+                )}
+              </div>
+              {/* Exit conditions — a discretionary exit tree */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(exitViewSpec.exit.exit_conditions)}
+                    onChange={(e) =>
+                      setActiveExit((ex) => ({
+                        ...ex,
+                        exit_conditions: e.target.checked
+                          ? { logic: "AND", children: [] }
+                          : undefined,
+                      }))
+                    }
+                  />
+                  <span className="lbl">Exit conditions</span>
+                </label>
+                <div className="lbl" style={{ fontSize: 11, marginTop: 4 }}>
+                  Close the position on the bar this tree first fires — after the
+                  stop and take-profit have had their say.
+                </div>
+                {exitViewSpec.exit.exit_conditions && (
+                  <div style={{ marginTop: 12 }}>
+                    <NodeEditor
+                      node={exitViewSpec.exit.exit_conditions}
+                      market={spec.market}
+                      onChange={(n) =>
+                        setActiveExit((ex) => ({ ...ex, exit_conditions: n as CondGroup }))
+                      }
+                      onRemove={() => {}}
+                    />
+                  </div>
                 )}
               </div>
             </div>
