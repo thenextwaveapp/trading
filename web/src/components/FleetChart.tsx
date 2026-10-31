@@ -10,6 +10,23 @@ import type { Variant } from "../api/types";
 import { START, lt, pct, vcolor } from "../lib/format";
 import s from "./FleetChart.module.css";
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Our times are pre-shifted to local-as-UTC (see lt()), so read them as UTC.
+// Live equity marks land on fleet-cycle times (e.g. :01), which makes the auto
+// axis show odd labels like 04:01 — round intraday ticks to a clean 15-min grid
+// for the LABEL only (tick positions and the data are untouched).
+function fmtTick(time: number, type: number): string {
+  const d = new Date(time * 1000);
+  if (type === 0) return String(d.getUTCFullYear());
+  if (type === 1) return MONTHS[d.getUTCMonth()];
+  if (type === 2) return String(d.getUTCDate());
+  const mins = Math.round((d.getUTCHours() * 60 + d.getUTCMinutes()) / 15) * 15;
+  const hh = String(Math.floor(mins / 60) % 24).padStart(2, "0");
+  return `${hh}:${String(mins % 60).padStart(2, "0")}`;
+}
+
 export const LW_OPTS = {
   layout: {
     background: { color: "transparent" },
@@ -26,6 +43,7 @@ export const LW_OPTS = {
     secondsVisible: false,
     borderColor: "#1B212A",
     minBarSpacing: 0.001,
+    tickMarkFormatter: fmtTick,
   },
   rightPriceScale: { borderColor: "#1B212A" },
   crosshair: { mode: CrosshairMode.Normal },

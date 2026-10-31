@@ -15,10 +15,15 @@
 .main {
   flex: 1;
   width: 100%;
-  max-width: 1360px;
+  max-width: 1140px;        /* matches Home (Feed) so content pages align */
   margin: 0 auto;
   min-width: 0;
   padding-bottom: 72px;
+}
+
+/* the command center uses the full dashboard width */
+.wide {
+  max-width: 1360px;
 }
 
 /* landing: full-width marketing layout (top nav, no sidebar).

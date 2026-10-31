@@ -63,7 +63,7 @@ export default function App() {
         <div className={styles.app}>
           <TopBar />
 
-          <main className={styles.main}>
+          <main className={`${styles.main} ${loc.pathname.startsWith("/fleet") ? styles.wide : ""}`}>
             {!data && user && (
               <div style={{ background: "rgba(248,81,73,.1)", color: "var(--muted)", padding: "8px 16px", fontSize: 13, textAlign: "center" }}>
                 Live fleet data is temporarily unavailable.
