@@ -6,6 +6,7 @@ import {
   botNameTaken,
   createBacktest,
   createDraftBot,
+  saveBotVersion,
   createUniverse,
   fetchLatestBacktest,
   setBotStage,
@@ -730,6 +731,16 @@ function NodeEditor({
       </button>
     </div>
   );
+}
+
+
+// Required-field marker (red asterisk) and an optional-section tag, so the
+// Build form reads at a glance: what you must set vs. what has sane defaults.
+function Req() {
+  return <span title="Required" style={{ color: "var(--down)", marginLeft: 3 }}>*</span>;
+}
+function Opt() {
+  return <span className="lbl" style={{ fontWeight: 400, marginLeft: 7, fontSize: 12 }}>· optional</span>;
 }
 
 
@@ -1645,6 +1656,9 @@ export default function Compose() {
 
     let id = savedId ?? bot?.id ?? null;
     if (id) {
+      // Preserve the setup this edit is about to overwrite as a version, so the
+      // prior (possibly deployed) strategy keeps its own row in the history.
+      if (bot?.spec) await saveBotVersion(id, bot.spec as Record<string, unknown>);
       const { error } = await updateDraftBot({ id, ...input });
       if (error) {
         setSaving(false);
@@ -1661,6 +1675,9 @@ export default function Compose() {
       id = data.id;
       setSavedId(id);
     }
+    // Snapshot the setup just saved (deduped by fingerprint, so an unchanged
+    // re-save is a no-op). This is the row that becomes the bot's current version.
+    if (id) await saveBotVersion(id, input.spec);
 
     if (!toTraining) {
       setSaving(false);
@@ -1727,6 +1744,9 @@ export default function Compose() {
       <BackBar to="/build" label="Build" />
       <Steps current={1} onNavigate={(target) => void handleStepNav(target)} />
        <div className={p.body}>
+        <div className="lbl" style={{ fontSize: 12, marginBottom: 16 }}>
+          <Req /> required — everything else has a sensible default you can tune.
+        </div>
         {/* Identity — always first */}
         <div style={{ paddingBottom: 28, borderBottom: "1px solid var(--line)", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", marginBottom: 28 }}>
           <svg width="56" height="56" viewBox="0 0 56 56" style={{ flex: "none" }}>
@@ -1734,7 +1754,7 @@ export default function Compose() {
             <path d={identicon(name || "bot", 36)} fill={color} transform="translate(10 10)" />
           </svg>
           <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-            <div className={r.label}>Bot name</div>
+            <div className={r.label}>Bot name <Req /></div>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -1849,7 +1869,7 @@ export default function Compose() {
 
             {/* Market + Universe */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>Market &amp; universe</h2>
+              <h2 className={r.h2}>Market &amp; universe <Req /></h2>
               <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
                 A universe is a subset of a market — pick a ready-made one or build your own.
               </div>
@@ -1986,7 +2006,7 @@ export default function Compose() {
             <div className={r.formRow}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <h2 className={r.h2}>
-                  {groupLabel("entry")} conditions
+                  {groupLabel("entry")} conditions <Req />
                   {isBoth && <span className="lbl"> · {dir === "short" ? "short" : "long"} book</span>}
                 </h2>
                 <span className="lbl">
@@ -2019,7 +2039,7 @@ export default function Compose() {
 
             {/* Timing */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>{groupLabel("timing")} (UTC)</h2>
+              <h2 className={r.h2}>{groupLabel("timing")} (UTC) <Opt /></h2>
               <div className={r.label} style={{ margin: "4px 0 12px" }}>
                 Optional entry windows, measured at bar close. Leave the window
                 clear and every day selected to trade around the clock.
@@ -2070,7 +2090,7 @@ export default function Compose() {
                       }
                     }}
                   />
-                  <span className="lbl">Trailing stop</span>
+                  <span className="lbl">Trailing stop <Opt /></span>
                 </label>
                 {exitViewSpec.exit.trailing && (
                   <>
@@ -2100,7 +2120,7 @@ export default function Compose() {
                       }))
                     }
                   />
-                  <span className="lbl">Exit conditions</span>
+                  <span className="lbl">Exit conditions <Opt /></span>
                 </label>
                 <div className="lbl" style={{ fontSize: 11, marginTop: 4 }}>
                   Close the position on the bar this tree first fires — after the
@@ -2123,7 +2143,7 @@ export default function Compose() {
 
             {/* Filters */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>Filters</h2>
+              <h2 className={r.h2}>Filters <Opt /></h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input

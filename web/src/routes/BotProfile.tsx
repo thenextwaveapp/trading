@@ -428,6 +428,12 @@ export default function BotProfile() {
             )}
             {isOwner && (
               <>
+                <button
+                  className={s.btn}
+                  onClick={() => nav(`/build/compose?bot=${encodeURIComponent(bot!.id)}`)}
+                >
+                  Edit
+                </button>
                 <div style={{ display: "inline-flex", border: "1px solid var(--line-2)", borderRadius: 10, padding: 2, background: "var(--card-bottom)" }}>
                   {(["private", "results", "public"] as Visibility[]).map((opt) => (
                     <button

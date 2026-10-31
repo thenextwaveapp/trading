@@ -288,9 +288,15 @@ Every line resolves to a page, a field, or the editable-vs-locked line. Tagged
   battling (stage `deployed`, real P&L). Partial specs are blocked.
 - **Report** *[have]* — `/build/report/:name`. A Bot's full record: backtest vs
   live, equity curve, every trade, the Trials it passed.
-- **Versions** *[partial]* — each Setup change writes a row to `pf_bot_versions`;
-  Build shows the new backtest beside the previous one and the Bot it was Copied
-  from, so you keep the stronger Setup.
+- **Versions** *[have]* — every save snapshots the Setup to `pf_bot_versions`,
+  deduped by a strategy fingerprint so only real changes add a row, with
+  `pf_bots.version` kept in step. Editing a Bot (the **Edit** button on its
+  profile, which reopens it in Build) preserves the prior Setup as its own
+  version *before* the change lands — so a strategy's history is append-only and
+  the old version keeps its row even as the Bot moves on. Lineage across Bots is
+  in `copied_from`. *Still to come: the side-by-side backtest compare across
+  versions, and attributing a Bot's live trades to the version that produced
+  them (today the ledger hangs off the Bot, not the version).*
 
 **Collect & command**
 

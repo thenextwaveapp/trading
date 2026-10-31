@@ -645,6 +645,64 @@ export const autosaveBot = (input: {
     .select("id, name")
     .single();
 
+// ---- versioning -------------------------------------------------------------
+
+function canonicalJson(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonicalJson);
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return Object.keys(o).sort().reduce<Record<string, unknown>>((acc, k) => {
+      acc[k] = canonicalJson(o[k]);
+      return acc;
+    }, {});
+  }
+  return v;
+}
+
+/** Stable hash of the strategy (its name doesn't count), for version dedupe. */
+function specFingerprint(spec: Record<string, unknown>): string {
+  const { name: _name, ...strat } = spec;
+  const s = JSON.stringify(canonicalJson(strat));
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Append a version snapshot of `spec` to pf_bot_versions — unless the latest
+ *  version already has the same strategy fingerprint, so re-saving an unchanged
+ *  setup is a no-op. Keeps pf_bots.version in step. Best-effort (never throws). */
+export async function saveBotVersion(
+  botId: string,
+  spec: Record<string, unknown>,
+  changeNote?: string,
+): Promise<{ created: boolean; version?: number }> {
+  const fingerprint = specFingerprint(spec);
+  const { data: rows } = await supabase
+    .from("pf_bot_versions")
+    .select("version, fingerprint")
+    .eq("bot_id", botId)
+    .order("version", { ascending: false })
+    .limit(1);
+  const latest = (rows ?? [])[0] as
+    | { version: number; fingerprint: string | null }
+    | undefined;
+  if (latest && latest.fingerprint === fingerprint) return { created: false };
+  const version = (latest?.version ?? 0) + 1;
+  const { error } = await supabase.from("pf_bot_versions").insert({
+    bot_id: botId,
+    version,
+    params: spec,
+    fingerprint,
+    change_note: changeNote ?? null,
+  });
+  if (error) return { created: false };
+  await supabase.from("pf_bots").update({ version }).eq("id", botId);
+  return { created: true, version };
+}
+
 /** Auto-save deploy preferences (name, fleet, visibility) on Step 5. */
 export const autosaveDeployPrefs = (input: {
   id: string;
