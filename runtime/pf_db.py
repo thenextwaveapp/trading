@@ -18,17 +18,19 @@ def enabled() -> bool:
 
 
 def save_mark(mark: dict) -> None:
-    """Upsert a per-bot live mark into pf_bot_marks (service role)."""
+    """Upsert a per-bot live mark into pf_bot_marks (service role). One row per
+    (bot_id, t): marks are snapped to the candle grid, so repeated cycles within
+    the same bar update that bar's mark instead of appending a new row."""
     if not enabled():
         return
     import json as _j
     data = _j.dumps(mark).encode()
     req = urllib.request.Request(
-        f"{URL}/rest/v1/pf_bot_marks",
+        f"{URL}/rest/v1/pf_bot_marks?on_conflict=bot_id,t",
         data=data, method="POST",
         headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
                  "Content-Type": "application/json",
-                 "Prefer": "return=minimal"})
+                 "Prefer": "return=minimal,resolution=merge-duplicates"})
     try:
         with urllib.request.urlopen(req, timeout=15):
             pass

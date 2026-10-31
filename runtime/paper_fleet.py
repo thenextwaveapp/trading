@@ -1357,7 +1357,9 @@ def cycle_db(states):
             mtm = _mtm_equity(st)
             pf_db.save_mark({
                 "bot_id": b["id"],
-                "t": int(time.time() * 1000),
+                # snap to the candle grid so the curve sits on clean boundaries;
+                # the (bot_id, t) upsert refines this bar's mark each cycle.
+                "t": (int(time.time() * 1000) // M15) * M15,
                 "equity": mtm,
                 "ret": mtm / START_EQUITY - 1,
                 "open_json": st.get("positions", []),
@@ -1479,7 +1481,7 @@ def _push_mark(bot_id, st):
     win_pct = round(sum(1 for t in trs if float(t.get("pnl", t.get("net", 0)) or 0) > 0) / len(trs) * 100, 1) if trs else None
     eq = st.get("equity", START_EQUITY)
     pf_db.save_mark({
-        "bot_id": bot_id, "t": int(time.time() * 1000), "equity": eq,
+        "bot_id": bot_id, "t": (int(time.time() * 1000) // M15) * M15, "equity": eq,
         "ret": eq / START_EQUITY - 1, "open_json": st.get("positions", []),
         "closed": closed_n, "win": win_pct,
         "kill": bool(st.get("kill_until", 0) > time.time() * 1000),
