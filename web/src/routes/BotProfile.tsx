@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth } from "../auth";
-import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useLatestBacktest, useMyBot } from "../db/queries";
+import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useBotVersions, useLatestBacktest, useMyBot } from "../db/queries";
 import type { Visibility } from "../db/types";
 import type { Position, Trade } from "../api/types";
 import { variantFromBot } from "../lib/variant";
@@ -522,6 +522,7 @@ export default function BotProfile() {
                 </span>
               </div>
             ))}
+            {bot && <VersionHistory botId={bot.id} />}
           </div>
         </section>
       </div>
@@ -538,3 +539,79 @@ function Stat({ label, value, cls, sub }: { label: string; value: string; cls?: 
     </div>
   );
 }
+
+// Human-readable field name + value for a version diff.
+function fmtVal(v: unknown): string {
+  if (v === undefined || v === null) return "—";
+  if (typeof v === "object") return "…";   // trees/objects: just mark "changed"
+  return String(v);
+}
+
+/** Changed leaf paths between two Setup snapshots (old -> new), skipping the
+ *  bot's name and engine-internal `_` fields. */
+function specDiff(prev: any, cur: any, base = ""): { path: string; from: string; to: string }[] {
+  const out: { path: string; from: string; to: string }[] = [];
+  const keys = new Set([...Object.keys(prev ?? {}), ...Object.keys(cur ?? {})]);
+  const plain = (x: any) => x && typeof x === "object" && !Array.isArray(x);
+  for (const k of keys) {
+    if (k === "name" || k.startsWith("_")) continue;
+    const p = base ? `${base}.${k}` : k;
+    const a = (prev ?? {})[k];
+    const b = (cur ?? {})[k];
+    if (plain(a) && plain(b)) out.push(...specDiff(a, b, p));
+    else if (JSON.stringify(a) !== JSON.stringify(b))
+      out.push({ path: p, from: fmtVal(a), to: fmtVal(b) });
+  }
+  return out;
+}
+
+/** The Setup history for a bot: every saved version, newest first, with what
+ *  changed from the version before it. Append-only — the honest record of how
+ *  the strategy evolved. Empty (renders nothing) until a bot is first saved
+ *  under versioning. */
+function VersionHistory({ botId }: { botId: string }) {
+  const { data: versions } = useBotVersions(botId);
+  if (!versions || versions.length === 0) return null;
+  return (
+    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+      <h2 className={s.h2} style={{ marginBottom: 10 }}>
+        Versions <span className="num muted" style={{ fontSize: 13, fontWeight: 400, marginLeft: 4 }}>{versions.length}</span>
+      </h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {versions.map((ver, idx) => {
+          const older = versions[idx + 1];   // desc order -> the next one is older
+          const diff = older ? specDiff(older.params, ver.params) : [];
+          return (
+            <div key={ver.id} style={{ borderLeft: "2px solid var(--line-2)", paddingLeft: 10 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                <span className="num" style={{ fontWeight: 600 }}>v{ver.version}</span>
+                {idx === 0 && <span className="lbl" style={{ color: "var(--up)" }}>current</span>}
+                <span className="lbl" style={{ fontSize: 12 }}>
+                  {new Date(ver.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </span>
+              </div>
+              {ver.change_note && <div className="lbl" style={{ fontSize: 12 }}>{ver.change_note}</div>}
+              {!older ? (
+                <div className="lbl" style={{ fontSize: 12 }}>initial setup</div>
+              ) : diff.length === 0 ? (
+                <div className="lbl" style={{ fontSize: 12 }}>no setup change</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                  {diff.slice(0, 8).map((d) => (
+                    <div key={d.path} className="lbl" style={{ fontSize: 12 }}>
+                      <span className="num">{d.path}</span> {d.from} → {d.to}
+                    </div>
+                  ))}
+                  {diff.length > 8 && (
+                    <div className="lbl" style={{ fontSize: 12 }}>+{diff.length - 8} more</div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
