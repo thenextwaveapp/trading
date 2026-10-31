@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 import core.env  # noqa: F401 — loads .env
 from core import regime
 from core.strategy import parse as parse_spec
-from core.timeframes import DEFAULT_TIMEFRAME
+from core.timeframes import DEFAULT_TIMEFRAME, interval_ms
 from .paper_trader import klines, M15, TAKER, SLIP, RISK, NOTIONAL_CAP, \
     MAX_CONC, KILL_DD, KILL_LOOKBACK, KILL_PAUSE, START_EQUITY, API
 
@@ -190,6 +190,15 @@ def notify(title, msg, priority="default", tags=None, cat=None):
 PF_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 PF_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 _bot_map = [None]                          # name -> {id, visibility, market}
+_bot_iv: dict = {}                         # bot_id -> candle interval (ms)
+
+
+def _mark_t(bot_id):
+    """Snap now to the bot's own candle grid, so its equity marks land on clean
+    boundaries at the bot's resolution — a 1m scalper keeps 1m marks, a 15m bot
+    stays lean. Each bot's curve is its own line, so mixed grids coexist fine."""
+    g = _bot_iv.get(bot_id) or M15
+    return (int(time.time() * 1000) // g) * g
 
 
 def _load_bot_map():
@@ -1210,6 +1219,7 @@ def cycle_db(states):
             log(f"[{b['name']}] SKIP: spec has an unsupported candle size")
             continue
         by_interval.setdefault(iv, {})
+        _bot_iv[b["id"]] = interval_ms(iv)
         bars_by_interval[iv] = max(bars_by_interval.get(iv, 0),
                                    _bot_bars(b.get("spec") or {}))
         by_interval[iv].update(universes.get(b["id"]) or {})
@@ -1357,9 +1367,9 @@ def cycle_db(states):
             mtm = _mtm_equity(st)
             pf_db.save_mark({
                 "bot_id": b["id"],
-                # snap to the candle grid so the curve sits on clean boundaries;
-                # the (bot_id, t) upsert refines this bar's mark each cycle.
-                "t": (int(time.time() * 1000) // M15) * M15,
+                # snap to the bot's candle grid so the curve sits on clean
+                # boundaries; the (bot_id, t) upsert refines this bar each cycle.
+                "t": _mark_t(b["id"]),
                 "equity": mtm,
                 "ret": mtm / START_EQUITY - 1,
                 "open_json": st.get("positions", []),
@@ -1481,7 +1491,7 @@ def _push_mark(bot_id, st):
     win_pct = round(sum(1 for t in trs if float(t.get("pnl", t.get("net", 0)) or 0) > 0) / len(trs) * 100, 1) if trs else None
     eq = st.get("equity", START_EQUITY)
     pf_db.save_mark({
-        "bot_id": bot_id, "t": (int(time.time() * 1000) // M15) * M15, "equity": eq,
+        "bot_id": bot_id, "t": _mark_t(bot_id), "equity": eq,
         "ret": eq / START_EQUITY - 1, "open_json": st.get("positions", []),
         "closed": closed_n, "win": win_pct,
         "kill": bool(st.get("kill_until", 0) > time.time() * 1000),

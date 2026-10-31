@@ -126,6 +126,9 @@ def main(argv=None):
                           "equity": round(end_eq, 2), "ret": end_eq / START - 1,
                           "closed": n, "open_json": tip["open_json"],
                           "win": tip.get("win")})
+        # one row per t for the UNIQUE(bot_id, t) upsert key; last wins so the
+        # tip's open_json survives if it lands on an existing curve boundary.
+        marks = list({m["t"]: m for m in marks}.values())
         _delete_marks(b["id"])
         for i in range(0, len(marks), 500):
             _insert_marks(marks[i:i + 500])
