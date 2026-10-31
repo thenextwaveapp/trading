@@ -88,6 +88,13 @@ def _delete_marks(bot_id):
 
 
 def _insert_marks(rows):
+    if not rows:
+        return
+    # PostgREST bulk insert requires every object to share the same keys
+    # (PGRST102) — the tip mark carries open_json/win the curve points don't,
+    # so fill every row to the union of keys.
+    keys = set().union(*(r.keys() for r in rows))
+    rows = [{k: r.get(k) for k in keys} for r in rows]
     req = urllib.request.Request(
         f"{URL}/rest/v1/pf_bot_marks", data=json.dumps(pf_db.json_safe(rows)).encode(), method="POST",
         headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
