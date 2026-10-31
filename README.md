@@ -1,7 +1,9 @@
 # Paper Fleet
 
-**Build trading bots, train them until they earn it, and deploy the ones that
-pass to battle — on paper money first, real money when you flip the switch.**
+Paper Fleet is a league for trading strategies.
+
+**Build a fleet of bots that make you money in your sleep — and prove every one
+of them works before a dollar's at risk.**
 
 Updated: 2026-10-22.
 
