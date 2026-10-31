@@ -35,9 +35,10 @@ import time
 
 from core import parse, entry_signal
 from core import db as coredb
-from core.backtest import build_position, exit_trade
+from core.backtest import build_position, exit_trade, market_cost
 from core.conditions import cell_at
 from core.evaluator import build_aux
+from core.markets import MARKETS
 from core.strategy import _collect_requires
 from core.timeframes import DAY_MS, DEFAULT_TIMEFRAME, interval_ms
 from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
@@ -223,6 +224,11 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
         # position (stop/tp) straight from core — same object the backtest built
         pos = build_position(strat, cnd, i, sig)
         entry, stop = pos["entry"], pos["stop"]
+        # price it by the market's cost so the live exit matches the backtest
+        # (an equity bot is not charged crypto taker fees).
+        cost = market_cost(strat)
+        pos["taker"] = cost.get("taker", TAKER)
+        pos["slip"] = cost.get("slip", SLIP)
         # if the firing book's exit tree reads another series, remember what it
         # needs so the exit pass can fetch and align the same data.
         ec = (sig["_book"]["exit"] or {}).get("exit_conditions")
@@ -289,7 +295,8 @@ def run_exits_spec(name, st, fetch, *, notes, interval=DEFAULT_TIMEFRAME,
         er = pos.get("exit_requires")
         aux = _cross_aux(er, cnd, step, interval, pos["symbol"], resolve, fetch,
                          {}) if er else None
-        ex = exit_trade(tape_pos, cnd, TAKER, SLIP, aux)
+        ex = exit_trade(tape_pos, cnd, pos.get("taker", TAKER),
+                        pos.get("slip", SLIP), aux)
         if ex is None:
             continue
         net, exit_t, kind = ex
@@ -335,7 +342,6 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
     `candles` is {ticker: series} fetched for the union. A bot whose universe
     didn't resolve ({} / missing) manages open positions only, opens none."""
     notes = notes if notes is not None else []
-    btc = _candles_for(candles, DEFAULT_TIMEFRAME).get("BTC")
     # resolve every cross-asset ticker any bot references (e.g. "BTC") to its
     # exchange symbol, once per cycle, from the same pf_coins table universes use.
     want = set()
@@ -348,6 +354,24 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
             pass
     sym_map = coredb.coin_symbols(want) if want else {}
     resolve = lambda t: sym_map.get(t)
+
+    # The regime benchmark the Weather gate measures is per-market (crypto->BTC,
+    # equity->SPY), at the bot's candle size — the same series the backtest's
+    # Weather used, so the live gate matches. Fetched once per (symbol, tf)/cycle.
+    bench_cache = {}
+
+    def _benchmark(bot_market, iv):
+        m = MARKETS.get(bot_market or "")
+        sym = m.regime_benchmark if m else "BTC"
+        if sym is None:
+            return None
+        key = (sym, iv)
+        if key not in bench_cache:
+            have = _candles_for(candles, iv).get(sym)
+            bench_cache[key] = have or fetch(resolve(sym) or sym, None, 300, iv) \
+                or None
+        return bench_cache[key]
+
     for bot in bots:
         st = states.setdefault(bot["id"], new_state())
         iv = _bot_interval(bot["spec"])
@@ -366,8 +390,9 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
         if covered(bot["spec"]):
             scoped = {tk: bot_candles.get(tk) for tk in uni
                       if bot_candles.get(tk)}
+            bench = _benchmark((bot.get("spec") or {}).get("market"), iv)
             run_spec_signals(bot["name"], bot["spec"], st, uni, scoped,
                              gate=gate, weather=bot.get("condition_filter"),
-                             btc=btc, log=log, notes=notes,
+                             btc=bench, log=log, notes=notes,
                              fetch=bot_fetch, resolve=resolve)
     return notes

@@ -17,6 +17,7 @@ from core.conditions import conditions_breakdown
 from core.evaluator import entry_signal
 from core.markets import MARKETS
 from core.strategy import parse
+from runtime.spec_runtime import new_state, run_spec_signals
 
 M15 = 900_000
 T0 = 1_700_000_000_000
@@ -93,10 +94,25 @@ def main():
     check(len(conditions_breakdown(tr, {"EURUSD": bench}, market="fx_spot")) == 0,
           "a market with no regime benchmark has no Weather at all")
 
+    # LIVE side: a position opened by the live engine is priced by its market's
+    # cost, so the live exit matches the backtest (eval suite holds end-to-end).
+    live_c = [{"t": T0 + i * M15, "o": 100.0, "h": 101.0, "l": 99.0,
+               "c": 100.0, "v": 10.0} for i in range(20)]
+    nofetch = (lambda *a, **k: [])
+    for mk, want_taker in (("crypto_perp", DEFAULTS["taker"]), ("equity", 0.0001)):
+        sp = {"name": "x", "side": "long", "market": mk, "timeframe": "15m",
+              "entry": ENTRY, "exit": {"time_bars": 4, "stop": {"mode": "none"}}}
+        st = new_state()
+        run_spec_signals("x", sp, st, {"AAA": "AAA"}, {"AAA": live_c},
+                         notes=[], fetch=nofetch, resolve=lambda _t: None)
+        got = st["positions"][0].get("taker") if st["positions"] else None
+        check(got is not None and abs(got - want_taker) < 1e-12,
+              f"{mk} live position must carry {mk} cost, got taker {got}")
+
     if ok:
         print("PASS: cost, regime benchmark, and liveness are per-market; "
-              "crypto unchanged, equity repriced, fx can fire, Weather is "
-              "measured on the right benchmark.")
+              "crypto unchanged, equity repriced, fx fires, Weather uses the "
+              "right benchmark, live positions carry the market's cost.")
     return 0 if ok else 1
 
 
