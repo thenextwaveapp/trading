@@ -89,7 +89,7 @@ def _delete_marks(bot_id):
 
 def _insert_marks(rows):
     req = urllib.request.Request(
-        f"{URL}/rest/v1/pf_bot_marks", data=json.dumps(rows).encode(), method="POST",
+        f"{URL}/rest/v1/pf_bot_marks", data=json.dumps(pf_db.json_safe(rows)).encode(), method="POST",
         headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
                  "Content-Type": "application/json", "Prefer": "return=minimal"})
     urllib.request.urlopen(req, timeout=60).read()

@@ -17,6 +17,21 @@ def enabled() -> bool:
     return bool(URL and KEY)
 
 
+def json_safe(x):
+    """Replace non-finite floats (NaN/Infinity) with None anywhere in a value.
+    Python's json emits bare NaN/Infinity, which is invalid JSON and makes
+    PostgREST reject the whole request (400) — one bad open-position upnl would
+    drop an entire mark. This keeps the payload valid."""
+    import math
+    if isinstance(x, float):
+        return x if math.isfinite(x) else None
+    if isinstance(x, dict):
+        return {k: json_safe(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [json_safe(v) for v in x]
+    return x
+
+
 def save_mark(mark: dict) -> None:
     """Upsert a per-bot live mark into pf_bot_marks (service role). One row per
     (bot_id, t): marks are snapped to the candle grid, so repeated cycles within
@@ -24,7 +39,7 @@ def save_mark(mark: dict) -> None:
     if not enabled():
         return
     import json as _j
-    data = _j.dumps(mark).encode()
+    data = _j.dumps(json_safe(mark)).encode()
     req = urllib.request.Request(
         f"{URL}/rest/v1/pf_bot_marks?on_conflict=bot_id,t",
         data=data, method="POST",
