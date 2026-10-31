@@ -20,6 +20,7 @@ from bisect import bisect_left
 
 from .evaluator import build_aux, entry_signal, M15
 from .expr import eval_node
+from .markets import MARKETS
 
 DEFAULTS = {
     "taker": 0.00045,
@@ -28,6 +29,14 @@ DEFAULTS = {
     "notional_cap": 0.20,
     "start_equity": 10_000.0,
 }
+
+
+def market_cost(strategy):
+    """The taker/slip cost for the strategy's market, or {} if the market is
+    unknown (callers then fall back to the crypto DEFAULTS). This is what stops
+    an equity bot from being priced with Binance perp fees."""
+    m = MARKETS.get(strategy.get("market") or "")
+    return {"taker": m.cost.taker, "slip": m.cost.slip} if m else {}
 
 
 def _natr_frac(candles, i, window):
@@ -213,7 +222,7 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0,
     operands: {(symbol, tf): (candles, interval_ms)}. It is aligned to this
     tape once (causally, no lookahead) before the run. strategy["_requires"]
     lists the (symbol, tf) keys the bot needs."""
-    cfg = {**DEFAULTS, **(cfg or {})}
+    cfg = {**DEFAULTS, **market_cost(strategy), **(cfg or {})}
     taker, slip = cfg["taker"], cfg["slip"]
     aux = build_aux(candles, strategy.get("_interval_ms", M15), aux_series) \
         if aux_series else None
@@ -245,7 +254,7 @@ def backtest_universe(strategy, candles_by_ticker, cfg=None, start=0,
                       entry_delay=0):
     """Run `strategy` across many instruments and pool the trades. The
     reported expectancy is over the pooled ledger."""
-    cfg = {**DEFAULTS, **(cfg or {})}
+    cfg = {**DEFAULTS, **market_cost(strategy), **(cfg or {})}
     all_trades = []
     for tk, candles in candles_by_ticker.items():
         r = backtest(strategy, candles, cfg, start=start,

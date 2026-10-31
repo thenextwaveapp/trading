@@ -24,12 +24,29 @@ OHLC = frozenset({"open", "high", "low", "close"})
 
 
 @dataclass(frozen=True)
+class CostModel:
+    """Per-side trading cost as a fraction of notional. A round trip costs
+    `2*taker + slip` (the fee the backtest and live engines both apply), so this
+    is where a market's microstructure — crypto taker, equity commission+spread,
+    fx spread — stops being hardcoded crypto."""
+    taker: float
+    slip: float
+
+
+@dataclass(frozen=True)
 class Market:
     id: str
     label: str
     provides: frozenset        # columns this market has
     series_kind: str           # "continuous" | "resolution"
     asset_class: str
+    cost: CostModel            # the market's trading-cost model
+    regime_benchmark: str | None  # ticker whose trend x vol defines Weather;
+    #                                None = this market has no regime gate
+
+    @property
+    def has_volume(self) -> bool:
+        return "volume" in self.provides
 
 
 MARKETS: dict = {}
@@ -40,19 +57,27 @@ def register_market(m: Market) -> Market:
     return m
 
 
+# Cost models are market-appropriate defaults (tunable), not guesses pinned to
+# Binance perp fees. regime_benchmark is the series Weather measures trend/vol on.
 register_market(Market("crypto_perp", "Crypto Perpetuals", OHLCV,
-                       "continuous", "crypto_perp"))
+                       "continuous", "crypto_perp",
+                       CostModel(0.00045, 0.0005), "BTC"))
 register_market(Market("crypto_spot", "Crypto Spot", OHLCV,
-                       "continuous", "crypto_spot"))
+                       "continuous", "crypto_spot",
+                       CostModel(0.001, 0.0005), "BTC"))
 register_market(Market("equity", "Equities", OHLCV,
-                       "continuous", "equity"))
+                       "continuous", "equity",
+                       CostModel(0.0001, 0.0005), "SPY"))
 register_market(Market("futures", "Futures", OHLCV,
-                       "continuous", "futures"))
+                       "continuous", "futures",
+                       CostModel(0.00002, 0.0003), "SPY"))
 register_market(Market("fx_spot", "FX Spot", OHLC,          # no real volume
-                       "continuous", "fx_spot"))
+                       "continuous", "fx_spot",
+                       CostModel(0.0, 0.0001), None))
 register_market(Market("prediction", "Prediction Markets",
                        frozenset({"close"}),                # close = prob
-                       "resolution", "prediction"))
+                       "resolution", "prediction",
+                       CostModel(0.0, 0.0), None))
 
 
 def available(indicator, market):

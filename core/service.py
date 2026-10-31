@@ -31,6 +31,7 @@ from .backtest import backtest, backtest_universe
 from .timeframes import interval_ms
 from .checks import run_checks
 from .conditions import conditions_breakdown
+from .markets import MARKETS
 from .mapping import variant_to_spec
 from .params import spec_issues
 from . import challenges as _challenges
@@ -159,6 +160,32 @@ def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
             break
         cursor = nxt
     return out[:MAX_BARS]
+
+
+def _regime_series(s, uni, trades):
+    """The regime benchmark candles for the strategy's market: reuse it if it's
+    already loaded in the universe, else fetch it over the trades' span. None if
+    the market has no benchmark or it can't be sourced — Weather then stays empty
+    rather than measuring the wrong market's regime."""
+    m = MARKETS.get(s.get("market") or "")
+    if m is None or m.regime_benchmark is None:
+        return None
+    sym = m.regime_benchmark
+    try:
+        existing = uni.get(sym)
+    except Exception:
+        existing = None
+    if existing:
+        return existing
+    ts = [t["t_sig"] for t in trades if t.get("t_sig")]
+    if not ts:
+        return None
+    step = int(s.get("_interval_ms") or 900_000)
+    try:
+        return fetch_candles(sym, interval=s.get("_timeframe", "15m"),
+                             start=min(ts) - step * 200, end=max(ts) + step) or None
+    except Exception:
+        return None
 
 
 def _cache_path(interval):
@@ -506,8 +533,10 @@ def ep_evaluate(body):
     try:
         res = backtest_universe(s, uni)
         checks = run_checks(s, uni, base=res)
-        conditions = conditions_breakdown(res["trades"], uni,
-                                          bar_ms=s.get("_interval_ms", 900_000))
+        conditions = conditions_breakdown(
+            res["trades"], uni, bar_ms=s.get("_interval_ms", 900_000),
+            benchmark=_regime_series(s, uni, res["trades"]),
+            market=s.get("market"))
         return 200, {
             "ok": True,
             "stats": res["stats"],

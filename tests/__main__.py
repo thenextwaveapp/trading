@@ -26,6 +26,7 @@ SUITES = [
     "selftest_timing",       # UTC hour/day/date signal windows
     "selftest_arith",        # arithmetic operands (spreads/ratios) in expr
     "selftest_multiseries",  # multi-timeframe + cross-asset operands, causal
+    "selftest_market_suite", # per-market cost + liveness (not hardcoded crypto)
     "selftest_exits_side",   # side-aware stops + two-sided trailing
     "selftest_side_both",    # two-sided bots: book routing, conflict skip, live
     "selftest_service",      # service capability gates before data loading

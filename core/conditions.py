@@ -21,6 +21,8 @@ bot's regime gate.
 """
 import math
 
+from .markets import MARKETS
+
 M15 = 900_000
 VOL_WINDOW = 96          # 24h of 15m bars
 DEFAULT_BAR_MS = M15
@@ -109,18 +111,36 @@ def _bar_index(t, ts):
     return lo
 
 
-def conditions_breakdown(trades, candles_by_ticker, bar_ms=DEFAULT_BAR_MS):
+def _resolve_benchmark(candles_by_ticker, market):
+    """The regime benchmark series for this market (crypto->BTC, equity->SPY).
+    A market with no benchmark (fx, predictions) has no Weather -> None. When the
+    market is unknown, fall back to the legacy BTC/SPY/QQQ guess so callers that
+    don't pass a market still work."""
+    m = MARKETS.get(market or "")
+    if m is not None:
+        if m.regime_benchmark is None:
+            return None
+        return candles_by_ticker.get(m.regime_benchmark)
+    return (candles_by_ticker.get("BTC")
+            or candles_by_ticker.get("SPY")
+            or candles_by_ticker.get("QQQ")
+            or next(iter(candles_by_ticker.values()), None))
+
+
+def conditions_breakdown(trades, candles_by_ticker, bar_ms=DEFAULT_BAR_MS,
+                         benchmark=None, market=None):
     """-> [9 cells] ordered low/normal/high x falling/flat/rising.
 
     `trades` is the engine ledger (each trade carries `t_sig`, `net` as a
-    fraction). `candles_by_ticker` must contain BTC for the regime measure;
-    without it we return no cells rather than inventing a market state.
-    `bar_ms` is the strategy's candle size, so the 24h context stays 24h.
+    fraction). The regime is measured on the market's benchmark series — pass it
+    as `benchmark` (a candle series), or pass `market` to resolve the benchmark
+    symbol out of `candles_by_ticker` (crypto->BTC, equity->SPY). A market with
+    no benchmark, or no benchmark data, returns no cells rather than inventing a
+    market state. `bar_ms` is the strategy's candle size, so the 24h context
+    stays 24h.
     """
-    btc = (candles_by_ticker.get("BTC")
-           or candles_by_ticker.get("SPY")
-           or candles_by_ticker.get("QQQ")
-           or next(iter(candles_by_ticker.values()), None))
+    btc = benchmark if benchmark is not None else \
+        _resolve_benchmark(candles_by_ticker, market)
     if not btc:
         return []
 

@@ -9,7 +9,7 @@ run_checks(strategy, candles_by_ticker) -> {checks: [...], passed, total}
 import random as _random
 
 from .backtest import (DEFAULTS, backtest_universe, build_position,
-                       exit_trade)
+                       exit_trade, market_cost)
 from .evaluator import M15
 from .timeframes import interval_label
 
@@ -19,8 +19,10 @@ def _net_per_trade(res):
 
 
 def _cost_stress(strategy, uni, base_npt, mult=3.0):
-    cfg = {**DEFAULTS, "taker": DEFAULTS["taker"] * mult,
-           "slip": DEFAULTS["slip"] * mult}
+    # Stress the market's own cost, not the crypto default — 3x equity commission
+    # is a very different test from 3x Binance taker.
+    base = {**DEFAULTS, **market_cost(strategy)}
+    cfg = {"taker": base["taker"] * mult, "slip": base["slip"] * mult}
     npt = _net_per_trade(backtest_universe(strategy, uni, cfg))
     return {"key": "cost_stress",
             "label": f"Survives {mult:g}x trading costs",
@@ -65,7 +67,8 @@ def _placebo(strategy, uni, real_trades, rounds=100, seed=7, max_samples=5_000):
     # The placebo only needs a representative sample of random entries;
     # replaying every real trade 100x is what made large runs crawl.
     sample_n = min(n, max_samples)
-    taker, slip = DEFAULTS["taker"], DEFAULTS["slip"]
+    cost = {**DEFAULTS, **market_cost(strategy)}
+    taker, slip = cost["taker"], cost["slip"]
     # Replay the sampling first (no candle access, same RNG order as the eager
     # version), then group picks by ticker so each tape is loaded once instead
     # of randomly thrashed — identical picks, so identical per-round means.

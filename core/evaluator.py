@@ -12,9 +12,18 @@ from bisect import bisect_right
 from datetime import datetime, timezone
 
 from .expr import eval_node
+from .markets import MARKETS
 
 M15 = 900_000
 ALIVE_VOL_BARS = 8        # volume guard window k[i-8:i+1]
+
+
+def _has_volume(strategy):
+    """Whether the strategy's market actually has a volume column. Volume-less
+    markets (fx_spot) skip the volume liveness guard — otherwise every bar reads
+    as dead and no signal ever fires."""
+    m = MARKETS.get(strategy.get("market") or "")
+    return m is None or m.has_volume
 
 
 def align_series(base, base_ms, aux, aux_ms):
@@ -50,9 +59,11 @@ def _gapless(candles, i, L, step, market=None):
     return candles[i]["t"] - candles[i - L]["t"] == L * step
 
 
-def _alive(candles, i):
+def _alive(candles, i, has_volume=True):
     if candles[i]["h"] == candles[i]["l"]:
         return False
+    if not has_volume:
+        return True
     return all(candles[j]["v"] > 0
                for j in range(i - ALIVE_VOL_BARS, i + 1))
 
@@ -83,7 +94,7 @@ def _book_entry_true(strategy, book, candles, j, cache, aux):
         return False
     if not _gapless(candles, j, L, _bar_ms(strategy), strategy.get("market")):
         return False
-    if not _alive(candles, j):
+    if not _alive(candles, j, _has_volume(strategy)):
         return False
     if not _timing_ok(strategy, candles, j):
         return False
