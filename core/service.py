@@ -57,6 +57,7 @@ def _iso_date(ms):
 
 
 POLYMARKET_HISTORY = "https://clob.polymarket.com/prices-history"
+POLYMARKET_GAMMA = "https://gamma-api.polymarket.com/markets"
 
 
 def _is_prediction_symbol(symbol):
@@ -89,33 +90,93 @@ def _prediction_candles(history, resolution=None):
     return bars
 
 
+def _poly_get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        return json.loads(r.read())
+
+
+def _poly_market(ref):
+    """Resolve a Polymarket numeric market id to its YES clob token, resolution
+    outcome (1.0/0.0, or None while open), and closed flag, via the gamma
+    metadata API's /markets/{id} path."""
+    m = _poly_get(f"{POLYMARKET_GAMMA}/{ref}")
+    if not m or not isinstance(m, dict):
+        return None
+    def _arr(v):
+        return json.loads(v) if isinstance(v, str) else (v or [])
+    tk, outs, op = _arr(m.get("clobTokenIds")), _arr(m.get("outcomes")), \
+        _arr(m.get("outcomePrices"))
+    if len(tk) < 2 or not outs:
+        return None
+    yi = next((k for k, o in enumerate(outs) if str(o).lower() == "yes"), 0)
+    outcome = None
+    if m.get("closed") and yi < len(op):
+        try:
+            outcome = 1.0 if float(op[yi]) >= 0.5 else 0.0
+        except (TypeError, ValueError):
+            outcome = None
+    return {"yes_token": tk[yi], "outcome": outcome,
+            "closed": bool(m.get("closed"))}
+
+
+def _poly_history(token):
+    """The YES contract's implied-probability history: [(t_ms, prob), ...]."""
+    data = _poly_get(f"{POLYMARKET_HISTORY}?market={token}&interval=max&fidelity=60")
+    return [(int(pt["t"]) * 1000, float(pt["p"]))
+            for pt in (data.get("history") or [])]
+
+
 def _fetch_prediction(symbol, interval="1h", limit=1500, start=None, end=None):
-    """Implied-probability bars for a prediction contract, as engine candles
-    (with a settled bar once resolved). Symbol is 'POLY:<tokenId>' or
-    'KALSHI:<ticker>'. Network seam — fail-soft to [] like the other fetchers.
-    NOTE: untested against the live venues; smoke-test the Polymarket CLOB
-    prices-history and Kalshi candlesticks/result shapes before production. The
-    pure shaping in `_prediction_candles` is what the engine depends on and is
-    covered by selftest_prediction."""
+    """Implied-probability bars for a prediction contract, shaped into engine
+    candles with a settled (res) bar once resolved. Symbol is
+    'POLY:<conditionId>' (live, verified) or 'KALSHI:<ticker>' (TODO). Fail-soft
+    to [] like the other fetchers. The pure shaping is covered by
+    selftest_prediction; the live Polymarket path is smoke-tested in
+    scripts (gamma -> YES token + outcome, CLOB -> prob history)."""
     kind, _, ref = str(symbol).partition(":")
     try:
         if kind.upper() == "POLY":
-            url = f"{POLYMARKET_HISTORY}?market={ref}&interval=max&fidelity=60"
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=25) as r:
-                data = json.loads(r.read())
-            hist = [(int(pt["t"]) * 1000, float(pt["p"]))
-                    for pt in (data.get("history") or [])]
-            bars = _prediction_candles(hist, None)   # resolution sourced separately
+            mkt = _poly_market(ref)
+            if not mkt:
+                return []
+            hist = _poly_history(mkt["yes_token"])
+            if not hist:
+                return []
+            # place the settled bar just after the last quote so settle_trade
+            # always finds it as the terminal bar.
+            resolution = ((hist[-1][0] + 60_000, mkt["outcome"])
+                          if mkt["closed"] and mkt["outcome"] is not None else None)
+            bars = _prediction_candles(hist, resolution)
             if start:
                 bars = [b for b in bars if b["t"] >= int(start)]
             if end:
                 bars = [b for b in bars if b["t"] <= int(end)]
             return bars[:MAX_BARS]
-        # KALSHI: candlesticks + market result -> TODO (needs API key / shape check)
+        # KALSHI: candlesticks + /markets/{ticker} result -> TODO (needs the
+        # series ticker + an API shape check against a live contract).
     except Exception:
         return []
     return []
+
+
+def list_polymarket_contracts(limit=50, closed=False, order="volumeNum"):
+    """Enumerate Polymarket contracts as ('POLY:<conditionId>', question) for
+    seeding a prediction universe. closed=False gives currently-active markets;
+    this is the time-aware contract resolver a prediction universe needs (the
+    set churns as contracts resolve). Fail-soft to []."""
+    url = (f"{POLYMARKET_GAMMA}?limit={int(limit)}"
+           f"&closed={'true' if closed else 'false'}"
+           f"&order={order}&ascending=false")
+    try:
+        out = []
+        for m in _poly_get(url) or []:
+            mid = m.get("id")
+            if mid:
+                out.append((f"POLY:{mid}", m.get("question", "")))
+        return out
+    except Exception:
+        return []
 
 
 def _fetch_equity(symbol, interval="15m", limit=1500, start=None, end=None):
