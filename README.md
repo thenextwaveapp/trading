@@ -312,57 +312,110 @@ execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
 
 ## Feature surface
 
-Everything a Builder can do and set, grouped by surface.
+What a Builder can do and set, and what runs underneath each. The `core/` engine
+used to backtest a bot is the same code the runtime uses to trade it: entry/exit
+logic, fee/fill model, and sizing are shared; the differences are the data source
+(historical candles vs. live API) and the accounting (pooled trades in backtest
+vs. per-position state live). The web does not call the engine — it inserts a row
+in Postgres, `runtime/engine_worker.py` drains it, and results are written back.
 
-**Roster / Fleet (home).** Bots laid out with face, color, stage/level, and
-record; at-a-glance state (Training / Ready / Deployed / winning · losing);
-aggregate fleet equity (`FleetView` + `FleetChart`); fleet health (Running /
-Paused / Stale / Errors) and position management.
+**Roster / Fleet (home).** Bots by stage with face, color, record, and live
+return; aggregate fleet equity (`FleetView`/`FleetChart`); fleet state
+(Running / Paused / Stale / Errors) and position management (`ManagePosition`).
+→ `runtime/paper_fleet.py` + `paper_trader.py` run the paper-trading loop and write
+live state via `runtime/pf_db.py` (service key) to `pf_bot_marks` /
+`pf_bot_trades` / `pf_fleet_log`; the web reads those tables.
 
-**Build flow (idea → Deployed, step by step).**
+**Build flow (`/build`).** Each step calls a `core.service` endpoint;
+`runtime/engine_worker.py` is what invokes them after draining a pending row.
 
-- *Compose* — name, face, color, pick a **Family** (pump_short, momo, capit,
-  loser, churn, books), tune the **Setup**, pick a **Universe**, live preview.
-- *Setup params* — entry/exit conditions (a rule DSL: long/short entry & exit,
-  filters, indicators, crossovers, time-of-day/day windows), direction, stop
-  (`dstop`), sizing, hold, concurrency.
-- *Sweep* — parameter search across variants.
-- *Training* — backtest over years: equity curve, trades, win rate, drawdown,
-  after fees.
-- *Trials* — the honesty gauntlet; each passes/fails in the open.
-- *Weather* — the regime gate.
-- *Deploy* — Ready → into the Fleet.
-- *Report* — shareable record.
+- *Compose* — name, face, color, a **Family** (pump_short, momo, capit, loser,
+  churn, books), a **Setup**, a **Universe**, and a preview.
+  → `core/strategy.py` parses the spec into `_books` (`side:"both"` becomes a long
+  book and a short book); `core/params.py` defines each editable field (kind,
+  min/max, `visible_if`, backtest/live/sweep flags); `core/export_catalog.py`
+  serves the palette (`ep_catalog`).
+- *Setup params (the rule DSL)* — entry/exit as a condition tree: AND/OR/NOT groups
+  over comparisons (`lt`/`le`/`gt`/`ge`/`eq`/`crosses_above`/`crosses_below`) of
+  operands that are numbers, indicator references (with `offset` for prior bars,
+  optional `symbol`/`tf` for cross-asset / multi-timeframe), or arithmetic — plus
+  direction, stop (`hh`/`dstop`/`sig`/`trail`/`none`), take-profit, NATR trailing,
+  hold bars (`time_bars`), timing (UTC hours/days/date ranges), `fresh`, and
+  concurrency.
+  → `core/expr.py` (`eval_node`) with guards in `core/evaluator.py`: index/lookback,
+  gapless tape, alive-bar (not a doji, last 9 bars volume > 0), timing, and
+  cross-series alignment to the most recently closed aux bar (causal).
+- *Indicators* — 211 registered: pure-Python `core/indicators_std.py`
+  (SMA/EMA/WMA/DEMA/TEMA, RSI/CMO/MOM/CCI/MACD, ATR/NATR/Bollinger/ADX, MFI/OBV)
+  plus ROC / VOL_RATIO / WICK_FRAC / CLOSE_POS in `core/indicators.py`; TA-Lib
+  indicators register behind the standard ones when the C library is present, so
+  ids stay stable across hosts. A market exposes an indicator only when its
+  `inputs ⊆ provides` (`core/markets.py`) — e.g. volume indicators are unavailable
+  on FX (OHLC, no volume).
+- *Sweep* — parameter grid search over spec paths (e.g. a period over
+  {14, 20, 28}). → `ep_sweep` / `core/sweep.py`; the candle tape loads once per
+  universe and is reused across grid points → `pf_sweep_runs`.
+- *Training* — backtest over the training window (default 730 days,
+  `BUILD_TRAIN_DAYS`): equity curve, trade count, win rate, drawdown, after fees.
+  → `ep_evaluate` → `core/backtest.py:backtest_universe` (per-ticker replay, pooled
+  trades, `summarize` compounds the equity curve) → `pf_backtests`.
+- *Trials* — cost stress (3× fees), 1-bar entry delay, and a placebo test (the
+  strategy's mean net must exceed the 95th percentile of 100 random-entry rounds).
+  Advisory, not a gate. → `core/checks.py` → `pf_checks`.
+- *Weather* — a 3×3 grid of BTC trend × volatility terciles with the mean return
+  of trades in each cell; `condition_filter` lists which cells may trade. Computed
+  for reporting in backtest; applied to entries when deployed.
+  → `core/conditions.py:conditions_breakdown` → `pf_conditions` →
+  `pf_bots.condition_filter` (live gate via `runtime/spec_runtime.py`).
+- *Deploy* — a Ready bot with a complete spec joins a Fleet on a $10k paper budget
+  (stage → `deployed`). → `runtime/spec_runtime.py:covered()` first checks the spec
+  is one the live path supports (rejects partial specs, unsupported stop modes,
+  limit orders).
+- *Report* (`/build/report/:name`) — backtest vs. live, equity curve, every trade,
+  Trials passed — read from the result tables.
 
-**AI Assistant builder.** Describe a strategy in natural language → parsed into a
-Setup (`assistant/` + the `parse-strategy` edge function). The no-code path.
+**AI Assistant builder.** A natural-language description is turned into a Setup by
+`web/src/assistant` + the `parse-strategy` Supabase edge function, which emits the
+spec shape `core/strategy.py` consumes.
 
-**Bot profile.** Full honest stat sheet: Setup, verified track record, equity
-curve, every battle, which Trials it passed.
+**Bot profile** (`/bot/:name`). Setup, track record, equity curve, trades, and the
+Trials passed — rendered from the result tables; the web does not recompute them.
 
-**Leaderboard + Challenges.** Global standings ranked by real P&L; Challenges
-with detail pages (seasons/competitions — the league framing).
+**Leaderboard + Challenges.** Bots ranked by live P&L, filterable by Market and
+Challenge. A Challenge is a Copy with a locked template — some Setup fields fixed,
+others open. → `ep_enter_challenge` validates an entry against the lock-set;
+`ep_score_challenge` ranks it.
 
-**Feed + social.** Activity feed; Follow / Copy; events (`pf_follows`, `pf_events`).
+**Feed + social.** Event feed, Follow, Copy, and lineage via `copied_from`.
+→ `pf_follows` / `pf_events`.
 
-**Market.** Market + detail pages, candle charts, news (`news_scan` → `NewsList`),
-⌘K search palette.
+**Market.** Market and detail pages, candle charts, news, ⌘K search palette.
+→ `runtime/market_scan.py` upserts `pf_market_snapshot` every 60s (Binance 24h
+ticker + CoinGecko metadata); `runtime/news_scan.py` provides news.
 
-**Settings (fully inclusive).**
+**Settings.**
 
-- *Profile* — photo, timezone, sharing.
-- *Plan* — Free / Live tiers.
-- *Bots / Fleets* — defaults, starting capital, max concurrent, drawdown threshold.
-- *Market data* — data source (Local vs engine), freshness/stale detection, last-mark.
-- *Trading engine* — engine state (Running / Paused), health.
-- *Alerts* — notifications.
-- *Coins* — universe defaults.
+- *Profile* — photo, timezone, sharing. *Plan* — Free / Live.
+- *Bots / Fleets* — defaults, starting capital, max concurrent, drawdown threshold
+  (feeds the kill-switch in `runtime/paper_fleet.py`: drawdown past −5% over 7 days
+  pauses new entries for 3 days).
+- *Market data* — source (local `lab/bn` gzip cache vs. live Binance/Yahoo),
+  freshness/stale detection, last-mark.
+- *Trading engine* — state (Running / Paused), health.
+- *Alerts* — ntfy pushes on entry/exit/kill. *Coins* — universe defaults.
 
-**Account.** Auth (SignIn, AuthModal, RequireAuth), Privacy, Landing.
+**Account.** Auth (`SignIn`, `AuthModal`, `RequireAuth`), Privacy, Landing.
 
-**The capital switch.** Paper Fleet → Live Fleet — fund with real money,
-logo/banner change, per-trade fee shown alongside P&L, protected from accidental
-activation.
+**Paper → Live.** Funding a Fleet with real capital flips Paper Fleet → Live Fleet:
+the same bots run the same `core/` path (`runtime/spec_runtime.py`); logo and
+banner change, the per-trade fee is shown with P&L, and the switch is guarded
+against accidental activation.
+
+**Build execution path.** The web inserts a pending `pf_backtests` / `pf_sweeps`
+row; `runtime/engine_worker.py` drains it (10s poll, or `--once`), runs the `core/`
+endpoint, writes `pf_backtests` / `pf_checks` / `pf_conditions`, and sets
+`pf_bots.stage`; the web reads the result. The engine is not called from the
+browser.
 
 ## Feature map
 
