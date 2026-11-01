@@ -35,10 +35,10 @@ import time
 
 from core import parse, entry_signal
 from core import db as coredb
-from core.backtest import build_position, exit_trade, market_cost
+from core.backtest import build_position, exit_trade, settle_trade, market_cost
 from core.conditions import cell_at
 from core.evaluator import build_aux
-from core.markets import MARKETS
+from core.markets import MARKETS, is_resolution
 from core.strategy import _collect_requires
 from core.timeframes import DAY_MS, DEFAULT_TIMEFRAME, interval_ms
 from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
@@ -239,12 +239,17 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
                 pos["exit_requires"] = sorted(
                     er, key=lambda x: (x[0] or "", x[1] or ""))
 
-        if stop_mode == "none" or stop == 0.0:
-            basis = _capit_sl_basis(cnd, i, strat.get("_interval_ms", M15))
+        if is_resolution(strat.get("market")):
+            # prediction: flat-fraction stake (no stop distance), identical to
+            # the backtest's size_frac sizing in summarize().
+            notional = pos.get("size_frac", 0.05) * st["equity"]
         else:
-            basis = abs(stop / entry - 1)
-        notional = min(RISK * st["equity"] / max(basis, 0.005),
-                       NOTIONAL_CAP * st["equity"])
+            if stop_mode == "none" or stop == 0.0:
+                basis = _capit_sl_basis(cnd, i, strat.get("_interval_ms", M15))
+            else:
+                basis = abs(stop / entry - 1)
+            notional = min(RISK * st["equity"] / max(basis, 0.005),
+                           NOTIONAL_CAP * st["equity"])
 
         pos.update(ticker=tk, symbol=universe[tk], notional=notional)
         st["positions"].append(pos)
@@ -295,8 +300,13 @@ def run_exits_spec(name, st, fetch, *, notes, interval=DEFAULT_TIMEFRAME,
         er = pos.get("exit_requires")
         aux = _cross_aux(er, cnd, step, interval, pos["symbol"], resolve, fetch,
                          {}) if er else None
-        ex = exit_trade(tape_pos, cnd, pos.get("taker", TAKER),
-                        pos.get("slip", SLIP), aux)
+        # prediction positions settle to the 1/0 outcome (core.settle_trade),
+        # the same path the backtest used; everything else exits via exit_trade.
+        ex = (settle_trade(tape_pos, cnd, pos.get("taker", TAKER),
+                           pos.get("slip", SLIP), aux)
+              if pos.get("resolution") else
+              exit_trade(tape_pos, cnd, pos.get("taker", TAKER),
+                         pos.get("slip", SLIP), aux))
         if ex is None:
             continue
         net, exit_t, kind = ex

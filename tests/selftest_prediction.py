@@ -126,6 +126,37 @@ def main():
     check(parse(PRED_MREV).get("market") == "prediction",
           "PRED_MREV preset must parse as a prediction strategy")
 
+    # LIVE parity: a deployed prediction bot sizes flat-stake and settles to the
+    # same net as the backtest (paper -> live run the same core settlement).
+    from runtime.spec_runtime import new_state, run_spec_signals, run_exits_spec
+    # entry scans the still-open contract (prob bars only); the exit pass later
+    # re-fetches the tape, now including the settled bar.
+    open_bars = [{"t": T0 + i * STEP, "o": 0.40, "h": 0.40, "l": 0.40,
+                  "c": 0.40, "v": 0.0} for i in range(12)]
+    settled_bars = series(0.40, 1.0)
+    sp = {"name": "p", "side": "long", "market": "prediction",
+          "timeframe": "15m", "entry": ENTRY,
+          "exit": {"time_bars": 64, "stop": {"mode": "none"}}}
+    start_eq = new_state()["equity"]
+    stt = new_state()
+    run_spec_signals("p", sp, stt, {"PM": "POLY:x"}, {"PM": open_bars},
+                     notes=[], fetch=lambda *a, **k: [], resolve=lambda _t: None)
+    check(len(stt["positions"]) == 1, "live prediction bot must open one position")
+    if stt["positions"]:
+        posn = stt["positions"][0]
+        check(posn.get("resolution")
+              and abs(posn["notional"] - start_eq * PRED_STAKE) < 1e-6,
+              f"live prediction stake must be flat-fraction, got {posn['notional']}")
+    run_exits_spec("p", stt, lambda sym, s, lim, iv=None: settled_bars,
+                   notes=[], interval="15m", resolve=lambda _t: None)
+    tr = stt["trades"][-1] if stt["trades"] else None
+    check(not stt["positions"] and tr and tr["kind"] == "settle"
+          and abs(tr["net"] - (1.0 / 0.40 - 1 - FEE)) < 1e-9,
+          f"live settle must equal the backtest net, got {tr}")
+    check(abs(stt["equity"] - (start_eq + start_eq * PRED_STAKE
+                               * (1.0 / 0.40 - 1 - FEE))) < 1e-6,
+          f"live equity after settle wrong: {stt['equity']}")
+
     if ok:
         print("PASS: prediction settles to 1/0 on the right contract side, all "
               "four corners correct, flat-stake sizing, early exit at live prob, "
