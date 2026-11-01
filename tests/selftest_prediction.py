@@ -157,6 +157,21 @@ def main():
                                * (1.0 / 0.40 - 1 - FEE))) < 1e-6,
           f"live equity after settle wrong: {stt['equity']}")
 
+    # TRIALS: run_checks over a small prediction universe settles (placebo must
+    # route through settle_trade, not exit_trade, or its threshold is garbage).
+    from core.checks import run_checks
+    uni = {f"C{j}": series(0.30 + 0.05 * (j % 6), 1.0 if j % 2 else 0.0, n=20)
+           for j in range(6)}
+    cr = run_checks(spec("long"), uni)
+    check(cr["total"] == 3 and cr["base_trades"] == 6,
+          f"Trials must run 3 checks over 6 settled bets, got {cr}")
+    pb = next(c for c in cr["checks"] if c["key"] == "placebo")
+    # placebo settles to 1/0 too, so its mean sits in the real return range
+    # (buying YES ~0.3-0.55, half resolve YES) — never the degenerate -100%
+    # exit_trade would produce by never reaching the res bar.
+    check(pb["threshold"] > -100.0 and pb["detail"]["rounds"] > 0,
+          f"placebo must settle random entries, got {pb}")
+
     if ok:
         print("PASS: prediction settles to 1/0 on the right contract side, all "
               "four corners correct, flat-stake sizing, early exit at live prob, "

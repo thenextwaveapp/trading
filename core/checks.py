@@ -9,7 +9,7 @@ run_checks(strategy, candles_by_ticker) -> {checks: [...], passed, total}
 import random as _random
 
 from .backtest import (DEFAULTS, backtest_universe, build_position,
-                       exit_trade, market_cost)
+                       exit_trade, settle_trade, market_cost)
 from .evaluator import M15
 from .timeframes import interval_label
 
@@ -84,7 +84,11 @@ def _placebo(strategy, uni, real_trades, rounds=100, seed=7, max_samples=5_000):
             fake = {"entry": c[i]["c"],
                     "t_sig": c[i]["t"] + strategy.get("_interval_ms", M15),
                     "i": i}
-            ex = exit_trade(build_position(strategy, c, i, fake), c, taker, slip)
+            pos = build_position(strategy, c, i, fake)
+            # resolution markets settle to the 1/0 outcome, same as the real run —
+            # exit_trade's price model would misprice a prediction placebo.
+            ex = ((settle_trade if pos.get("resolution") else exit_trade)
+                  (pos, c, taker, slip))
             if ex:
                 round_nets[r].append(ex[0])
     means = [sum(x) / len(x) * 100 for x in round_nets if x]
