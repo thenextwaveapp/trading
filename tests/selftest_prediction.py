@@ -104,6 +104,28 @@ def main():
     check(available(REGISTRY["close"], m),
           "close must be available on prediction")
 
+    # data adapter: symbol routing + the pure prob-history -> candles shaping
+    from core.service import (_is_prediction_symbol, _is_equity_symbol,
+                              _prediction_candles)
+    check(_is_prediction_symbol("POLY:0xabc")
+          and _is_prediction_symbol("KALSHI:PRES-24"),
+          "POLY:/KALSHI: symbols must route to the prediction fetch")
+    check(not _is_equity_symbol("POLY:0xabc"),
+          "a prediction symbol must not be misrouted to the equity fetch")
+    shaped = _prediction_candles([(T0, 0.3), (T0 + STEP, 0.5)], (T0 + 2 * STEP, 1.0))
+    check(len(shaped) == 3 and shaped[0]["c"] == 0.3
+          and shaped[0]["h"] == shaped[0]["l"] == 0.3,   # flat bars
+          "prob history must shape into flat close-only bars")
+    check(shaped[-1].get("res") and shaped[-1]["c"] == 1.0,
+          "a resolved contract must append a settled (res) bar at the outcome")
+    check(_prediction_candles([(T0, 0.3)], None)[-1].get("res") is None,
+          "an open contract must not carry a settled bar")
+
+    # the seed preset is a valid resolution strategy
+    from core.presets import PRED_MREV
+    check(parse(PRED_MREV).get("market") == "prediction",
+          "PRED_MREV preset must parse as a prediction strategy")
+
     if ok:
         print("PASS: prediction settles to 1/0 on the right contract side, all "
               "four corners correct, flat-stake sizing, early exit at live prob, "

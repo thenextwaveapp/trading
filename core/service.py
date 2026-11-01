@@ -56,8 +56,66 @@ def _iso_date(ms):
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
 
 
+POLYMARKET_HISTORY = "https://clob.polymarket.com/prices-history"
+
+
+def _is_prediction_symbol(symbol):
+    s = str(symbol).upper()
+    return s.startswith("POLY:") or s.startswith("KALSHI:")
+
+
 def _is_equity_symbol(symbol):
+    # prediction contracts carry an explicit venue prefix; everything else that
+    # isn't a Binance USDT pair is treated as an equity (Yahoo).
+    if _is_prediction_symbol(symbol):
+        return False
     return not str(symbol).upper().endswith("USDT")
+
+
+def _prediction_candles(history, resolution=None):
+    """Shape a prediction contract's implied-probability history into engine
+    candles. `history` is [(t_ms, prob), ...] ascending with prob in [0,1] — the
+    close-only series. `resolution` is (t_ms, outcome) with outcome 1.0 (YES) or
+    0.0 (NO), or None while the contract is open. Each bar is flat (o=h=l=c=prob,
+    no volume); the settled bar is flagged `res` with close = the 1/0 outcome, so
+    the engine's settle_trade can resolve against it."""
+    bars = [{"t": int(t), "o": float(p), "h": float(p), "l": float(p),
+             "c": float(p), "v": 0.0} for t, p in history]
+    if resolution is not None:
+        rt, outcome = resolution
+        o = 1.0 if float(outcome) >= 0.5 else 0.0
+        bars.append({"t": int(rt), "o": o, "h": o, "l": o, "c": o,
+                     "v": 0.0, "res": True})
+    return bars
+
+
+def _fetch_prediction(symbol, interval="1h", limit=1500, start=None, end=None):
+    """Implied-probability bars for a prediction contract, as engine candles
+    (with a settled bar once resolved). Symbol is 'POLY:<tokenId>' or
+    'KALSHI:<ticker>'. Network seam — fail-soft to [] like the other fetchers.
+    NOTE: untested against the live venues; smoke-test the Polymarket CLOB
+    prices-history and Kalshi candlesticks/result shapes before production. The
+    pure shaping in `_prediction_candles` is what the engine depends on and is
+    covered by selftest_prediction."""
+    kind, _, ref = str(symbol).partition(":")
+    try:
+        if kind.upper() == "POLY":
+            url = f"{POLYMARKET_HISTORY}?market={ref}&interval=max&fidelity=60"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                data = json.loads(r.read())
+            hist = [(int(pt["t"]) * 1000, float(pt["p"]))
+                    for pt in (data.get("history") or [])]
+            bars = _prediction_candles(hist, None)   # resolution sourced separately
+            if start:
+                bars = [b for b in bars if b["t"] >= int(start)]
+            if end:
+                bars = [b for b in bars if b["t"] <= int(end)]
+            return bars[:MAX_BARS]
+        # KALSHI: candlesticks + market result -> TODO (needs API key / shape check)
+    except Exception:
+        return []
+    return []
 
 
 def _fetch_equity(symbol, interval="15m", limit=1500, start=None, end=None):
@@ -140,7 +198,10 @@ def _fetch_page(symbol, interval, limit, start, end):
 
 
 def fetch_candles(symbol, interval="15m", limit=1500, start=None, end=None):
-    """Closed candles from Binance (crypto perps) or Yahoo Finance (equities)."""
+    """Closed candles from Binance (crypto perps), Yahoo Finance (equities), or a
+    prediction venue (Polymarket/Kalshi, 'POLY:'/'KALSHI:' prefix)."""
+    if _is_prediction_symbol(symbol):
+        return _fetch_prediction(symbol, interval, limit, start, end)
     if _is_equity_symbol(symbol):
         return _fetch_equity(symbol, interval, limit, start, end)
     if start is None:
@@ -651,7 +712,7 @@ def ep_presets(_body=None):
     """The seed specs, so the frontend doesn't hardcode a copy of presets.py."""
     return 200, {"ok": True,
                  "presets": [_presets.RULE_P, _presets.RULE_P_WICK,
-                             _presets.CAPIT]}
+                             _presets.CAPIT, _presets.PRED_MREV]}
 
 
 def ep_map(body):
