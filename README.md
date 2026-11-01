@@ -5,7 +5,7 @@ Paper Fleet is a league for trading strategies.
 **Build a fleet of bots that make you money in your sleep — and prove every one
 of them works before a dollar's at risk.**
 
-Updated: 2026-10-22.
+Updated: 2026-11-01.
 
 ---
 
@@ -214,6 +214,48 @@ historical evidence and make its assumptions, sensitivities, and context easier
 to inspect; future market behavior remains unknown. Skill matters, but luck
 does too—that uncertainty is part of the market, not a flaw in the scoreboard.
 
+## Codebase map
+
+The app is three real layers around one idea — bots earn a verified record, then
+trade. Roughly 145 Python files, 68 TS/TSX, 16 SQL.
+
+**The engine (Python) — `core/` + `runtime/`.** The brain.
+
+- `core/` is the library: `strategy.py`, `evaluator.py`, `backtest.py`,
+  `indicators.py`/`talib_wrap.py`, `conditions.py`/`expr.py` (the editable rule
+  DSL), `regime.py` (Weather), `challenges.py`/`checks.py` (the Trials
+  gauntlet), `equity.py`, `marketdata.py`/`markets.py` (market adapters),
+  `sweep.py` (parameter search). The "one engine tests a strategy and trades it."
+- `runtime/` is the running machine: `engine_worker.py` (the Build worker),
+  `market_scan.py`, `paper_fleet.py`/`paper_trader.py` (the live paper fleet),
+  `challenge_runner.py`, `news_scan.py`, `backfill_curves.py`,
+  `fleet_dashboard.py`, `pf_db.py`, `spec_runtime.py`. Runs 24/7 on Hetzner.
+
+**The data spine — `db/` + `supabase/`.** Postgres on Supabase: `schema.sql`,
+`functions.sql`, `policies.sql` (RLS), `migrations/` — the
+`pf_bots`/`pf_profiles`/`pf_universes`/`pf_follows` world. Edge functions in
+`supabase/functions/`: `parse-strategy` (natural language → Setup) and `assistant`.
+
+**The web app — `web/` (React + TypeScript + Vite).** `src/routes` (Roster,
+Build, Bot profile, Leaderboard, Challenges, Feed, Market, Settings),
+`src/components` (charts, tables, drawers, ⌘K search palette), `src/assistant`
+(the AI builder), `src/api`/`src/db` (Supabase client), `auth.tsx`. Render-only;
+the engine owns the data.
+
+**The Lab — `lab/`.** The owner's proof-of-concept that does not ship: `Invo/`
+(the 15,713-trade mining), `bn/` (Binance data), `master/`, `backtest/`,
+`research/`, `reports/`.
+
+**Live & ops.** `live/` — the real-money bridge (`bot.py`, `check_parity.py` for
+paper-vs-live parity, keys). `deploy/` — `systemd/` (Hetzner prod) + `launchd/`
+(local dev). `paper/fleet/` + `fleet_config.json` + `universe60.json` — the fleet
+roster config. `archive/` — retired code (`legacy-engine`, `hl_bot`, `dashboards`).
+
+In one line: a Python engine scans a market once and evaluates many bots against
+the same candles → writes verified records to Postgres → a React app renders the
+roster/leaderboard, with a no-code AI builder on top, a research Lab to the side,
+and a real-money bridge for graduation.
+
 ## Architecture
 
 ```
@@ -267,6 +309,60 @@ execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
    `db/migrations/20261024_weather_thresholds.sql` and
    `db/migrations/20261025_checks_lexicon.sql` to the live Supabase DB.
 2. Run `runtime.engine_worker` as a service (units live in `deploy/`).
+
+## Feature surface
+
+Everything a Builder can do and set, grouped by surface.
+
+**Roster / Fleet (home).** Bots laid out with face, color, stage/level, and
+record; at-a-glance state (Training / Ready / Deployed / winning · losing);
+aggregate fleet equity (`FleetView` + `FleetChart`); fleet health (Running /
+Paused / Stale / Errors) and position management.
+
+**Build flow (idea → Deployed, step by step).**
+
+- *Compose* — name, face, color, pick a **Family** (pump_short, momo, capit,
+  loser, churn, books), tune the **Setup**, pick a **Universe**, live preview.
+- *Setup params* — entry/exit conditions (a rule DSL: long/short entry & exit,
+  filters, indicators, crossovers, time-of-day/day windows), direction, stop
+  (`dstop`), sizing, hold, concurrency.
+- *Sweep* — parameter search across variants.
+- *Training* — backtest over years: equity curve, trades, win rate, drawdown,
+  after fees.
+- *Trials* — the honesty gauntlet; each passes/fails in the open.
+- *Weather* — the regime gate.
+- *Deploy* — Ready → into the Fleet.
+- *Report* — shareable record.
+
+**AI Assistant builder.** Describe a strategy in natural language → parsed into a
+Setup (`assistant/` + the `parse-strategy` edge function). The no-code path.
+
+**Bot profile.** Full honest stat sheet: Setup, verified track record, equity
+curve, every battle, which Trials it passed.
+
+**Leaderboard + Challenges.** Global standings ranked by real P&L; Challenges
+with detail pages (seasons/competitions — the league framing).
+
+**Feed + social.** Activity feed; Follow / Copy; events (`pf_follows`, `pf_events`).
+
+**Market.** Market + detail pages, candle charts, news (`news_scan` → `NewsList`),
+⌘K search palette.
+
+**Settings (fully inclusive).**
+
+- *Profile* — photo, timezone, sharing.
+- *Plan* — Free / Live tiers.
+- *Bots / Fleets* — defaults, starting capital, max concurrent, drawdown threshold.
+- *Market data* — data source (Local vs engine), freshness/stale detection, last-mark.
+- *Trading engine* — engine state (Running / Paused), health.
+- *Alerts* — notifications.
+- *Coins* — universe defaults.
+
+**Account.** Auth (SignIn, AuthModal, RequireAuth), Privacy, Landing.
+
+**The capital switch.** Paper Fleet → Live Fleet — fund with real money,
+logo/banner change, per-trade fee shown alongside P&L, protected from accidental
+activation.
 
 ## Feature map
 
