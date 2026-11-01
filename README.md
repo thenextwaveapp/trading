@@ -98,10 +98,13 @@ owner do it, opened up so anyone can — without touching code.
 A **multi-tenant SaaS** where any Builder runs the whole pipeline through the UI.
 The product is the **machine, not the signals** — ship the tooling, not the edge.
 
-- **Market-agnostic core.** crypto → stocks → predictions is adapters, not
-  rewrites. The engine already scans a market once and evaluates many bots
-  against the same candles; multi-tenant is just "those bots belong to different
-  Builders" (one scanner → N evaluators).
+- **Market-agnostic core.** New asset classes are adapters, not rewrites —
+  `core/markets.py` already registers crypto perp/spot, equity, futures, fx, and
+  prediction, and `equity`/`futures` backtest end-to-end today (Yahoo data, SPY
+  regime). What's left per market is product surfacing (UI + live fleet are crypto
+  now) and, for predictions, a data feed. The engine already scans a market once
+  and evaluates many bots against the same candles; multi-tenant is just "those
+  bots belong to different Builders" (one scanner → N evaluators).
 - **Editable vs locked** is the product spine. A bot = `{family (fixed menu) +
   Setup (editable) + universe (selectable)}`. Editable: entry/exit params,
   sizing, concurrency, account, alerts. Locked: family logic, universe
@@ -319,6 +322,20 @@ logic, fee/fill model, and sizing are shared; the differences are the data sourc
 vs. per-position state live). The web does not call the engine — it inserts a row
 in Postgres, `runtime/engine_worker.py` drains it, and results are written back.
 
+**Markets / asset classes.** `core/markets.py` registers six markets, each with
+its own columns, cost model, and regime benchmark: `crypto_perp` and `crypto_spot`
+(benchmark BTC), `equity` and `futures` (SPY), `fx_spot` (OHLC, no volume, no
+regime gate), and `prediction` (close-only, `series_kind="resolution"`). `market`
+is an editable Setup param (`core/params.py`, default `crypto_perp`) and a column
+on `pf_bots` / `pf_universes` / `pf_backtests`. The capability model
+(`inputs ⊆ provides`) greys out indicators a market lacks (e.g. volume indicators
+on FX). Data: any non-`USDT` ticker fetches from Yahoo Finance
+(`core/service.py:_fetch_equity`), so **equity and futures backtest end-to-end
+today**; crypto fetches from Binance; `prediction` has no fetch path yet (a
+registered shell). The engine and schema are multi-asset; the **web UI and the
+live paper fleet** (`runtime/paper_trader.py`, Binance USDT-M futures) are
+**currently crypto only**.
+
 **Roster / Fleet (home).** Bots by stage with face, color, record, and live
 return; aggregate fleet equity (`FleetView`/`FleetChart`); fleet state
 (Running / Paused / Stale / Errors) and position management (`ManagePosition`).
@@ -466,7 +483,8 @@ Every line resolves to a page, a field, or the editable-vs-locked line. Tagged
 
 - **Leaderboard** *[have]* — `/leaderboard`. Every public Bot ranked by live P&L,
   with a podium and a full table (win rate, streak, sparkline). Filter by **Market**
-  (Crypto, Stocks·soon, Predictions·soon) and by **Challenge**.
+  (Crypto live in the UI; equity/futures backtest in the engine but not yet
+  surfaced; Predictions pending a data feed) and by **Challenge**.
 - **Challenge** *[new]* — a Copy with a locked template: some Setup fields stay
   fixed, others stay open, so everyone tunes the same thing (Universe-only, one-knob,
   timeframe-only — the lock-set defines it). Carries an optional expiry date and a
