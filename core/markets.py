@@ -75,9 +75,17 @@ register_market(Market("fx_spot", "FX Spot", OHLC,          # no real volume
                        "continuous", "fx_spot",
                        CostModel(0.0, 0.0001), None))
 register_market(Market("prediction", "Prediction Markets",
-                       frozenset({"close"}),                # close = prob
+                       frozenset({"close"}),                # close = implied prob
                        "resolution", "prediction",
-                       CostModel(0.0, 0.0), None))
+                       CostModel(0.0, 0.01), None))         # thin books -> spread
+
+
+def is_resolution(market_id):
+    """True if the market settles to an outcome (a prediction contract resolves
+    to 0/1 at expiry) rather than trading as a continuous price series. The
+    engine uses this to switch entry guards, sizing, and the exit path."""
+    m = MARKETS.get(market_id or "")
+    return bool(m and m.series_kind == "resolution")
 
 
 def available(indicator, market):
