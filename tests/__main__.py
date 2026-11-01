@@ -34,6 +34,7 @@ SUITES = [
     "selftest_challenges",   # challenge lock-set, predicates, judges
     "selftest_challenge_runner",  # challenge settle loop end-to-end over candles
     "selftest_equity",       # mark-to-market equity curve follows price
+    "selftest_prediction",   # resolution markets: 1/0 settlement + flat stake
 ]
 
 

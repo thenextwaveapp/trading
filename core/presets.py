@@ -66,6 +66,23 @@ MOMO = {
     "sizing": {"risk": 0.0075, "notional_cap": 0.20, "weight": 1.0},
 }
 
+# prediction mean-reversion: buy YES when the implied probability is oversold
+# (RSI of the close-only prob series < 30) and hold to resolution. Close-only, so
+# only price/prob indicators apply; sizing is a flat stake (no stop distance).
+PRED_MREV = {
+    "name": "prediction mean-reversion",
+    "side": "long",                    # long = buy YES
+    "market": "prediction",
+    "universe": "poly-active",
+    "fresh": True,
+    "entry": {"logic": "AND", "children": [
+        {"left": {"ind": "RSI", "params": {"timeperiod": 14}}, "op": "lt",
+         "right": 30},
+    ]},
+    "exit": {"time_bars": 192, "stop": {"mode": "none", "param": 0.0}},
+    "sizing": {"stake_frac": 0.05, "weight": 1.0},
+}
+
 # capitulation long: 24h drop <= -20% on a fresh crossing
 CAPIT = {
     "name": "capit-long",

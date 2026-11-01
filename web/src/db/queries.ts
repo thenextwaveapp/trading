@@ -509,7 +509,7 @@ export const createDraftBot = (input: {
       copied_from: input.copied_from ?? null,
       challenge_id: input.challenge_id ?? null,
       stage: "draft",
-      market: input.market ?? (input.spec?.market === "equity" ? "stocks" : "crypto"),
+      market: input.market ?? (input.spec?.market === "equity" ? "stocks" : input.spec?.market === "prediction" ? "prediction" : "crypto"),
       visibility: input.visibility ?? "private",
     })
     .select("id, name")
@@ -607,7 +607,7 @@ export const updateDraftBot = (input: {
       direction: input.direction,
       params: input.params,
       spec: input.spec === undefined ? null : input.spec,
-      market: input.spec?.market === "equity" ? "stocks" : "crypto",
+      market: input.spec?.market === "equity" ? "stocks" : input.spec?.market === "prediction" ? "prediction" : "crypto",
       stage: "draft",
       bt: null,
       validated_at: null,
@@ -638,7 +638,7 @@ export const autosaveBot = (input: {
       direction: input.direction,
       params: input.params,
       spec: input.spec === undefined ? null : input.spec,
-      market: input.spec?.market === "equity" ? "stocks" : "crypto",
+      market: input.spec?.market === "equity" ? "stocks" : input.spec?.market === "prediction" ? "prediction" : "crypto",
       ...(input.visibility ? { visibility: input.visibility } : {}),
     })
     .eq("id", input.id)

@@ -20,7 +20,7 @@ from bisect import bisect_left
 
 from .evaluator import build_aux, entry_signal, M15
 from .expr import eval_node
-from .markets import MARKETS
+from .markets import MARKETS, is_resolution
 
 DEFAULTS = {
     "taker": 0.00045,
@@ -29,6 +29,12 @@ DEFAULTS = {
     "notional_cap": 0.20,
     "start_equity": 10_000.0,
 }
+
+# Default stake for a prediction bet as a fraction of equity. There is no stop
+# distance to risk-size against — a contract can settle to 0, so the whole stake
+# is at risk — so prediction positions use a flat fraction, overridable via
+# strategy["sizing"]["stake_frac"].
+PRED_STAKE = 0.05
 
 
 def market_cost(strategy):
@@ -65,6 +71,10 @@ def build_position(strategy, candles, i, sig):
     if side is None:
         side = 1 if strategy["side"] == "long" else -1
     entry = sig["entry"]
+
+    if is_resolution(strategy.get("market")):
+        return _pred_position(strategy, ex, side, entry, sig, i)
+
     stopspec = ex.get("stop", {"mode": "none", "param": 0.0})
     mode, param = stopspec.get("mode", "none"), stopspec.get("param", 0.0)
 
@@ -118,6 +128,51 @@ def build_position(strategy, candles, i, sig):
         pos["exit_conditions"] = ec
         pos["exit_lookback"] = ex.get("_exit_lookback", 0)
     return pos
+
+
+def _pred_position(strategy, ex, side, prob, sig, i):
+    """A prediction position buys the contract for its side — YES at the implied
+    prob `p`, NO at `1 - p` — and settles to 1/0 at resolution. There is no stop
+    (close-only bars), so it carries a fixed-fraction stake instead of a risk
+    distance. `entry` is the contract's price; net is a return on that price."""
+    ce = min(max(prob if side > 0 else (1.0 - prob), 1e-6), 1.0)
+    stake = strategy.get("sizing", {}).get("stake_frac", PRED_STAKE)
+    pos = {"entry": ce, "prob_entry": prob, "side": side, "stop": 0.0,
+           "resolution": True, "size_frac": stake, "hold": ex.get("time_bars"),
+           "t_sig": sig["t_sig"], "interval_ms": strategy.get("_interval_ms", M15),
+           "i": sig.get("i", i) + 1}
+    ec = ex.get("exit_conditions")
+    if ec:
+        pos["exit_conditions"] = ec
+        pos["exit_lookback"] = ex.get("_exit_lookback", 0)
+    return pos
+
+
+def settle_trade(pos, candles, taker, slip, aux=None):
+    """Resolve a prediction position to (net, exit_t, kind). Holds the contract
+    until the series settles — a bar flagged `res`, whose close is the 1/0
+    outcome — unless an `exit_conditions` tree fires first, or the optional
+    `hold` cap is reached, either of which closes at the current implied prob.
+    net is the return on the contract's entry price, minus both-leg fee."""
+    side, ce, hold = pos.get("side", 1), pos["entry"], pos.get("hold")
+    step = pos.get("interval_ms", M15)
+    ec = pos.get("exit_conditions")
+    ec_cache = {} if ec is not None else None
+    fee = 2 * taker + slip
+    start = pos.get("i")
+    if start is None:
+        start = bisect_left(candles, pos["t_sig"], key=lambda c: c["t"])
+    for n, k in enumerate(candles[start:], 1):
+        if k.get("res"):                 # settlement: close is the 1/0 outcome
+            payout = k["c"] if side > 0 else (1.0 - k["c"])
+            return payout / ce - 1 - fee, k["t"] + step, "settle"
+        if ec is not None and eval_node(candles, ec, start + n - 1, ec_cache, aux):
+            val = k["c"] if side > 0 else (1.0 - k["c"])
+            return val / ce - 1 - fee, k["t"] + step, "cond"
+        if hold and n == hold:           # optional early cap, exits at prob
+            val = k["c"] if side > 0 else (1.0 - k["c"])
+            return val / ce - 1 - fee, k["t"] + step, "time"
+    return None
 
 
 def exit_trade(pos, candles, taker, slip, aux=None):
@@ -185,9 +240,12 @@ def summarize(trades, cfg):
     max_dd = 0.0
     curve = [[min(t["t_sig"] for t in trades), round(eq, 2)]]
     for t in sorted(trades, key=lambda x: x["exit_t"]):
-        sl_dist = t["stop"] / t["entry"] - 1
-        notional = min(cfg["risk"] * eq / max(abs(sl_dist), 0.005),
-                       cfg["notional_cap"] * eq)
+        if "size_frac" in t:                 # prediction: flat stake, no stop
+            notional = t["size_frac"] * eq
+        else:
+            sl_dist = t["stop"] / t["entry"] - 1
+            notional = min(cfg["risk"] * eq / max(abs(sl_dist), 0.005),
+                           cfg["notional_cap"] * eq)
         eq += notional * t["net"]
         peak = max(peak, eq)
         max_dd = min(max_dd, eq / peak - 1)
@@ -239,13 +297,16 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0,
             "t_sig": candles[fi]["t"] + strategy.get("_interval_ms", M15),
             "i": fi}
         pos = build_position(strategy, candles, i, fsig)  # i -> stop window
-        ex = exit_trade(pos, candles, taker, slip, aux)
+        ex = (settle_trade(pos, candles, taker, slip, aux) if pos.get("resolution")
+              else exit_trade(pos, candles, taker, slip, aux))
         if ex is None:
             continue
         net, exit_t, kind = ex
-        trades.append({"t_sig": fsig["t_sig"], "entry": pos["entry"],
-                       "stop": pos["stop"], "exit_t": exit_t, "kind": kind,
-                       "net": net})
+        tr = {"t_sig": fsig["t_sig"], "entry": pos["entry"],
+              "stop": pos["stop"], "exit_t": exit_t, "kind": kind, "net": net}
+        if "size_frac" in pos:
+            tr["size_frac"] = pos["size_frac"]
+        trades.append(tr)
         open_until = exit_t
     return {"trades": trades, "stats": summarize(trades, cfg)}
 

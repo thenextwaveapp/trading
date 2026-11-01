@@ -38,7 +38,7 @@ export default function Leaderboard() {
   const me = useCurrentHandle();
   const { data: bots, loading } = useBots();
   const { data: profiles } = usePublicProfiles();
-  const [marketFilter, setMarketFilter] = useState<"all" | "crypto" | "stocks">("all");
+  const [marketFilter, setMarketFilter] = useState<"all" | "crypto" | "stocks" | "prediction">("all");
   const [range, setRange] = useState(2);
   const [q, setQ] = useState("");
   const [copyingId, setCopyingId] = useState<string | null>(null);
@@ -80,8 +80,12 @@ export default function Leaderboard() {
       .filter((bot) => bot.builder?.bots_on_leaderboard !== false)
       .filter((bot) => {
         if (marketFilter === "all") return true;
-        const isStocks = bot.market === "stocks" || (bot.spec as Record<string, unknown> | null)?.market === "equity";
-        return marketFilter === "stocks" ? isStocks : !isStocks;
+        const specMarket = (bot.spec as Record<string, unknown> | null)?.market;
+        const isStocks = bot.market === "stocks" || specMarket === "equity";
+        const isPrediction = bot.market === "prediction" || specMarket === "prediction";
+        if (marketFilter === "stocks") return isStocks;
+        if (marketFilter === "prediction") return isPrediction;
+        return !isStocks && !isPrediction;   // crypto
       })
       .filter((bot) => (query ? true : bot.stage === "deployed"))
       .map((bot) => {
@@ -151,6 +155,7 @@ export default function Leaderboard() {
               ["all", "All"],
               ["crypto", "Crypto"],
               ["stocks", "Stocks"],
+              ["prediction", "Predictions"],
             ] as const).map(([k, label]) => (
               <button
                 key={k}
@@ -160,7 +165,6 @@ export default function Leaderboard() {
                 {label}
               </button>
             ))}
-            <button className={p.segBtn} disabled>Predictions · soon</button>
           </div>
           <div className={p.seg}>
             {RANGES.map(([label], i) => (

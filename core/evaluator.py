@@ -12,7 +12,7 @@ from bisect import bisect_right
 from datetime import datetime, timezone
 
 from .expr import eval_node
-from .markets import MARKETS
+from .markets import MARKETS, is_resolution
 
 M15 = 900_000
 ALIVE_VOL_BARS = 8        # volume guard window k[i-8:i+1]
@@ -54,7 +54,10 @@ def _bar_ms(strategy):
 
 
 def _gapless(candles, i, L, step, market=None):
-    if market in ("equity", "futures", "fx_spot"):
+    # equity/futures/fx close overnight and prediction series are irregular
+    # (event-driven), so a fixed-step tape is the wrong check — only require that
+    # the lookback window is strictly earlier, not evenly spaced.
+    if market in ("equity", "futures", "fx_spot") or is_resolution(market):
         return candles[i]["t"] > candles[i - L]["t"] if L > 0 else True
     return candles[i]["t"] - candles[i - L]["t"] == L * step
 
@@ -94,7 +97,13 @@ def _book_entry_true(strategy, book, candles, j, cache, aux):
         return False
     if not _gapless(candles, j, L, _bar_ms(strategy), strategy.get("market")):
         return False
-    if not _alive(candles, j, _has_volume(strategy)):
+    # Resolution markets (prediction) have flat, close-only bars (h==l) and no
+    # volume, so the crypto-microstructure liveness guard would kill every bar;
+    # and a settled bar (res=1/0) is the payout, never an entry.
+    if is_resolution(strategy.get("market")):
+        if candles[j].get("res"):
+            return False
+    elif not _alive(candles, j, _has_volume(strategy)):
         return False
     if not _timing_ok(strategy, candles, j):
         return False
