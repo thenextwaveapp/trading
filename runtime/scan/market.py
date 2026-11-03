@@ -90,7 +90,12 @@ def _upsert(rows):
 def scan_once():
     now = datetime.now(timezone.utc).isoformat()
     cg = fetch_coingecko()
-    perps = [d for d in fetch_24h() if d.get("symbol", "").endswith("USDT")]
+    usdt = [d for d in fetch_24h() if d.get("symbol", "").endswith("USDT")]
+    # Binance lists some perps under non-ASCII display symbols (e.g. 牛来USDT):
+    # they can't be fetched (klines builds an ASCII URL) and aren't real tradeable
+    # tickers for us, so keep them off the discovery board entirely.
+    perps = [d for d in usdt if d["symbol"].isascii() and d["symbol"].isalnum()]
+    dropped = len(usdt) - len(perps)
     perps.sort(key=lambda d: float(d.get("quoteVolume", 0) or 0), reverse=True)
     rows = []
     for d in perps[:TOP_N]:
@@ -115,6 +120,8 @@ def scan_once():
             continue
     for i in range(0, len(rows), 200):
         _upsert(rows[i:i + 200])
+    if dropped:
+        print(f"market_scan: dropped {dropped} non-ASCII/malformed symbols")
     return len(rows)
 
 
