@@ -214,7 +214,7 @@ def cycle_db(states):
         A close realizes P&L at the current price exactly like a normal exit
         (same fee model), appends the trade, and removes the position — so it
         flows out through the trade/mark write below like any other close."""
-        from . import pf_db
+        from .. import pf_db
         try:
             acts = pf_db.get(
                 "pf_position_actions",
@@ -267,7 +267,7 @@ def cycle_db(states):
             save_state(b["id"], st)
             continue
         try:
-            from . import pf_db
+            from .. import pf_db
             for tr in st.get("trades", [])[prev_counts[b["id"]]:]:
                 pf_db.save_trade({"bot_id": b["id"], "t_sig": tr.get("t_sig"),
                                   "exit_t": tr.get("exit_t"),
@@ -356,7 +356,7 @@ def _live_price(symbol):
 def _push_mark(bot_id, st):
     """Write an immediate mark so a manual close shows up at once (realized
     equity + remaining positions); the next cycle refines it to MTM."""
-    from . import pf_db
+    from .. import pf_db
     trs = st.get("trades", [])
     closed_n = max(len(st.get("eq_hist", [])), len(trs))
     win_pct = round(sum(1 for t in trs if float(t.get("pnl", t.get("net", 0)) or 0) > 0) / len(trs) * 100, 1) if trs else None
@@ -372,7 +372,7 @@ def _push_mark(bot_id, st):
 def fast_drain(states):
     """Apply queued owner actions within seconds (not on the 15-min cycle). Runs
     in the main loop's wait tick — same thread as the cycle, so no state race."""
-    from . import pf_db
+    from .. import pf_db
     try:
         acts = pf_db.get("pf_position_actions",
                          "status=eq.pending&select=id,bot_id,ticker,action,value"
