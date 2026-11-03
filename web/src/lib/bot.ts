@@ -1,12 +1,12 @@
 import { botColor } from "./brand";
-import type { Variant } from "../api/types";
+import type { Bot } from "../api/types";
 import type { DbBacktest, DbBot } from "../db/types";
 import { START } from "./format";
 
-/** Build a variant from a bot's DB row (and latest backtest) for when the
- *  live engine feed doesn't include it — the pages still render, just without
- *  live positions/trades. */
-export function variantFromBot(bot: DbBot, bt?: DbBacktest | null): Variant {
+/** Build the live-feed Bot shape from a bot's DB row (and latest backtest) for
+ *  when the live engine feed doesn't include it — the pages still render, just
+ *  without live positions/trades. */
+export function botFromRow(bot: DbBot, bt?: DbBacktest | null): Bot {
   const equity = bt?.final_value ?? START;
   // Stored curves from older runs can be out of order; charts require
   // chronological time. Sort here so every fallback render is safe.

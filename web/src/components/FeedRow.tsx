@@ -3,7 +3,7 @@ import { identicon, pct } from "../lib/format";
 import { useData } from "../api/context";
 import { useCandle, type CandleReq } from "./CandleModal";
 import type { DbBot, DbEvent } from "../db/types";
-import type { Variant } from "../api/types";
+import type { Bot } from "../api/types";
 import s from "./FeedRow.module.css";
 
 function rel(iso: string): string {
@@ -29,8 +29,8 @@ function Dot({ seed, color, size = 34 }: { seed: string; color: string; size?: n
 
 /** One activity line — a trade or a social event — styled like a market-table row.
  *  Clicking a trade opens the candle modal zoomed to that trade with entry/exit/SL/TP. */
-export default function FeedRow({ e, bot, variant, onOpen }: {
-  e: DbEvent; bot?: DbBot; variant?: Variant; onOpen: (path: string) => void;
+export default function FeedRow({ e, bot, live, onOpen }: {
+  e: DbEvent; bot?: DbBot; live?: Bot; onOpen: (path: string) => void;
 }) {
   const data = useData();
   const openCandle = useCandle();
@@ -66,7 +66,7 @@ export default function FeedRow({ e, bot, variant, onOpen }: {
   const ticker = String(pay.ticker ?? "");
   const entered = e.type === "entered";
   const side = (pay.side as string) ?? bot?.direction ?? null;
-  const openPos = variant?.open?.find((o) => o.ticker === ticker);
+  const openPos = live?.open?.find((o) => o.ticker === ticker);
   const unreal = openPos?.upct != null ? openPos.upct * 100 : null;
   const net = typeof pay.net === "number" ? pay.net * 100 : null;
   const shownPct = entered ? unreal : net;
@@ -87,7 +87,7 @@ export default function FeedRow({ e, bot, variant, onOpen }: {
     }
     const ts = new Date(e.ts).getTime();
     const tr = (data.trades ?? [])
-      .filter((t) => t.variant === name && t.ticker === ticker)
+      .filter((t) => t.bot === name && t.ticker === ticker)
       .sort((a, b) => Math.abs(a.exit_t - ts) - Math.abs(b.exit_t - ts))[0];
     if (tr) {
       const exitPx = tr.side === "short" ? tr.entry * (1 - tr.net) : tr.entry * (1 + tr.net);

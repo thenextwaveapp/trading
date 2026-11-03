@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../db/supabase";
-import type { Payload, Position, Trade, Variant } from "./types";
+import type { Payload, Position, Trade, Bot } from "./types";
 import type { DbBot, DbBotMark } from "../db/types";
 
 export interface FleetState {
@@ -51,7 +51,7 @@ function buildPayload(
     list.sort((a, b) => Number(a.exit_t) - Number(b.exit_t));
   }
 
-  const variants: Variant[] = bots.map((b) => {
+  const live: Bot[] = bots.map((b) => {
     const m = latestMark.get(b.id);
     const botMarks = marksByBot.get(b.id) ?? [];
     const botTrades = tradesByBot.get(b.id) ?? [];
@@ -73,7 +73,7 @@ function buildPayload(
             ? (sign === -1 ? (stop - livePx) / livePx : (livePx - stop) / livePx)
             : null;
       return {
-        variant: b.name,
+        bot: b.name,
         ticker: o.ticker ?? "",
         side,
         entry,
@@ -138,10 +138,10 @@ function buildPayload(
       cfg: b.params ?? null,
     };
   });
-  const positions: Position[] = variants.flatMap((v) => v.open);
+  const positions: Position[] = live.flatMap((v) => v.open);
   const allTrades: Trade[] = dedupedTrades.map((t) => ({
     exit_t: Number(t.exit_t),
-    variant: bots.find((b) => b.id === t.bot_id)?.name ?? t.bot_id,
+    bot: bots.find((b) => b.id === t.bot_id)?.name ?? t.bot_id,
     ticker: t.ticker,
     side: t.side === 1 || t.side === "long" ? "long" : t.side === -1 || t.side === "short" ? "short" : (t.side ?? "long"),
     kind: t.kind ?? "",
@@ -158,10 +158,10 @@ function buildPayload(
     start: START,
     gate: { bear: null },
     hero: { base_pnl: 0, base_ret: 0, base_closed: 0, base_avg: null, bench: 0,
-            fleet_pnl: variants.reduce((a, v) => a + (v.equity - START), 0),
+            fleet_pnl: live.reduce((a, v) => a + (v.equity - START), 0),
             unreal: positions.reduce((a, o) => a + (o.upnl || 0), 0),
             week_pnl: 0, closed: allTrades.length },
-    variants,
+    bots: live,
     strats: {},
     positions,
     trades: allTrades,

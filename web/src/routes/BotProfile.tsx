@@ -7,7 +7,7 @@ import { useAuth } from "../auth";
 import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useBotVersions, useLatestBacktest, useMyBot } from "../db/queries";
 import type { Visibility } from "../db/types";
 import type { Position, Trade } from "../api/types";
-import { variantFromBot } from "../lib/variant";
+import { botFromRow } from "../lib/bot";
 import {
   DIRLBL,
   REASON,
@@ -145,13 +145,13 @@ export default function BotProfile() {
   const { user, profile } = useAuth();
   const nav = useNavigate();
   const { name = "" } = useParams();
-  const liveV = d.variants.find((x) => x.name === name);
+  const liveV = d.bots.find((x) => x.name === name);
   const { data: bot, loading: botLoading } = useBot(name);
   const { data: parentBot } = useMyBot(bot?.copied_from ?? null);
   const { data: bt } = useLatestBacktest(bot?.id ?? null);
-  const btV = bot ? variantFromBot(bot, bt) : null;
+  const btV = bot ? botFromRow(bot, bt) : null;
   const v = liveV ? { ...liveV, color: bot ? botColor(bot) : liveV.color } : btV;
-  const liveTrades = useMemo(() => d.trades.filter((t) => t.variant === name), [d.trades, name]);
+  const liveTrades = useMemo(() => d.trades.filter((t) => t.bot === name), [d.trades, name]);
   const hasLiveTrades = (liveV?.closed ?? 0) > 0 || (liveV?.open.length ?? 0) > 0 || liveTrades.length > 0;
   const isOwner = !!user && !!bot && bot.owner === user.id;
   const [vis, setVis] = useState<Visibility>(bot?.visibility ?? "results");
@@ -323,12 +323,12 @@ export default function BotProfile() {
   const now = d.now;
   const rows: Row[] = [
     ...v.open.map((o) => ({ ...o, _open: true as const })),
-    ...d.trades.filter((t) => t.variant === name),
+    ...d.trades.filter((t) => t.bot === name),
   ];
 
   const defaultSide = (v.group === "long" ? "long" : "short") as "long" | "short";
   const tradeCols: Column<Row>[] = [
-    { key: "variant", label: "Bot", sortable: true, value: (r) => r.variant, render: (r) => <BotLink name={r.variant} /> },
+    { key: "bot", label: "Bot", sortable: true, value: (r) => r.bot, render: (r) => <BotLink name={r.bot} /> },
     { key: "ticker", label: "Coin", sortable: true, value: (r) => r.ticker, render: (r) => <Coin {...r} /> },
     { key: "side", label: "Side", sortable: true, value: (r) => r.side ?? defaultSide, render: (r) => { const sd = r.side ?? defaultSide; return <span className={sd === "short" ? "down" : "up"}>{sd === "short" ? "Short" : "Long"}</span>; } },
     { key: "entry", label: "Entry", sortable: true, value: (r) => r.entry, render: (r) => <span className="num">{px(r.entry)}</span> },
@@ -378,7 +378,7 @@ export default function BotProfile() {
               <h1 className={s.h1}>{name}</h1>
               {statusChip}
             </div>
-            <div className={s.note}>{v.note || "A paper-trading strategy variant."}</div>
+            <div className={s.note}>{v.note || "A paper-trading strategy bot."}</div>
             {bot?.builder?.handle && (
               <div className={s.note} style={{ marginTop: 2 }}>
                 by{" "}
@@ -390,9 +390,9 @@ export default function BotProfile() {
             <div className={s.chips}>
               <span className="chip">Launched {dstr(d.start)}</span>
               <span className="chip">
-                {bot?.market === "stocks" || (bot?.spec as Record<string, unknown> | null)?.market === "equity"
-                  ? "Stocks"
-                  : "Crypto"}
+                {({ crypto: "Crypto", equity: "Stocks", fx_spot: "FX",
+                    futures: "Futures", prediction: "Predictions" } as Record<string, string>)
+                  [bot?.market ?? ""] ?? "Crypto"}
               </span>
               {grp && <span className="chip">{grp}</span>}
               <span className="chip">
@@ -496,10 +496,10 @@ export default function BotProfile() {
         <section className={s.lower}>
           <div className={s.leftcol}>
             <BotChart
-              variant={v}
+              bot={v}
               backtestVariant={btV}
               defaultMode={hasLiveTrades ? "live" : "backtest"}
-              variants={d.variants}
+              bots={d.bots}
               trades={d.trades}
             />
             <div>

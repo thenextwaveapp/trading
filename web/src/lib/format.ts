@@ -136,7 +136,7 @@ export function windowReturn(curve: [number, number][], days: number | null, now
   return start ? (end / start - 1) * 100 : 0;
 }
 
-/** Chart line colour by variant index (12-colour cycle). */
+/** Chart line colour by bot index (12-colour cycle). */
 export function vcolor(i: number): string {
   return FLEET_SLOTS[((i % FLEET_SLOTS.length) + FLEET_SLOTS.length) % FLEET_SLOTS.length];
 }

@@ -65,6 +65,13 @@ export function useQuery<T>(
 
 // ---- strategy / fleet / reference ----
 
+// A bot's market is its universe's asset class (crypto_perp -> crypto; equity,
+// fx_spot, futures, prediction map to themselves). The DB trigger
+// pf_set_bot_market makes this authoritative from universe_id; this is the
+// client-side default for the denormalized column.
+const assetClass = (m?: unknown): string =>
+  typeof m !== "string" ? "crypto" : m.startsWith("crypto") ? "crypto" : m;
+
 export const fetchBots = () =>
   supabase
     .from("pf_bots")
@@ -509,7 +516,7 @@ export const createDraftBot = (input: {
       copied_from: input.copied_from ?? null,
       challenge_id: input.challenge_id ?? null,
       stage: "draft",
-      market: input.market ?? (input.spec?.market === "equity" ? "stocks" : input.spec?.market === "prediction" ? "prediction" : "crypto"),
+      market: input.market ?? assetClass(input.spec?.market),
       visibility: input.visibility ?? "private",
     })
     .select("id, name")
@@ -607,7 +614,7 @@ export const updateDraftBot = (input: {
       direction: input.direction,
       params: input.params,
       spec: input.spec === undefined ? null : input.spec,
-      market: input.spec?.market === "equity" ? "stocks" : input.spec?.market === "prediction" ? "prediction" : "crypto",
+      market: assetClass(input.spec?.market),
       stage: "draft",
       bt: null,
       validated_at: null,
@@ -638,7 +645,7 @@ export const autosaveBot = (input: {
       direction: input.direction,
       params: input.params,
       spec: input.spec === undefined ? null : input.spec,
-      market: input.spec?.market === "equity" ? "stocks" : input.spec?.market === "prediction" ? "prediction" : "crypto",
+      market: assetClass(input.spec?.market),
       ...(input.visibility ? { visibility: input.visibility } : {}),
     })
     .eq("id", input.id)

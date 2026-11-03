@@ -1881,18 +1881,23 @@ export default function Compose() {
                     value={spec.market}
                     onChange={(e) => {
                       const nextMarket = e.target.value;
-                      setCustomMode(false);
-                      customUni.current = null;
-                      setCustomCoins([]);
-                      setCustomName("");
-                      setCustomSaved(false);
                       const first = universeList.find(
                         (u) => u.market === ASSET_CLASS(nextMarket) && u.saved && (u.owner === null || u.owner === me),
                       );
+                      // A universe belongs to exactly one market — never carry
+                      // the previous market's universe across a switch. Use an
+                      // in-market saved one if present, else drop into custom
+                      // build mode so the picker offers only the new market's
+                      // instruments (stops e.g. an fx bot inheriting fleet-60).
+                      customUni.current = null;
+                      setCustomMode(!first);
+                      setCustomCoins([]);
+                      setCustomName("");
+                      setCustomSaved(false);
                       setSpec((s) => ({
                         ...s,
                         market: nextMarket,
-                        universe: first?.slug ?? s.universe,
+                        universe: first?.slug ?? CUSTOM_UNI,
                         filters: s.filters.filter((f) => f.kind !== "universe"),
                       }));
                     }}

@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 User=trading
 WorkingDirectory=/opt/trading
-ExecStart=/opt/trading/engine-venv/bin/python -m runtime.market_scan
+ExecStart=/opt/trading/engine-venv/bin/python -m runtime.scan.market
 Restart=always
 RestartSec=30
 

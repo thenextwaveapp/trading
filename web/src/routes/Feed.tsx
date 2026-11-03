@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth, useCurrentHandle } from "../auth";
 import { useData } from "../api/context";
-import type { Variant } from "../api/types";
+import type { Bot } from "../api/types";
 import {
   followBuilder,
   unfollowBuilder,
@@ -59,13 +59,13 @@ export default function Feed() {
     return m;
   }, [bots]);
   const liveByName = useMemo(() => {
-    const m = new Map<string, Variant>();
-    for (const v of live.variants) m.set(v.name, v);
+    const m = new Map<string, Bot>();
+    for (const v of live.bots) m.set(v.name, v);
     return m;
   }, [live]);
 
   const topBots = useMemo(
-    () => live.variants.slice().sort((a, b) => b.ret - a.ret).filter((v) => v.closed > 0 || v.open.length > 0).slice(0, 5),
+    () => live.bots.slice().sort((a, b) => b.ret - a.ret).filter((v) => v.closed > 0 || v.open.length > 0).slice(0, 5),
     [live],
   );
   const topBotNames = useMemo(() => new Set(topBots.map((v) => v.name)), [topBots]);
@@ -137,7 +137,7 @@ export default function Feed() {
                 key={e.id}
                 e={e}
                 bot={e.bot_name ? botMap.get(e.bot_name) : undefined}
-                variant={e.bot_name ? liveByName.get(e.bot_name) : undefined}
+                live={e.bot_name ? liveByName.get(e.bot_name) : undefined}
                 onOpen={nav}
               />
             ))}

@@ -19,8 +19,8 @@ cp com.trading.paperfleet.plist com.trading.fleetdash.plist com.trading.enginewo
 
 # stop any ad-hoc fleet/dashboard first (state lives in JSON; restart is safe,
 # open positions replay their exits from candle history)
-pkill -f 'paper_fleet\.py$' 2>/dev/null && echo "stopped ad-hoc fleet" || true
-pkill -f 'fleet_dashboard\.py' 2>/dev/null && echo "stopped ad-hoc dashboard" || true
+pkill -f 'runtime\.fleet\.runner' 2>/dev/null && echo "stopped ad-hoc fleet" || true
+pkill -f 'runtime\.server\.app' 2>/dev/null && echo "stopped ad-hoc dashboard" || true
 pkill -f 'runtime\.engine_worker' 2>/dev/null && echo "stopped ad-hoc engine worker" || true
 sleep 2
 

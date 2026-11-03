@@ -66,7 +66,7 @@ export default function Hub() {
     () => new Map((families ?? []).map((f) => [f.slug, f.label])),
     [families],
   );
-  const byName = useMemo(() => new Map(live.variants.map((v) => [v.name, v])), [live.variants]);
+  const byName = useMemo(() => new Map(live.bots.map((v) => [v.name, v])), [live.bots]);
 
   // Live return per bot, from the engine's equity curve (joined by name).
   const liveRet = (b: DbBot): number | null => {
@@ -94,7 +94,7 @@ export default function Hub() {
     }
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bots, live.variants, live.now, cardOrder]);
+  }, [bots, live.bots, live.now, cardOrder]);
 
   const reorderHubCard = (stage: Stage, fromId: string, toId: string) => {
     if (fromId === toId) return;

@@ -4,8 +4,8 @@ Runs on the non-US VPS (Binance returns 451 to US IPs). Each pass pulls the 24h
 ticker, keeps the most-traded USDT perps, and upserts pf_market_snapshot. The
 web reads that table for the discovery board. Engine writes, web renders.
 
-Run:  python3 -m runtime.market_scan            # loop
-      python3 -m runtime.market_scan --once     # one pass, exit
+Run:  python3 -m runtime.scan.market            # loop
+      python3 -m runtime.scan.market --once     # one pass, exit
 """
 import json
 import os
@@ -14,10 +14,10 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import core.env  # noqa: F401  (loads .env)
 from core.service import fetch_candles   # routes non-USDT symbols to Yahoo
-from . import pf_db
+from .. import pf_db
 
 TICKER = "https://fapi.binance.com/fapi/v1/ticker/24hr"
 CG_MARKETS = ("https://api.coingecko.com/api/v3/coins/markets"

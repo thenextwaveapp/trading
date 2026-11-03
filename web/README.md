@@ -7,7 +7,7 @@ paper-fleet dashboard built against the existing backend. Charts use
 ## Data
 
 Consumes the existing dashboard API (`/api`, `/candles`) — the same source
-`fleet_dashboard.py` (:8787) serves, which proxies the live Hetzner paper fleet.
+`runtime.server.app` (:8787) serves, which proxies the live Hetzner paper fleet.
 In dev, Vite proxies those paths to `VITE_API_TARGET` (default
 `http://127.0.0.1:8787`). So the app shows identical numbers to :8787 whenever
 that tunnel is up.

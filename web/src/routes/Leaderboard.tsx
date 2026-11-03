@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useData } from "../api/context";
-import type { Variant } from "../api/types";
+import type { Bot } from "../api/types";
 import { copyBotToDraft, useBots, usePublicProfiles } from "../db/queries";
 import { useAuth, useCurrentHandle } from "../auth";
 import type { DbBot } from "../db/types";
@@ -22,7 +22,7 @@ const RANGES: [string, number | null][] = [
 
 interface Row {
   bot: DbBot;
-  v: Variant | null;
+  v: Bot | null;
   ret: number;
   equity: number;
   trades: number;
@@ -38,7 +38,7 @@ export default function Leaderboard() {
   const me = useCurrentHandle();
   const { data: bots, loading } = useBots();
   const { data: profiles } = usePublicProfiles();
-  const [marketFilter, setMarketFilter] = useState<"all" | "crypto" | "stocks" | "prediction">("all");
+  const [marketFilter, setMarketFilter] = useState<"all" | "crypto" | "equity" | "prediction">("all");
   const [range, setRange] = useState(2);
   const [q, setQ] = useState("");
   const [copyingId, setCopyingId] = useState<string | null>(null);
@@ -75,17 +75,17 @@ export default function Leaderboard() {
 
   const rows: Row[] = useMemo(() => {
     if (!bots) return [];
-    const byName = new Map(live.variants.map((v) => [v.name, v]));
+    const byName = new Map(live.bots.map((v) => [v.name, v]));
     return bots
       .filter((bot) => bot.builder?.bots_on_leaderboard !== false)
       .filter((bot) => {
         if (marketFilter === "all") return true;
         const specMarket = (bot.spec as Record<string, unknown> | null)?.market;
-        const isStocks = bot.market === "stocks" || specMarket === "equity";
+        const isEquity = bot.market === "equity" || specMarket === "equity";
         const isPrediction = bot.market === "prediction" || specMarket === "prediction";
-        if (marketFilter === "stocks") return isStocks;
+        if (marketFilter === "equity") return isEquity;
         if (marketFilter === "prediction") return isPrediction;
-        return !isStocks && !isPrediction;   // crypto
+        return !isEquity && !isPrediction;   // crypto
       })
       .filter((bot) => (query ? true : bot.stage === "deployed"))
       .map((bot) => {
@@ -154,7 +154,7 @@ export default function Leaderboard() {
             {([
               ["all", "All"],
               ["crypto", "Crypto"],
-              ["stocks", "Stocks"],
+              ["equity", "Stocks"],
               ["prediction", "Predictions"],
             ] as const).map(([k, label]) => (
               <button

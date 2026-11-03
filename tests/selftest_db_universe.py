@@ -16,22 +16,28 @@ def check(label, cond):
 
 
 UNIS = {
-    "eq.topvol": {"id": "u1", "definition":
+    "eq.topvol": {"id": "u1", "market": "crypto", "definition":
                   {"rule": {"metric": "history_days", "op": "ge", "value": 180}}},
-    "eq.mylist": {"id": "u2", "definition": None},   # a user's hand-picked list
+    "eq.mylist": {"id": "u2", "market": "crypto", "definition": None},  # hand-picked
 }
-COINS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "NEW": "NEWUSDT"}
+# each coin carries its own market; USDJPY is fx_spot, the rest crypto
+COINS = {"BTC": ("BTCUSDT", "crypto"), "ETH": ("ETHUSDT", "crypto"),
+         "NEW": ("NEWUSDT", "crypto"), "USDJPY": ("USDJPY", "fx_spot")}
 
 
 def fake_get(path, params):
     if path == "pf_universes":
         return [UNIS[params["slug"]]] if params["slug"] in UNIS else []
     if path == "pf_universe_coins":
-        return [{"coin_symbol": "BTC"}, {"coin_symbol": "ETH"}]   # mylist's coins
+        # mylist (crypto) was mis-seeded with an fx coin — must be dropped
+        return [{"coin_symbol": "BTC"}, {"coin_symbol": "ETH"},
+                {"coin_symbol": "USDJPY"}]
     if path == "pf_coins":
         want = params["symbol"].removeprefix("in.(").rstrip(")").split(",")
-        return [{"symbol": s, "binance_symbol": COINS[s]}
-                for s in want if s in COINS]
+        mkt = params.get("market", "").removeprefix("eq.")
+        return [{"symbol": s, "binance_symbol": COINS[s][0], "market": COINS[s][1]}
+                for s in want if s in COINS
+                and (not mkt or COINS[s][1] == mkt)]
     return []
 
 
@@ -53,8 +59,8 @@ def main():
 
     db._cache.clear()
     lst = db.universe_symbols("mylist")
-    ok &= check("list-universe resolves from stored coins",
-                lst == {"BTC": "BTCUSDT", "ETH": "ETHUSDT"})
+    ok &= check("list-universe resolves from stored coins, drops off-market",
+                lst == {"BTC": "BTCUSDT", "ETH": "ETHUSDT"})   # USDJPY excluded
 
     print("\nPASS: universe_symbols routes rule + list through one resolver."
           if ok else "\nFAIL: see above.")

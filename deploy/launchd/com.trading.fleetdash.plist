@@ -8,7 +8,7 @@
     <array>
         <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
         <string>-m</string>
-        <string>runtime.fleet_dashboard</string>
+        <string>runtime.server.app</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/mayowarosanwo/Downloads/trading</string>

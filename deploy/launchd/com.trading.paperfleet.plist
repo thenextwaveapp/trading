@@ -8,7 +8,7 @@
     <array>
         <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
         <string>-m</string>
-        <string>runtime.paper_fleet</string>
+        <string>runtime.fleet.runner</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/mayowarosanwo/Downloads/trading</string>

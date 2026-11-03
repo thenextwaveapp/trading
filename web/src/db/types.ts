@@ -1,6 +1,6 @@
 // Mirrors the pf_* tables in Supabase.
 // Runtime data (equity, trades, positions, curves, health) is not here — it
-// comes from the live engine API, keyed by bot/variant `name`.
+// comes from the live engine API, keyed by bot/bot `name`.
 
 export type Stage =
   | "draft"

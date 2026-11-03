@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import { useBots } from "../db/queries";
 import type { DbBot } from "../db/types";
-import type { Position, Trade, Variant } from "../api/types";
+import type { Position, Trade, Bot } from "../api/types";
 import { identicon, pct, usd, windowReturn } from "../lib/format";
 import s from "./Landing.module.css";
 
@@ -22,14 +22,14 @@ function BotDot({ seed, color, size = 40 }: { seed: string; color: string; size?
 /** One rotating spotlight of the fleet, live — an open trade (bot, instrument,
  *  unrealized) when there is one, otherwise a top bot "watching". Cycles every
  *  6s. The P&L shows here only, so nothing is duplicated elsewhere on the card. */
-function LiveSpotlight({ positions, trades, variants }: { positions: Position[]; trades: Trade[]; variants: Variant[] }) {
-  const byName = useMemo(() => new Map(variants.map((v) => [v.name, v])), [variants]);
+function LiveSpotlight({ positions, trades, bots }: { positions: Position[]; trades: Trade[]; bots: Bot[] }) {
+  const byName = useMemo(() => new Map(bots.map((v) => [v.name, v])), [bots]);
   const items = useMemo<{ name: string; color: string; tag: string; sub: ReactNode; right: ReactNode }[]>(() => {
     const colorOf = (n: string) => byName.get(n)?.color || "#3a81d7";
     // Open trades (live paper P&L), recent closed trades (realized), and every
     // other live bot "watching" — the full fleet, shown in random order.
     const open = positions.map((p) => ({
-      name: p.variant, color: colorOf(p.variant), tag: "live",
+      name: p.bot, color: colorOf(p.bot), tag: "live",
       sub: (<>{p.ticker} <span className={p.side === "short" ? "down" : "up"}>{p.side}</span> <span className="muted">· open</span></>),
       right: <span className={`num ${(p.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(p.upnl, true)}</span>,
     }));
@@ -38,12 +38,12 @@ function LiveSpotlight({ positions, trades, variants }: { positions: Position[];
       .sort((a, b) => (b.exit_t || 0) - (a.exit_t || 0))
       .slice(0, 20)
       .map((t) => ({
-        name: t.variant, color: colorOf(t.variant), tag: "closed",
+        name: t.bot, color: colorOf(t.bot), tag: "closed",
         sub: (<>{t.ticker} <span className={t.side === "short" ? "down" : "up"}>{t.side ?? ""}</span> <span className="muted">· closed</span></>),
         right: <span className={`num ${(t.pnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(t.pnl, true)}</span>,
       }));
-    const inTrade = new Set(positions.map((p) => p.variant));
-    const watching = variants
+    const inTrade = new Set(positions.map((p) => p.bot));
+    const watching = bots
       .filter((v) => !inTrade.has(v.name))
       .map((v) => ({
         name: v.name, color: v.color || "#3a81d7", tag: "watch",
@@ -51,7 +51,7 @@ function LiveSpotlight({ positions, trades, variants }: { positions: Position[];
         right: <span className={`num ${v.ret >= 0 ? "up" : "down"}`}>{pct(v.ret, true)}</span>,
       }));
     return [...open, ...closed, ...watching];
-  }, [positions, trades, variants, byName]);
+  }, [positions, trades, bots, byName]);
 
   const [i, setI] = useState(0);
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
   const { data: bots } = useBots();
 
   const top = useMemo(() => {
-    const byName = new Map(d.variants.map((v) => [v.name, v]));
+    const byName = new Map(d.bots.map((v) => [v.name, v]));
     return (bots ?? [])
       .map((b) => {
         const v = byName.get(b.name);
@@ -137,7 +137,7 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
       .filter((x): x is { b: DbBot; ret: number; live: boolean } => x.ret != null)
       .sort((a, b) => b.ret - a.ret)
       .slice(0, 6);
-  }, [bots, d.variants, d.now]);
+  }, [bots, d.bots, d.now]);
 
   const builders = useMemo(() => {
     const m = new Map<string, { handle: string; color: string; bots: number }>();
@@ -270,11 +270,11 @@ export default function Landing({ onAuth }: { onAuth: (mode: "signin" | "signup"
               <span className={s.liveDot} />
               Live fleet · marked to price
             </div>
-            <LiveSpotlight positions={d.positions} trades={d.trades} variants={d.variants} />
+            <LiveSpotlight positions={d.positions} trades={d.trades} bots={d.bots} />
             <div className={s.liveFoot}>
               <span><b>{d.positions.length}</b> open position{d.positions.length === 1 ? "" : "s"}</span>
               <span className={s.footSep}>·</span>
-              <span><b>{d.variants.length}</b> bots live</span>
+              <span><b>{d.bots.length}</b> bots live</span>
               {d.positions.length > 1 && (
                 <>
                   <span className={s.footSep}>·</span>

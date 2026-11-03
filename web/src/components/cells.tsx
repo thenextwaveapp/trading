@@ -104,7 +104,7 @@ export function BotLink({ name }: { name: string }) {
 
 export function Coin(p: {
   ticker: string;
-  variant?: string;
+  bot?: string;
   t_sig: number;
   entry: number;
   stop?: number | null;
@@ -118,7 +118,7 @@ export function Coin(p: {
   const sym =
     d.symbols[p.ticker] ||
     (p.ticker ? (p.ticker.endsWith("USDT") ? p.ticker : `${p.ticker}USDT`) : "");
-  const title = `${p.ticker}${p.variant ? " · " + p.variant : ""}${
+  const title = `${p.ticker}${p.bot ? " · " + p.bot : ""}${
     p.exit_t ? " (closed " + (p.kind || "") + ")" : " (open)"
   }`;
   return (

@@ -6,7 +6,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import type { Variant } from "../api/types";
+import type { Bot } from "../api/types";
 import { START, lt, pct, vcolor } from "../lib/format";
 import s from "./FleetChart.module.css";
 
@@ -120,16 +120,16 @@ const RANGES: [string, number | null][] = [
   ["All", null],
 ];
 
-const mkeq = (v: Variant) =>
+const mkeq = (v: Bot) =>
   v.equity + v.open.reduce((a, p) => a + (p.upnl || 0), 0);
 
 export default function FleetChart({
-  variants,
+  bots,
   selected,
   onToggle,
   onClear,
 }: {
-  variants: Variant[];
+  bots: Bot[];
   selected: Set<string>;
   onToggle: (name: string) => void;
   onClear: () => void;
@@ -157,7 +157,7 @@ export default function FleetChart({
     const chart = chartRef.current;
     if (!chart) return;
     const map = seriesRef.current;
-    variants.forEach((v, i) => {
+    bots.forEach((v, i) => {
       let ser = map.get(v.name);
       if (!ser) {
         ser = chart.addLineSeries({
@@ -179,14 +179,14 @@ export default function FleetChart({
     });
     if (!drewRef.current && applyRange(chart, range)) drewRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variants, selected, mode]);
+  }, [bots, selected, mode]);
 
   useEffect(() => {
     if (chartRef.current && drewRef.current) applyRange(chartRef.current, range);
   }, [range]);
 
-  const sorted = [...variants].sort((a, b) => mkeq(b) - mkeq(a));
-  const idx = new Map(variants.map((v, i) => [v.name, i] as const));
+  const sorted = [...bots].sort((a, b) => mkeq(b) - mkeq(a));
+  const idx = new Map(bots.map((v, i) => [v.name, i] as const));
 
   return (
     <section className={s.section}>

@@ -7,7 +7,7 @@ import {
   type SeriesMarker,
   type UTCTimestamp,
 } from "lightweight-charts";
-import type { Trade, Variant } from "../api/types";
+import type { Trade, Bot } from "../api/types";
 import { START, lt } from "../lib/format";
 import { LW_OPTS, applyRange, lineData } from "./FleetChart";
 import s from "./BotChart.module.css";
@@ -36,16 +36,16 @@ const RANGES: [string, number | null][] = [
 ];
 
 export default function BotChart({
-  variant,
+  bot,
   backtestVariant,
   defaultMode = "live",
-  variants,
+  bots,
   trades,
 }: {
-  variant: Variant;
-  backtestVariant?: Variant | null;
+  bot: Bot;
+  backtestVariant?: Bot | null;
   defaultMode?: "live" | "backtest";
-  variants: Variant[];
+  bots: Bot[];
   trades: Trade[];
 }) {
   const elRef = useRef<HTMLDivElement>(null);
@@ -68,17 +68,17 @@ export default function BotChart({
     userPicked.current = false;
     setMode(defaultMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant.name]);
+  }, [bot.name]);
 
   const activeVariant =
-    mode === "backtest" && backtestVariant ? backtestVariant : variant;
-  const showAvg = mode === "live" && variants.some((x) => x.curve.length > 0);
+    mode === "backtest" && backtestVariant ? backtestVariant : bot;
+  const showAvg = mode === "live" && bots.some((x) => x.curve.length > 0);
 
   useEffect(() => {
     if (!elRef.current) return;
     const chart = createChart(elRef.current, LW_OPTS);
     avgRef.current = chart.addLineSeries({ color: "#4B515A", lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
-    lineRef.current = chart.addLineSeries({ color: variant.color || DEFAULT_BOT_COLOR, lineWidth: 3, priceLineVisible: false, lastValueVisible: true });
+    lineRef.current = chart.addLineSeries({ color: bot.color || DEFAULT_BOT_COLOR, lineWidth: 3, priceLineVisible: false, lastValueVisible: true });
     chartRef.current = chart;
     return () => {
       chart.remove();
@@ -89,7 +89,7 @@ export default function BotChart({
       spanRef.current = "";
     };
     // Recreate per-bot so the series reset cleanly between profiles.
-  }, [variant.name]);
+  }, [bot.name]);
 
   useEffect(() => {
     const chart = chartRef.current,
@@ -98,7 +98,7 @@ export default function BotChart({
     if (!chart || !avg || !line) return;
     const curve = activeVariant.curve;
     const pts = lineData(curve);
-    const peers = mode === "live" ? variants.filter((x) => x.curve.length > 0) : [];
+    const peers = mode === "live" ? bots.filter((x) => x.curve.length > 0) : [];
     const avgData: { time: UTCTimestamp; value: number }[] = [];
     if (peers.length && pts.length) {
       const step = Math.max(1, Math.ceil(curve.length / 500));
@@ -111,7 +111,7 @@ export default function BotChart({
       }
     }
     avg.setData(avgData);
-    line.applyOptions({ color: activeVariant.color || variant.color || DEFAULT_BOT_COLOR });
+    line.applyOptions({ color: activeVariant.color || bot.color || DEFAULT_BOT_COLOR });
     line.setData(pts);
 
     const first = pts.length ? (pts[0].time as number) : 0;
@@ -119,7 +119,7 @@ export default function BotChart({
     const mk: SeriesMarker<UTCTimestamp>[] =
       mode === "live"
         ? trades
-            .filter((t) => t.variant === variant.name)
+            .filter((t) => t.bot === bot.name)
             .map((t) => ({
               time: lt(t.exit_t) as UTCTimestamp,
               position: "inBar" as const,
@@ -149,7 +149,7 @@ export default function BotChart({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeVariant, variant, variants, trades, mode]);
+  }, [activeVariant, bot, bots, trades, mode]);
 
   useEffect(() => {
     if (chartRef.current && drew.current) {
@@ -175,7 +175,7 @@ export default function BotChart({
         <h2 className={s.h2}>Equity</h2>
         <div className={s.right}>
           <div className={s.legend}>
-            <span className={s.leg}><span className={s.sw} style={{ background: activeVariant.color || variant.color || DEFAULT_BOT_COLOR }} />{variant.name}</span>
+            <span className={s.leg}><span className={s.sw} style={{ background: activeVariant.color || bot.color || DEFAULT_BOT_COLOR }} />{bot.name}</span>
             {showAvg && <span className={s.leg}><span className={s.sw} style={{ background: "#4B515A" }} />Fleet average</span>}
           </div>
           {backtestVariant && (

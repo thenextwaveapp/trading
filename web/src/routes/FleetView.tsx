@@ -1,7 +1,7 @@
 import { botColor } from "../lib/brand";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../api/context";
-import type { Position, Trade, Variant } from "../api/types";
+import type { Position, Trade, Bot } from "../api/types";
 import { useAuth } from "../auth";
 import {
   DIRLBL,
@@ -23,11 +23,11 @@ import Rolling from "../components/Rolling";
 import ManagePosition from "../components/ManagePosition";
 import { BotLink, Coin } from "../components/cells";
 import { useMyBots } from "../db/queries";
-import { variantFromBot } from "../lib/variant";
+import { botFromRow } from "../lib/bot";
 import s from "./FleetView.module.css";
 
 type Status = { txt: string; cls: "" | "trade" | "rest" };
-function statusOf(v: Variant, live: boolean): Status {
+function statusOf(v: Bot, live: boolean): Status {
   if (!live) return { txt: "Awaiting live data", cls: "" };
   if (v.kill) return { txt: "Paused · loss limit", cls: "rest" };
   if (v.open.length)
@@ -121,27 +121,27 @@ export default function FleetView() {
 
   // The page is the signed-in Builder's own fleet: their deployed bots, as
   // created in Build. The live engine feed is shared by every account, so only
-  // match it by name — never append variants the user doesn't own.
+  // match it by name — never append bots the user doesn't own.
   const deployed = useMemo(
     () => (roster ?? []).filter((b) => b.stage === "deployed"),
     [roster],
   );
   const v = useMemo(() => {
-    const live = new Map(d.variants.map((x) => [x.name, x]));
+    const live = new Map(d.bots.map((x) => [x.name, x]));
     return deployed.map((b) => {
-      const base = live.get(b.name) ?? variantFromBot(b);
+      const base = live.get(b.name) ?? botFromRow(b);
       return { ...base, color: botColor(b) };
     });
-  }, [deployed, d.variants]);
+  }, [deployed, d.bots]);
   const liveNames = useMemo(() => {
-    const feed = new Set(d.variants.map((x) => x.name));
+    const feed = new Set(d.bots.map((x) => x.name));
     return new Set(deployed.map((b) => b.name).filter((n) => feed.has(n)));
-  }, [deployed, d.variants]);
+  }, [deployed, d.bots]);
   const names = useMemo(() => new Set(v.map((x) => x.name)), [v]);
   const N = v.length;
   const open = useMemo(() => v.flatMap((x) => x.open), [v]);
   const trades = useMemo(
-    () => d.trades.filter((t) => names.has(t.variant)),
+    () => d.trades.filter((t) => names.has(t.bot)),
     [d.trades, names],
   );
   const now = d.now;
@@ -198,9 +198,9 @@ export default function FleetView() {
     }
   };
 
-  const fOpen = filtering ? open.filter((o) => selected.has(o.variant)) : open;
+  const fOpen = filtering ? open.filter((o) => selected.has(o.bot)) : open;
   const fOpenUnreal = fOpen.reduce((a, o) => a + (o.upnl || 0), 0);
-  const fClosed = filtering ? trades.filter((t) => selected.has(t.variant)) : trades;
+  const fClosed = filtering ? trades.filter((t) => selected.has(t.bot)) : trades;
 
   const filterChip = filtering && (
     <span className="chip lk" style={{ height: 22, marginLeft: 8 }} onClick={clearLeg}>
@@ -208,7 +208,7 @@ export default function FleetView() {
     </span>
   );
 
-  const variantCols: Column<Variant>[] = [
+  const botCols: Column<Bot>[] = [
     {
       key: "name",
       label: "Bot",
@@ -234,7 +234,7 @@ export default function FleetView() {
   ];
 
   const openCols: Column<Position>[] = [
-    { key: "variant", label: "Bot", sortable: true, value: (o) => o.variant, render: (o) => <BotLink name={o.variant} /> },
+    { key: "bot", label: "Bot", sortable: true, value: (o) => o.bot, render: (o) => <BotLink name={o.bot} /> },
     { key: "ticker", label: "Coin", sortable: true, value: (o) => o.ticker, render: (o) => <Coin {...o} /> },
     { key: "side", label: "Side", sortable: true, value: (o) => o.side, render: (o) => <span className={o.side === "short" ? "down" : "up"}>{o.side === "short" ? "Short" : "Long"}</span> },
     { key: "entry", label: "Entry", sortable: true, value: (o) => o.entry, render: (o) => <span className="num">{px(o.entry)}</span> },
@@ -245,7 +245,7 @@ export default function FleetView() {
     { key: "net", label: "Net", sortable: true, value: (o) => o.upct, render: (o) => <span className={`num ${(o.upct ?? 0) >= 0 ? "up" : "down"}`}>{pct(o.upct != null ? o.upct * 100 : null, true)}</span> },
     { key: "pnl", label: "P&L", sortable: true, value: (o) => o.upnl, render: (o) => <span className={`num ${(o.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(o.upnl, true)}</span> },
     { key: "manage", label: "", sortable: false, value: () => 0, render: (o) => (
-      myBotId.has(o.variant) ? (
+      myBotId.has(o.bot) ? (
         <button
           onClick={(e) => { e.stopPropagation(); setManage(o); }}
           style={{ height: 26, padding: "0 11px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "#10141a", color: "var(--fg-2)", fontSize: 12, cursor: "pointer" }}
@@ -255,7 +255,7 @@ export default function FleetView() {
   ];
 
   const closedCols: Column<Trade>[] = [
-    { key: "variant", label: "Bot", sortable: true, value: (t) => t.variant, render: (t) => <BotLink name={t.variant} /> },
+    { key: "bot", label: "Bot", sortable: true, value: (t) => t.bot, render: (t) => <BotLink name={t.bot} /> },
     { key: "ticker", label: "Coin", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
     { key: "side", label: "Side", sortable: true, value: (t) => t.side ?? "long", render: (t) => <span className={t.side === "short" ? "down" : "up"}>{t.side === "short" ? "Short" : "Long"}</span> },
     { key: "entry", label: "Entry", sortable: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
@@ -327,7 +327,7 @@ export default function FleetView() {
 
           {view === "rows" ? (
             <div style={{ marginTop: 18 }}>
-              <DataTable columns={variantCols} rows={shownBots.map((b) => b.v)} />
+              <DataTable columns={botCols} rows={shownBots.map((b) => b.v)} />
             </div>
           ) : (
             <div className={s.grid}>
@@ -385,7 +385,7 @@ export default function FleetView() {
 
         {v.length > 0 && (
           <div ref={anchorRef}>
-            <FleetChart variants={v} selected={selected} onToggle={toggleLeg} onClear={clearLeg} />
+            <FleetChart bots={v} selected={selected} onToggle={toggleLeg} onClear={clearLeg} />
           </div>
         )}
 
@@ -397,7 +397,7 @@ export default function FleetView() {
               {filterChip}
             </h2>
           </div>
-          <DataTable columns={openCols} rows={fOpen.filter((o) => !closing.has(o.variant + ":" + o.ticker))} />
+          <DataTable columns={openCols} rows={fOpen.filter((o) => !closing.has(o.bot + ":" + o.ticker))} />
         </section>
 
         <section className={s.section48}>
@@ -418,13 +418,13 @@ export default function FleetView() {
           <div className={s.syslog}>{d.log.length ? d.log.join("\n") : "(no recent log lines)"}</div>
         </section>
       </div>
-      {manage && myBotId.get(manage.variant) && (
+      {manage && myBotId.get(manage.bot) && (
         <ManagePosition
-          botId={myBotId.get(manage.variant)!}
-          botName={manage.variant}
+          botId={myBotId.get(manage.bot)!}
+          botName={manage.bot}
           pos={manage}
           onClose={() => setManage(null)}
-          onClosed={() => setClosing((c) => new Set(c).add(manage.variant + ":" + manage.ticker))}
+          onClosed={() => setClosing((c) => new Set(c).add(manage.bot + ":" + manage.ticker))}
         />
       )}
     </>

@@ -42,7 +42,7 @@ export default function Builder() {
   };
 
   const mine = useMemo(() => (allBots ?? []).filter((b) => b.builder?.handle === handle), [allBots, handle]);
-  const byName = useMemo(() => new Map(live.variants.map((v) => [v.name, v])), [live.variants]);
+  const byName = useMemo(() => new Map(live.bots.map((v) => [v.name, v])), [live.bots]);
 
   const bots = mine.map((b) => {
     const v = byName.get(b.name);
@@ -171,7 +171,7 @@ export default function Builder() {
         ) : (
           <div className={s.feed}>
             {(showAllActivity ? activity : activity.slice(0, 3)).map((e) => (
-              <FeedRow key={e.id} e={e} bot={e.bot_name ? botByName.get(e.bot_name) : undefined} variant={e.bot_name ? byName.get(e.bot_name) : undefined} onOpen={nav} />
+              <FeedRow key={e.id} e={e} bot={e.bot_name ? botByName.get(e.bot_name) : undefined} live={e.bot_name ? byName.get(e.bot_name) : undefined} onOpen={nav} />
             ))}
             {activity.length > 3 && (
               <button className={s.more} onClick={() => setShowAllActivity((x) => !x)}>

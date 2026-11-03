@@ -41,7 +41,7 @@ from core.evaluator import build_aux
 from core.markets import MARKETS, is_resolution
 from core.strategy import _collect_requires
 from core.timeframes import DAY_MS, DEFAULT_TIMEFRAME, interval_ms
-from .paper_trader import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
+from .trade_model import (RISK, NOTIONAL_CAP, MAX_CONC, START_EQUITY,
                           TAKER, SLIP, KILL_DD, KILL_LOOKBACK, KILL_PAUSE)
 
 # How many bars of a cross-series tape to fetch per cycle — enough for an

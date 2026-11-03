@@ -8,7 +8,7 @@ import DataTable, { type Column } from "../../components/DataTable";
 import BotChart from "../../components/BotChart";
 import { BackBar, BotLink, Coin } from "../../components/cells";
 import type { Trade } from "../../api/types";
-import { variantFromBot } from "../../lib/variant";
+import { botFromRow } from "../../lib/bot";
 import { DIRLBL, REASON, START, clock, dol, dstr, held, identicon, pct, px, usd, windowReturn } from "../../lib/format";
 import { buildStrategyRows } from "../BotProfile";
 import p from "../pages.module.css";
@@ -24,8 +24,8 @@ export default function Report() {
 
   const bot = bots?.find((b) => b.name === name);
   const { data: bt } = useLatestBacktest(bot?.id ?? null);
-  const liveV = live.variants.find((x) => x.name === name);
-  const btV = bot ? variantFromBot(bot, bt) : null;
+  const liveV = live.bots.find((x) => x.name === name);
+  const btV = bot ? botFromRow(bot, bt) : null;
   // /build/report/:name is the backtest report — always show the backtest curve when present.
   const v =
     btV && (btV.curve.length > 0 || !liveV)
@@ -49,10 +49,10 @@ export default function Report() {
   for (const c of v.curve) { peak = Math.max(peak, c[1]); dd = Math.min(dd, c[1] / peak - 1); }
   if (!v.curve.length && bt?.max_drawdown != null) dd = bt.max_drawdown;
 
-  const trs = live.trades.filter((t) => t.variant === name);
+  const trs = live.trades.filter((t) => t.bot === name);
   const defaultSide = (bot.direction === "long" ? "long" : "short") as "long" | "short";
   const tradeCols: Column<Trade>[] = [
-    { key: "variant", label: "Bot", sortable: true, value: (t) => t.variant, render: (t) => <BotLink name={t.variant} /> },
+    { key: "bot", label: "Bot", sortable: true, value: (t) => t.bot, render: (t) => <BotLink name={t.bot} /> },
     { key: "ticker", label: "Coin", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
     { key: "side", label: "Side", sortable: true, value: (t) => t.side ?? defaultSide, render: (t) => { const sd = t.side ?? defaultSide; return <span className={sd === "short" ? "down" : "up"}>{sd === "short" ? "Short" : "Long"}</span>; } },
     { key: "entry", label: "Entry", sortable: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
@@ -98,10 +98,10 @@ export default function Report() {
 
         <section style={{ display: "flex", flexWrap: "wrap", gap: 24, paddingTop: 32, alignItems: "flex-start" }}>
           <BotChart
-            variant={liveV ? { ...liveV, color: bot ? botColor(bot) : liveV.color } : v}
+            bot={liveV ? { ...liveV, color: bot ? botColor(bot) : liveV.color } : v}
             backtestVariant={btV}
             defaultMode="backtest"
-            variants={live.variants}
+            bots={live.bots}
             trades={live.trades}
           />
           <div className={`card`} style={{ flex: "1 1 300px", minWidth: 0, padding: 22, display: "flex", flexDirection: "column", gap: 12 }}>

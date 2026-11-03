@@ -4,8 +4,8 @@ Raw info only (title, source, link, time), no analysis. Engine writes
 pf_news; the web renders it. Keyless RSS so it runs with no credentials; a
 per-coin keyed source can be added later without changing the table.
 
-Run:  python3 -m runtime.news_scan            # loop
-      python3 -m runtime.news_scan --once     # one pass, exit
+Run:  python3 -m runtime.scan.news            # loop
+      python3 -m runtime.scan.news --once     # one pass, exit
 """
 import os
 import sys
@@ -16,9 +16,9 @@ import xml.etree.ElementTree as ET
 from datetime import timezone
 from email.utils import parsedate_to_datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import core.env  # noqa: F401
-from . import pf_db
+from .. import pf_db
 
 URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")

@@ -1,4 +1,4 @@
-// Mirrors fleet_dashboard.py payload() — single source of truth.
+// Mirrors runtime/server/app.py payload() — single source of truth.
 
 export type Group = "short" | "long" | "both";
 export type Side = "short" | "long";
@@ -6,7 +6,7 @@ export type Side = "short" | "long";
 export type Kind = "sl" | "time" | "tp" | "manual" | "trail" | string;
 
 export interface Position {
-  variant: string;
+  bot: string;
   ticker: string;
   side: Side;
   entry: number;
@@ -22,7 +22,7 @@ export interface Position {
 }
 
 export interface Trade {
-  variant: string;
+  bot: string;
   ticker: string;
   side?: Side;
   t_sig: number;
@@ -36,7 +36,7 @@ export interface Trade {
   equity_after: number;
 }
 
-export interface Variant {
+export interface Bot {
   name: string;
   params: string;
   equity: number;
@@ -71,8 +71,8 @@ export interface Payload {
   start: number;
   gate: { bear: boolean | null };
   hero: Hero;
-  variants: Variant[];
-  strats: Record<string, { label: string; variants: string[] }>;
+  bots: Bot[];
+  strats: Record<string, { label: string; bots: string[] }>;
   positions: Position[];
   trades: Trade[];
   log: string[];

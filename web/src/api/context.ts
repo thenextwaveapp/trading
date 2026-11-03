@@ -21,7 +21,7 @@ export const EMPTY_PAYLOAD: Payload = {
     base_pnl: 0, base_ret: 0, base_closed: 0, base_avg: null, bench: 0,
     fleet_pnl: 0, unreal: 0, week_pnl: 0, closed: 0,
   },
-  variants: [],
+  bots: [],
   strats: {},
   positions: [],
   trades: [],

@@ -170,7 +170,7 @@ followers. Your identity and collection, public.
 
 **Command center** — the war room for your Deployed Fleet: live positions marked
 to market, P&L, the Feed of entries/exits/kills, fleet health, alerts. (Today in
-`runtime/fleet_dashboard`; it folds into the app.)
+`runtime/server`, which also serves the app.)
 
 **Settings** (`/settings`) — account, alerts, and the control that flips the
 product **Paper Fleet → Live Fleet** when you fund it with real capital.
@@ -230,9 +230,10 @@ trade. Roughly 145 Python files, 68 TS/TSX, 16 SQL.
   gauntlet), `equity.py`, `marketdata.py`/`markets.py` (market adapters),
   `sweep.py` (parameter search). The "one engine tests a strategy and trades it."
 - `runtime/` is the running machine: `engine_worker.py` (the Build worker),
-  `market_scan.py`, `paper_fleet.py`/`paper_trader.py` (the live paper fleet),
-  `challenge_runner.py`, `news_scan.py`, `backfill_curves.py`,
-  `fleet_dashboard.py`, `pf_db.py`, `spec_runtime.py`. Runs 24/7 on Hetzner.
+  `fleet/` (the live paper fleet — `runner`, `state`, `events`, `alerts`,
+  `source`), `server/` (the web/API backend, `app`), `scan/` (`market` + `news`
+  data ingestion), `challenge_runner.py`, `backfill_curves.py`, `pf_db.py`,
+  `spec_runtime.py`, `trade_model.py`. Runs 24/7 on Hetzner.
 
 **The data spine — `db/` + `supabase/`.** Postgres on Supabase: `schema.sql`,
 `functions.sql`, `policies.sql` (RLS), `migrations/` — the
@@ -251,8 +252,9 @@ the engine owns the data.
 
 **Live & ops.** `live/` — the real-money bridge (`bot.py`, `check_parity.py` for
 paper-vs-live parity, keys). `deploy/` — `systemd/` (Hetzner prod) + `launchd/`
-(local dev). `paper/fleet/` + `fleet_config.json` + `universe60.json` — the fleet
-roster config. `archive/` — retired code (`legacy-engine`, `hl_bot`, `dashboards`).
+(local dev). `paper/fleet/` — per-bot live paper state (the fleet now runs from
+the DB, `pf_bots`; no static roster config). `archive/` — retired code
+(`legacy-engine`, `hl_bot`, `dashboards`).
 
 In one line: a Python engine scans a market once and evaluates many bots against
 the same candles → writes verified records to Postgres → a React app renders the
@@ -275,7 +277,7 @@ writes results back to the DB, the single source of truth the web reads.
 | Dir | What |
 |---|---|
 | `core/` | the engine library — indicators (211, full TA-Lib + ROC/VOL_RATIO/WICK_FRAC), `expr`/`strategy`/`evaluator`, `backtest`, `checks`, `conditions`, `regime`, `markets` (capability model, `inputs ⊆ provides`), `universe`, `service` (endpoints), `db` |
-| `runtime/` | the services — `paper_fleet`, `fleet_dashboard`, `engine_worker` (the Build worker), `fleet_source`, `pf_db` (service-key DB helper), `spec_runtime` |
+| `runtime/` | the services — `fleet/` (live paper fleet: `runner`+`state`+`events`+`alerts`+`source`), `server/` (web/API backend: `app`), `scan/` (`market`+`news`), `engine_worker` (the Build worker), `pf_db` (service-key DB helper), `spec_runtime`, `trade_model` |
 | `db/` | version-controlled Supabase schema: `schema.sql` + `policies.sql` (RLS, owner-scoped) + `functions.sql` (signup trigger, event emitters). Apply order in `db/README.md` |
 | `web/` | the React SPA (Vite, HashRouter) — live at fleet.presencenet.io |
 | `lab/` | the proof-of-concept research (does not ship) |
@@ -283,9 +285,8 @@ writes results back to the DB, the single source of truth the web reads.
 | `deploy/` | deploy units — `systemd/` (Hetzner box) + `launchd/` (Mac) |
 | `live/` | the Hyperliquid go-live package (dry until armed) |
 
-Root keeps the live-side config: `fleet_config.json`. (The older `hl_bot.py`
-execution bot + its `bot/` state are archived under `archive/hl_bot/`; the
-`live/` package supersedes it.)
+(The older `hl_bot.py` execution bot + its `bot/` state are archived under
+`archive/hl_bot/`; the `live/` package supersedes it.)
 
 ## Current state
 
@@ -333,13 +334,13 @@ on FX). Data: any non-`USDT` ticker fetches from Yahoo Finance
 (`core/service.py:_fetch_equity`), so **equity and futures backtest end-to-end
 today**; crypto fetches from Binance; `prediction` has no fetch path yet (a
 registered shell). The engine and schema are multi-asset; the **web UI and the
-live paper fleet** (`runtime/paper_trader.py`, Binance USDT-M futures) are
+live paper fleet** (`runtime/fleet/`, Binance USDT-M futures) are
 **currently crypto only**.
 
 **Roster / Fleet (home).** Bots by stage with face, color, record, and live
 return; aggregate fleet equity (`FleetView`/`FleetChart`); fleet state
 (Running / Paused / Stale / Errors) and position management (`ManagePosition`).
-→ `runtime/paper_fleet.py` + `paper_trader.py` run the paper-trading loop and write
+→ `runtime/fleet/runner.py` runs the paper-trading loop and writes
 live state via `runtime/pf_db.py` (service key) to `pf_bot_marks` /
 `pf_bot_trades` / `pf_fleet_log`; the web reads those tables.
 
@@ -407,14 +408,14 @@ others open. → `ep_enter_challenge` validates an entry against the lock-set;
 → `pf_follows` / `pf_events`.
 
 **Market.** Market and detail pages, candle charts, news, ⌘K search palette.
-→ `runtime/market_scan.py` upserts `pf_market_snapshot` every 60s (Binance 24h
-ticker + CoinGecko metadata); `runtime/news_scan.py` provides news.
+→ `runtime/scan/market.py` upserts `pf_market_snapshot` every 60s (Binance 24h
+ticker + CoinGecko metadata); `runtime/scan/news.py` provides news.
 
 **Settings.**
 
 - *Profile* — photo, timezone, sharing. *Plan* — Free / Live.
 - *Bots / Fleets* — defaults, starting capital, max concurrent, drawdown threshold
-  (feeds the kill-switch in `runtime/paper_fleet.py`: drawdown past −5% over 7 days
+  (feeds the kill-switch in `runtime/fleet/runner.py`: drawdown past −5% over 7 days
   pauses new entries for 3 days).
 - *Market data* — source (local `lab/bn` gzip cache vs. live Binance/Yahoo),
   freshness/stale detection, last-mark.

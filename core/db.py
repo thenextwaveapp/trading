@@ -90,10 +90,12 @@ def coin_symbols(tickers):
 
 
 def _resolve(slug):
-    unis = _get("pf_universes", {"slug": f"eq.{slug}", "select": "id,definition"})
+    unis = _get("pf_universes",
+                {"slug": f"eq.{slug}", "select": "id,definition,market"})
     if not unis:
         return None
     u = unis[0]
+    mkt = u.get("market")
     defn = u.get("definition") or {}
     # rule-universe: resolve the rule against the live tradeable set, so it
     # stays current (e.g. "top 100 by volume") — no coins are stored.
@@ -106,7 +108,14 @@ def _resolve(slug):
     syms = [r["coin_symbol"] for r in rows]
     if not syms:
         return None
-    coins = _get("pf_coins",
-                 {"symbol": f"in.({','.join(syms)})",
-                  "select": "symbol,binance_symbol"})
-    return {c["symbol"]: c["binance_symbol"] for c in coins}
+    params = {"symbol": f"in.({','.join(syms)})",
+              "select": "symbol,binance_symbol,market"}
+    if mkt:
+        params["market"] = f"eq.{mkt}"
+    coins = _get("pf_coins", params)
+    # Containment: a universe may only trade instruments in its own market. A
+    # coin whose market differs from the universe's is dropped — the engine-side
+    # backstop against a mislabeled universe (e.g. an fx_spot universe seeded
+    # with crypto coins, which must resolve to nothing, not trade crypto).
+    return {c["symbol"]: c["binance_symbol"] for c in coins
+            if not mkt or c.get("market") == mkt}
