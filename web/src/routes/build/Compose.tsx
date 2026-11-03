@@ -1196,7 +1196,7 @@ export default function Compose() {
     universeList.find((u) => u.slug === spec.universe);
   const { data: universeDetail } = useUniverse(spec.universe || "fleet-60");
   const presetCoins = useMemo(
-    () => (universeDetail?.pf_universe_coins ?? []).map((c) => c.coin_symbol),
+    () => (universeDetail?.pf_universe_instruments ?? []).map((c) => c.instrument_symbol),
     [universeDetail],
   );
   const uniCoins = customMode ? customCoins : presetCoins;

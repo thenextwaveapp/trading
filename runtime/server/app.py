@@ -66,10 +66,10 @@ def fleet_bots():
 
 
 def coin_map():
-    """ticker -> binance_symbol over the real coin table (pf_coins), for the
+    """ticker -> binance_symbol over the real instrument table (pf_instruments), for the
     chart modal and /candles validation. Falls back to the local 60 map."""
     try:
-        rows = _sb_get("pf_coins", {"select": "symbol,binance_symbol"}, ttl=3600)
+        rows = _sb_get("pf_instruments", {"select": "symbol,binance_symbol"}, ttl=3600)
         m = {r["symbol"]: r["binance_symbol"] for r in rows
              if r.get("binance_symbol")}
         return m

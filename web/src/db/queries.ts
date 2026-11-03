@@ -139,7 +139,7 @@ export const botNameTaken = async (
 export const fetchUniverse = (slug: string) =>
   supabase
     .from("pf_universes")
-    .select("*, pf_universe_coins(coin_symbol)")
+    .select("*, pf_universe_instruments(instrument_symbol)")
     .eq("slug", slug)
     .single();
 
@@ -286,13 +286,13 @@ export const useUniverseFilters = (universeId: string | null) =>
     [universeId],
   );
 export const fetchCoins = (market: string) =>
-  supabase.from("pf_coins").select("symbol, binance_symbol, name, market").eq("market", market).order("symbol");
+  supabase.from("pf_instruments").select("symbol, binance_symbol, name, market").eq("market", market).order("symbol");
 /** Instruments that belong to a market — the Builder's custom-universe picker. */
 export const useCoins = (market: string) =>
   useQuery<DbCoin[]>(() => fetchCoins(market), [market], "coins:" + market);
 
 /** Create an owned universe from a hand-picked set of coins. Backtest (by slug)
- *  and live (by universe_id) both resolve pf_universe_coins, so a custom subset
+ *  and live (by universe_id) both resolve pf_universe_instruments, so a custom subset
  *  trades exactly as it backtests. `saved` controls whether it's reusable in the
  *  dropdown; an unsaved one is a throwaway tied to a single bot. */
 export const createUniverse = async (opts: {
@@ -318,8 +318,8 @@ export const createUniverse = async (opts: {
     .single();
   if (error || !data) return null;
   if (opts.coins.length) {
-    const rows = opts.coins.map((coin_symbol) => ({ universe_id: data.id, coin_symbol }));
-    const { error: coinErr } = await supabase.from("pf_universe_coins").insert(rows);
+    const rows = opts.coins.map((instrument_symbol) => ({ universe_id: data.id, instrument_symbol }));
+    const { error: coinErr } = await supabase.from("pf_universe_instruments").insert(rows);
     if (coinErr) {
       await supabase.from("pf_universes").delete().eq("id", data.id); // no orphan empty universe
       return null;
@@ -342,11 +342,11 @@ export const updateUniverse = async (
     if (error) return false;
   }
   if (patch.coins) {
-    await supabase.from("pf_universe_coins").delete().eq("universe_id", id);
+    await supabase.from("pf_universe_instruments").delete().eq("universe_id", id);
     if (patch.coins.length) {
       const { error } = await supabase
-        .from("pf_universe_coins")
-        .insert(patch.coins.map((coin_symbol) => ({ universe_id: id, coin_symbol })));
+        .from("pf_universe_instruments")
+        .insert(patch.coins.map((instrument_symbol) => ({ universe_id: id, instrument_symbol })));
       if (error) return false;
     }
   }

@@ -120,11 +120,11 @@ def scan_once():
 
 def scan_market(market):
     """Snapshot a non-crypto market (equity / fx_spot) from the tradeable set in
-    pf_coins, via Yahoo daily bars. One provider per market, driven by the same
+    pf_instruments, via Yahoo daily bars. One provider per market, driven by the same
     instruments the Builder can trade — so the discovery board never drifts from
     what's buildable. Missing fields (fx has no volume) stay null, not faked."""
     now = datetime.now(timezone.utc).isoformat()
-    coins = pf_db.get("pf_coins", f"market=eq.{market}&select=symbol,binance_symbol,name") or []
+    coins = pf_db.get("pf_instruments", f"market=eq.{market}&select=symbol,binance_symbol,name") or []
     rows = []
     for c in coins:
         ysym, base = c.get("binance_symbol"), c.get("symbol")

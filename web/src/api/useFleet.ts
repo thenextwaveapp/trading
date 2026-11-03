@@ -193,7 +193,7 @@ export function useFleet(intervalMs = 10_000): FleetState {
           supabase.from("pf_bot_marks").select("*").order("t", { ascending: false }).limit(2000),
           supabase.from("pf_bot_trades").select("*").order("exit_t", { ascending: false }).limit(1000),
           needCoins
-            ? supabase.from("pf_coins").select("symbol,binance_symbol")
+            ? supabase.from("pf_instruments").select("symbol,binance_symbol")
             : Promise.resolve({ data: null }),
         ]);
         if (!alive) return;

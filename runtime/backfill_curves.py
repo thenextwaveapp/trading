@@ -27,7 +27,7 @@ KEY = os.environ["SUPABASE_SERVICE_KEY"]
 
 
 def _coin_map():
-    rows = pf_db.get("pf_coins", "select=symbol,binance_symbol")
+    rows = pf_db.get("pf_instruments", "select=symbol,binance_symbol")
     return {r["symbol"]: r["binance_symbol"] for r in rows}
 
 

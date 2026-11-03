@@ -61,9 +61,9 @@ def _cached(key, fn):
 
 
 def universe_symbols(slug):
-    """slug -> {coin_symbol: binance_symbol} from pf_universes / coins /
-    pf_coins. None if the DB is off, the slug is unknown, or a read fails
-    (caller falls back)."""
+    """slug -> {symbol: binance_symbol} from pf_universes / pf_instruments.
+    None if the DB is off, the slug is unknown, or a read fails (caller
+    falls back)."""
     if not enabled():
         return None
     try:
@@ -73,15 +73,15 @@ def universe_symbols(slug):
 
 
 def coin_symbols(tickers):
-    """[ticker, ...] -> {ticker: binance_symbol} from pf_coins. Used to resolve
-    a cross-asset operand's symbol (e.g. "BTC") to a fetchable exchange symbol,
-    the same table universes resolve against. {} if the DB is off or a read
-    fails (the caller treats an unresolved symbol as no data)."""
+    """[ticker, ...] -> {ticker: binance_symbol} from pf_instruments. Used to
+    resolve a cross-asset operand's symbol (e.g. "BTC") to a fetchable exchange
+    symbol, the same table universes resolve against. {} if the DB is off or a
+    read fails (the caller treats an unresolved symbol as no data)."""
     tickers = [t for t in dict.fromkeys(tickers) if t]
     if not tickers or not enabled():
         return {}
     try:
-        coins = _get("pf_coins",
+        coins = _get("pf_instruments",
                      {"symbol": f"in.({','.join(tickers)})",
                       "select": "symbol,binance_symbol"})
         return {c["symbol"]: c["binance_symbol"] for c in coins}
@@ -101,18 +101,18 @@ def _resolve(slug):
     # stays current (e.g. "top 100 by volume") — no coins are stored.
     if defn.get("rule"):
         return _uni.resolve(defn, _PROVIDER()) or None
-    # list-universe (incl. a user's hand-picked coins): the set is stored in
-    # pf_universe_coins -> pf_coins.
-    rows = _get("pf_universe_coins",
-                {"universe_id": f"eq.{u['id']}", "select": "coin_symbol"})
-    syms = [r["coin_symbol"] for r in rows]
+    # list-universe (incl. a user's hand-picked set): the instruments are stored
+    # in pf_universe_instruments -> pf_instruments.
+    rows = _get("pf_universe_instruments",
+                {"universe_id": f"eq.{u['id']}", "select": "instrument_symbol"})
+    syms = [r["instrument_symbol"] for r in rows]
     if not syms:
         return None
     params = {"symbol": f"in.({','.join(syms)})",
               "select": "symbol,binance_symbol,market"}
     if mkt:
         params["market"] = f"eq.{mkt}"
-    coins = _get("pf_coins", params)
+    coins = _get("pf_instruments", params)
     # Containment: a universe may only trade instruments in its own market. A
     # coin whose market differs from the universe's is dropped — the engine-side
     # backstop against a mislabeled universe (e.g. an fx_spot universe seeded

@@ -100,3 +100,44 @@ end; $function$;
 DROP TRIGGER IF EXISTS on_follow_created ON public.pf_follows;
 CREATE TRIGGER on_follow_created AFTER INSERT ON public.pf_follows
   FOR EACH ROW EXECUTE FUNCTION emit_follow_event();
+
+-- ---------------------------------------------------------------------------
+-- Market/universe integrity (added 2026-11): a bot's market derives from its
+-- universe, and a universe only holds instruments of its own market.
+-- ---------------------------------------------------------------------------
+
+-- pf_bots.market is denormalized from the bot's universe.
+CREATE OR REPLACE FUNCTION pf_set_bot_market() RETURNS trigger
+ LANGUAGE plpgsql AS $function$
+begin
+  if new.universe_id is not null then
+    select market into new.market from pf_universes where id = new.universe_id;
+  end if;
+  return new;
+end; $function$;
+
+DROP TRIGGER IF EXISTS pf_bot_market ON public.pf_bots;
+CREATE TRIGGER pf_bot_market BEFORE INSERT OR UPDATE ON public.pf_bots
+  FOR EACH ROW EXECUTE FUNCTION pf_set_bot_market();
+
+-- A universe may only contain instruments in its own market.
+CREATE OR REPLACE FUNCTION pf_check_universe_instrument_market() RETURNS trigger
+ LANGUAGE plpgsql AS $function$
+declare
+  u_market text;
+  c_market text;
+begin
+  select market into u_market from pf_universes where id = new.universe_id;
+  select market into c_market from pf_instruments where symbol = new.instrument_symbol;
+  if u_market is not null and c_market is not null and u_market <> c_market then
+    raise exception
+      'instrument % (market %) does not belong to universe % (market %)',
+      new.instrument_symbol, c_market, new.universe_id, u_market;
+  end if;
+  return new;
+end; $function$;
+
+DROP TRIGGER IF EXISTS pf_universe_instrument_market ON public.pf_universe_instruments;
+CREATE TRIGGER pf_universe_instrument_market
+  BEFORE INSERT OR UPDATE ON public.pf_universe_instruments
+  FOR EACH ROW EXECUTE FUNCTION pf_check_universe_instrument_market();

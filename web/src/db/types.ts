@@ -70,7 +70,7 @@ export interface DbUniverse {
 }
 
 export interface DbUniverseWithCoins extends DbUniverse {
-  pf_universe_coins: { coin_symbol: string }[];
+  pf_universe_instruments: { instrument_symbol: string }[];
 }
 
 export interface DbUniverseFilter {

@@ -28,11 +28,11 @@ COINS = {"BTC": ("BTCUSDT", "crypto"), "ETH": ("ETHUSDT", "crypto"),
 def fake_get(path, params):
     if path == "pf_universes":
         return [UNIS[params["slug"]]] if params["slug"] in UNIS else []
-    if path == "pf_universe_coins":
-        # mylist (crypto) was mis-seeded with an fx coin — must be dropped
-        return [{"coin_symbol": "BTC"}, {"coin_symbol": "ETH"},
-                {"coin_symbol": "USDJPY"}]
-    if path == "pf_coins":
+    if path == "pf_universe_instruments":
+        # mylist (crypto) was mis-seeded with an fx instrument — must be dropped
+        return [{"instrument_symbol": "BTC"}, {"instrument_symbol": "ETH"},
+                {"instrument_symbol": "USDJPY"}]
+    if path == "pf_instruments":
         want = params["symbol"].removeprefix("in.(").rstrip(")").split(",")
         mkt = params.get("market", "").removeprefix("eq.")
         return [{"symbol": s, "binance_symbol": COINS[s][0], "market": COINS[s][1]}

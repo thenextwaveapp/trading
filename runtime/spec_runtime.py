@@ -10,7 +10,7 @@ Scope: only specs with proven live==backtest parity — side long/short/both,
 stop mode hh/dstop/none/sig, no resting-limit order, not `partial`. A two-sided
 bot runs both its books; direction and exit come from whichever fires (ties skip
 the bar). Cross-series operands (multi-timeframe / cross-asset) are covered: the
-fleet resolves each referenced symbol (pf_coins), fetches its tape, and aligns it
+fleet resolves each referenced symbol (pf_instruments), fetches its tape, and aligns it
 causally per bar — entry and exit alike. A trailing stop is covered: its NATR
 fraction is measured at entry by the shared
 core.build_position, so the ratchet is identical live and in backtest. A
@@ -353,7 +353,7 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
     didn't resolve ({} / missing) manages open positions only, opens none."""
     notes = notes if notes is not None else []
     # resolve every cross-asset ticker any bot references (e.g. "BTC") to its
-    # exchange symbol, once per cycle, from the same pf_coins table universes use.
+    # exchange symbol, once per cycle, from the same pf_instruments table universes use.
     want = set()
     for bot in bots:
         try:

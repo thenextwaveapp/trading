@@ -31,7 +31,7 @@ CREATE POLICY pf_profiles_rw    ON public.pf_profiles  FOR ALL USING (id = auth.
 CREATE POLICY pf_profiles_read  ON public.pf_profiles  FOR SELECT USING (true);
 
 -- public reference tables (read-only via RLS; writes are service-role)
-CREATE POLICY pf_coins_read             ON public.pf_coins             FOR SELECT USING (true);
+CREATE POLICY pf_instruments_read             ON public.pf_instruments             FOR SELECT USING (true);
 CREATE POLICY pf_plans_read             ON public.pf_plans             FOR SELECT USING (true);
 CREATE POLICY pf_strategy_families_read ON public.pf_strategy_families FOR SELECT USING (true);
 
@@ -70,10 +70,10 @@ CREATE POLICY pf_strategy_conditions_read ON public.pf_strategy_conditions FOR S
   USING (EXISTS (SELECT 1 FROM pf_bots b WHERE b.id = pf_strategy_conditions.bot_id AND (b.visibility <> 'private' OR b.owner = auth.uid())));
 
 -- universe children (owner of parent universe writes; public read)
-CREATE POLICY pf_universe_coins_rw ON public.pf_universe_coins FOR ALL
-  USING (EXISTS (SELECT 1 FROM pf_universes u WHERE u.id = pf_universe_coins.universe_id AND u.owner = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM pf_universes u WHERE u.id = pf_universe_coins.universe_id AND u.owner = auth.uid()));
-CREATE POLICY pf_universe_coins_read ON public.pf_universe_coins FOR SELECT USING (true);
+CREATE POLICY pf_universe_instruments_rw ON public.pf_universe_instruments FOR ALL
+  USING (EXISTS (SELECT 1 FROM pf_universes u WHERE u.id = pf_universe_instruments.universe_id AND u.owner = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM pf_universes u WHERE u.id = pf_universe_instruments.universe_id AND u.owner = auth.uid()));
+CREATE POLICY pf_universe_instruments_read ON public.pf_universe_instruments FOR SELECT USING (true);
 
 CREATE POLICY pf_universe_filters_rw ON public.pf_universe_filters FOR ALL
   USING (EXISTS (SELECT 1 FROM pf_universes u WHERE u.id = pf_universe_filters.universe_id AND u.owner = auth.uid()))

@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS public.pf_checks (
     created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.pf_coins (
+CREATE TABLE IF NOT EXISTS public.pf_instruments (
     symbol text NOT NULL,
     binance_symbol text NOT NULL,
     name text
@@ -287,9 +287,9 @@ CREATE TABLE IF NOT EXISTS public.pf_subscriptions (
     created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.pf_universe_coins (
+CREATE TABLE IF NOT EXISTS public.pf_universe_instruments (
     universe_id uuid NOT NULL,
-    coin_symbol text NOT NULL
+    instrument_symbol text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS public.pf_universe_filters (
@@ -329,7 +329,7 @@ ALTER TABLE public.pf_bots                ADD CONSTRAINT pf_bots_pkey PRIMARY KE
 ALTER TABLE public.pf_bots                ADD CONSTRAINT pf_bots_owner_name_key UNIQUE (owner, name);
 ALTER TABLE public.pf_checks              ADD CONSTRAINT pf_checks_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_checks              ADD CONSTRAINT pf_checks_backtest_id_key_key UNIQUE (backtest_id, key);
-ALTER TABLE public.pf_coins               ADD CONSTRAINT pf_coins_pkey PRIMARY KEY (symbol);
+ALTER TABLE public.pf_instruments               ADD CONSTRAINT pf_instruments_pkey PRIMARY KEY (symbol);
 ALTER TABLE public.pf_conditions          ADD CONSTRAINT pf_conditions_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_conditions          ADD CONSTRAINT pf_conditions_backtest_id_volatility_btc_trend_key UNIQUE (backtest_id, volatility, btc_trend);
 ALTER TABLE public.pf_events              ADD CONSTRAINT pf_events_pkey PRIMARY KEY (id);
@@ -344,7 +344,7 @@ ALTER TABLE public.pf_strategy_conditions ADD CONSTRAINT pf_strategy_conditions_
 ALTER TABLE public.pf_strategy_families   ADD CONSTRAINT pf_strategy_families_pkey PRIMARY KEY (slug);
 ALTER TABLE public.pf_subscriptions       ADD CONSTRAINT pf_subscriptions_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_subscriptions       ADD CONSTRAINT pf_subscriptions_owner_key UNIQUE (owner);
-ALTER TABLE public.pf_universe_coins      ADD CONSTRAINT pf_universe_coins_pkey PRIMARY KEY (universe_id, coin_symbol);
+ALTER TABLE public.pf_universe_instruments      ADD CONSTRAINT pf_universe_instruments_pkey PRIMARY KEY (universe_id, instrument_symbol);
 ALTER TABLE public.pf_universe_filters    ADD CONSTRAINT pf_universe_filters_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_universes           ADD CONSTRAINT pf_universes_pkey PRIMARY KEY (id);
 ALTER TABLE public.pf_universes           ADD CONSTRAINT pf_universes_slug_key UNIQUE (slug);
@@ -381,8 +381,8 @@ ALTER TABLE public.pf_payment_methods     ADD CONSTRAINT pf_payment_methods_owne
 ALTER TABLE public.pf_strategy_conditions ADD CONSTRAINT pf_strategy_conditions_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES pf_bots(id) ON DELETE CASCADE;
 ALTER TABLE public.pf_subscriptions       ADD CONSTRAINT pf_subscriptions_owner_fkey FOREIGN KEY (owner) REFERENCES pf_profiles(id) ON DELETE CASCADE;
 ALTER TABLE public.pf_subscriptions       ADD CONSTRAINT pf_subscriptions_plan_key_fkey FOREIGN KEY (plan_key) REFERENCES pf_plans(key);
-ALTER TABLE public.pf_universe_coins      ADD CONSTRAINT pf_universe_coins_universe_id_fkey FOREIGN KEY (universe_id) REFERENCES pf_universes(id) ON DELETE CASCADE;
-ALTER TABLE public.pf_universe_coins      ADD CONSTRAINT pf_universe_coins_coin_symbol_fkey FOREIGN KEY (coin_symbol) REFERENCES pf_coins(symbol) ON DELETE CASCADE;
+ALTER TABLE public.pf_universe_instruments      ADD CONSTRAINT pf_universe_instruments_universe_id_fkey FOREIGN KEY (universe_id) REFERENCES pf_universes(id) ON DELETE CASCADE;
+ALTER TABLE public.pf_universe_instruments      ADD CONSTRAINT pf_universe_instruments_instrument_symbol_fkey FOREIGN KEY (instrument_symbol) REFERENCES pf_instruments(symbol) ON DELETE CASCADE;
 ALTER TABLE public.pf_universe_filters    ADD CONSTRAINT pf_universe_filters_universe_id_fkey FOREIGN KEY (universe_id) REFERENCES pf_universes(id) ON DELETE CASCADE;
 
 -- ---- row level security ----
@@ -396,7 +396,7 @@ ALTER TABLE public.pf_bot_defaults        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_bot_versions        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_bots                ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_checks              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pf_coins               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pf_instruments               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_conditions          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_events              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_fleets              ENABLE ROW LEVEL SECURITY;
@@ -408,6 +408,6 @@ ALTER TABLE public.pf_profiles            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_strategy_conditions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_strategy_families   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_subscriptions       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pf_universe_coins      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pf_universe_instruments      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_universe_filters    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_universes           ENABLE ROW LEVEL SECURITY;
