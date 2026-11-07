@@ -15,6 +15,14 @@ An operand is one of:
     with op in add/sub/mul/div (symbols +,-,*,/ accepted). This lets a condition
     compare a spread or ratio (close - SMA, (high-low)/close, RSI*2) without a
     dedicated indicator. Division by zero yields None (the condition is False).
+  - a feed operand reading an externally-supplied social/news series:
+    {"feed": "social"|"news", "field": "score"|"confidence", "offset": 0}
+    The series is NOT a candle column — it is scored off-engine and aligned to
+    the base tape causally (most recent event CLOSED at or before the base bar's
+    close), supplied in `aux` under the sentinel key (FEED_KEY, kind) by
+    build_feed_aux. A precomputed freshness mask enforces the spec's staleness
+    gate: if the aligned event is older than max_signal_age the operand yields
+    None (the condition is False — a stale trigger never fires a trade).
 
 A condition compares two operands:
     {"left": <operand>, "op": "ge", "right": <operand>}
@@ -25,6 +33,12 @@ Used by both backtest and live. `cache` memoizes computed indicator series
 across bars and across conditions within one evaluation pass.
 """
 from .indicators import REGISTRY
+
+# Sentinel first element of an aux key that carries a feed series rather than a
+# cross-series candle tape. Cross-series keys are (symbol, tf) where symbol is a
+# real ticker string or None and tf a timeframe or None, so a key beginning with
+# this NUL-prefixed token can never collide with one the fetch layer produces.
+FEED_KEY = "\x00feed"
 
 # comparison operator name + symbol aliases -> canonical name
 _OPS = {"lt": "lt", "<": "lt", "gt": "gt", ">": "gt",
@@ -64,6 +78,19 @@ def _val(candles, operand, i, cache, aux=None):
         if j < 0 or j >= len(s):
             return None
         return s[j]
+    if "feed" in operand:                        # social/news feed operand
+        entry = (aux or {}).get((FEED_KEY, operand["feed"]))
+        if entry is None:                        # series not supplied (e.g. live)
+            return None
+        if i < 0 or i >= len(entry["fresh"]):
+            return None
+        if not entry["fresh"][i]:                # staleness gate: stale -> no fire
+            return None
+        j = entry["align"][i] + operand.get("offset", 0)
+        rows = entry["rows"]
+        if j < 0 or j >= len(rows):
+            return None
+        return rows[j].get(operand.get("field", "score"))
     if "op" in operand:                          # arithmetic operand
         op = _ARITH[operand["op"]]
         k = i + operand.get("offset", 0)

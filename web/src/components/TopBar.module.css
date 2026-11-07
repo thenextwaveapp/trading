@@ -1,91 +1,371 @@
+/* floating glass bar — same container recipe as the landing TopNav, so the
+   marketing and app bars are true siblings. Detached from the edges, rounded,
+   frosted; width tracks the content column (.main: 1140px). Always wears the
+   landing nav's "scrolled" dense glass since app content slides under it. */
 .bar {
   position: sticky;
-  top: 0;
+  top: 14px;
   z-index: 40;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 16px;
-  height: 60px;
-  padding: 0 var(--gutter);
-  border-bottom: 1px solid var(--line);
-  background: rgba(8, 10, 13, 0.82);
-  backdrop-filter: saturate(140%) blur(12px);
-  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  margin: 14px auto 0;
+  width: min(100% - 28px, 1140px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(14, 18, 25, 0.85), rgba(10, 13, 18, 0.8));
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 30px rgba(0, 0, 0, 0.35);
 }
-.brand {
+.inner {
+  position: relative;
+  height: 54px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  justify-self: start;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: -0.04em;
-  color: var(--fg);
+  gap: 12px;
+  padding: 0 12px;
+}
+/* centered brand mark — pure identity, click goes home. Floats above the
+   glass: a soft drop for lift, a whisper of the fold-blue as aura */
+.brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  border: none;
+  background: none;
   cursor: pointer;
+}
+.brand svg {
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 12px rgba(94, 143, 216, 0.28));
+  transition: filter 0.25s ease;
+}
+.brand:hover svg {
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 16px rgba(94, 143, 216, 0.5));
+}
+/* the plane idles on turbulence while hovered: discrete pose hops */
+.brand:hover > svg,
+.brand:focus-visible > svg {
+  animation: planeBob 1.4s steps(1, end) infinite;
+}
+@keyframes planeBob {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  18% { transform: translate(1px, -2px) rotate(-5deg); }
+  36% { transform: translate(2px, 1px) rotate(3deg); }
+  58% { transform: translate(1px, -1px) rotate(-2deg); }
+  80% { transform: translate(2px, -2px) rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brandLbl { transition: none; }
+  .brand:hover > svg, .brand:focus-visible > svg { animation: none; }
+  .brand:hover .ch, .brand:focus-visible .ch { animation-delay: 0s; }
+}
+@media (max-width: 760px) {
+  .brand { display: none; }
+}
+/* Fleet is the command center — the one dressed control in the bar. Gunmetal
+   glass: deep slate from the theme's border grays (#262c36 family), which keep
+   a cool blue undertone. Reads as machined metal rather than frost. Anchors
+   the left edge where a logo would sit. */
+.fleet {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  margin-right: 6px;
+  /* concentric with the bar: 36px tall in the 54px shell = 9px inset, 18 − 9 = 9 */
+  border-radius: 9px;
+  /* the Build wizard's market-glyph frosted glass, sized as a pill */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -12px 22px -16px rgba(0, 0, 0, 0.5),
+    0 8px 20px -14px rgba(0, 0, 0, 0.6);
+  color: var(--fg-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+/* the readout: collapsed to nothing at rest, slides open on hover/on-station */
+.fleetStatus {
+  display: inline-block;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-left: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  transition: max-width 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease,
+    margin-left 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.fleet:hover .fleetStatus,
+.fleetActive .fleetStatus {
+  max-width: 130px;
+  opacity: 1;
+  margin-left: 9px;
+}
+.fleetStatusOn {
+  color: var(--up);
+}
+.fleet svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+/* live telltale, two states: a breathing light-blue dot while watching; a
+   fast green travelling sine trace while a bot is in a trade. */
+.fleetDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--trade);
+  flex: none;
+  animation: fleetWatch 2.8s ease-in-out infinite;
+}
+@keyframes fleetWatch {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.fleetWave {
+  width: 26px;
+  height: 14px;
+  flex: none;
+  overflow: hidden;
+  color: var(--trade);
+}
+.fleetWave g {
+  animation: fleetWave 2.8s linear infinite;
+}
+.fleetWaveOn {
+  color: var(--up);
+}
+.fleetWaveOn g {
+  animation-duration: 0.7s;
+}
+@keyframes fleetWave {
+  to { transform: translateX(-12px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fleetWave g { animation: none; }
+  .hoverLbl { transition: none; }
+}
+.fleet:hover {
+  color: var(--fg);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+}
+/* on-station: the metal brightens a step — no accent, just more light */
+.fleetActive {
+  color: var(--fg);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, rgba(56, 66, 80, 0.64), rgba(24, 29, 37, 0.76));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .nav {
   display: flex;
   align-items: center;
   gap: 4px;
-  justify-self: center;
 }
 .link {
-  padding: 7px 13px;
-  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 9px;
   border: none;
   background: none;
   color: var(--muted);
   font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.link:hover { color: var(--fg-2); }
-.active { color: var(--fg); }
+/* glyphs whisper one step under their labels; they inherit color on hover/active */
+.link svg {
+  opacity: 0.8;
+  flex: none;
+}
+/* badged icon nav — glyph only; the name slides out on hover (not on active).
+   Labels differ in width, so the reveal animates the label's REAL width via a
+   0fr→1fr grid track, on the segmented control's timing for one shared feel. */
+.iconLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 9.5px; /* keeps the resting pill the old 40px: 9.5 + 21 + 9.5 */
+  border-radius: 9px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.iconLink svg {
+  width: 21px;
+  height: 21px;
+  flex: none;
+}
+.hoverLbl {
+  display: grid;
+  grid-template-columns: 0fr;
+  margin-left: 0;
+  opacity: 0;
+  transition:
+    grid-template-columns 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    margin-left 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.34s ease;
+}
+.hoverLbl > span {
+  overflow: hidden;
+  min-width: 0;
+}
+.iconLink:hover .hoverLbl,
+.iconLink:focus-visible .hoverLbl {
+  grid-template-columns: 1fr;
+  margin-left: 7px;
+  opacity: 1;
+}
+/* mirrored reveal for the right cluster: label before the icon, gap on its
+   right — so the icon ends up to the right of the word. */
+.hoverLblRight {
+  transition:
+    grid-template-columns 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    margin-right 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.34s ease;
+}
+.iconLink:hover .hoverLblRight,
+.iconLink:focus-visible .hoverLblRight {
+  margin-left: 0;
+  margin-right: 7px;
+}
+.iconLink:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+}
+.link:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+}
+.active {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.07);
+}
 .right {
   display: flex;
   align-items: center;
   gap: 10px;
-  justify-self: end;
+  margin-left: auto;
 }
-.search {
+/* search bar: an inset glass field that opens the ⌘K palette */
+.searchBar {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 34px;
-  padding: 0 10px;
-  min-width: 190px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: #0d1117;
-  color: var(--muted);
+  width: 200px;
+  padding: 0 7px 0 11px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 9, 12, 0.42);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  color: var(--muted-3);
   font: inherit;
-  font-size: 13px;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
-.search:hover { border-color: var(--border-hover); color: var(--fg-2); }
+.searchBar:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--muted);
+}
+.searchPh {
+  flex: 1;
+  text-align: left;
+  font-size: 13px;
+}
 .kbd {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--muted-2);
-  border: 1px solid var(--line-2);
-  border-radius: 4px;
-  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted-3);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+  padding: 3px 6px;
 }
-.gear {
+@media (max-width: 1020px) {
+  /* collapse back to an icon where the bar won't fit */
+  .searchBar { width: 38px; justify-content: center; padding: 0; }
+  .searchPh, .kbd { display: none; }
+}
+.searchBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 38px;
+  border-radius: 9px;
   border: none;
   background: none;
   color: var(--muted);
   cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.gear:hover { color: var(--fg); }
+.searchBtn:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+}
+.avatarWrap { position: relative; display: inline-flex; }
 .avatar { display: inline-flex; cursor: pointer; line-height: 0; }
+.menu {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  min-width: 170px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(13, 16, 22, 0.97);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 50px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--fg-2);
+  padding: 9px 11px;
+  border-radius: 9px;
+}
+.menuItem svg {
+  opacity: 0.75;
+  flex: none;
+}
+.menuItem:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+}
+.menuSep {
+  height: 1px;
+  margin: 5px 7px;
+  background: var(--line);
+}
 .menuBtn {
   display: none;
   align-items: center;
@@ -96,29 +376,29 @@
   border: none;
   background: transparent;
   color: var(--fg-2);
-  justify-self: start;
 }
 .sheet { display: none; }
 
 @media (max-width: 860px) {
-  .bar { grid-template-columns: auto 1fr auto; }
   .nav { display: none; }
   .menuBtn { display: inline-flex; }
-  .brand { justify-self: center; }
-  .search { min-width: 0; padding: 0 9px; }
-  .searchText, .kbd { display: none; }
+  /* the sheet hangs off the floating bar as its own glass card, same family
+     as the avatar menu */
   .sheet {
     position: absolute;
-    top: 60px;
+    top: calc(100% + 10px);
     left: 0;
     right: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
     padding: 8px;
-    border-bottom: 1px solid var(--line);
-    background: rgba(8, 10, 13, 0.97);
-    backdrop-filter: saturate(140%) blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(13, 16, 22, 0.97);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 50px rgba(0, 0, 0, 0.5);
   }
-  .sheet .link { text-align: left; padding: 12px 14px; font-size: 15px; }
+  .sheet .link { justify-content: flex-start; gap: 10px; padding: 12px 14px; font-size: 15px; }
 }

@@ -1,49 +1,45 @@
+/* the feed page runs 10 of the shell's 12 columns, centered — narrower than
+   the nav bar on purpose. Stream flexes, rail is fixed, no dead middle. */
 .wrap {
-  max-width: 1140px;
+  width: calc(100% / 12 * 10);
   margin: 0 auto;
-  padding: 26px var(--gutter) 72px;
+  padding: 20px 0 72px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 312px;
   gap: 30px;
   align-items: start;
 }
 @media (max-width: 960px) {
-  .wrap { grid-template-columns: 1fr; }
+  .wrap { width: 100%; grid-template-columns: 1fr; }
   .rail { display: none; }
 }
 
-/* tabs */
-.tabs {
+/* feed filter: centered over the list. The selected pill expands to show its
+   label; centering splits that growth evenly left and right, so no edge ever
+   hits a wall and the shift on either side is half as big. */
+.tabsRow {
   display: flex;
-  gap: 4px;
-  padding: 4px;
+  justify-content: center;
   margin-bottom: 18px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  background: var(--card-bottom);
-  width: fit-content;
 }
-.tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 16px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  cursor: pointer;
-}
-.tab.on { background: #171c24; color: var(--fg); }
 
-/* activity list — compact market-style lines (see FeedRow.module.css) */
+/* empty state: ghost rows hold the list's space so switching tabs doesn't
+   reflow the page; the message floats centered over them */
+.empty { position: relative; }
+.emptyMsg {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* activity — a single-column stream of glass trade tickets */
 .list {
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  background: var(--card-bottom);
-  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* right rail */

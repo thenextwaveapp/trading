@@ -1,0 +1,52 @@
+/* The page-level filter search: a line, not a box. Sits on the filter row next
+   to the Segmented controls; underline brightens on focus. */
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  min-width: 180px;
+  padding: 0 2px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.field:focus-within {
+  border-bottom-color: var(--fg);
+  color: var(--fg);
+}
+
+.icon {
+  flex: none;
+  opacity: 0.85;
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  padding: 0;
+}
+.input::placeholder {
+  color: var(--muted);
+}
+
+.clear {
+  flex: none;
+  display: inline-flex;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  line-height: 0;
+}
+.clear:hover {
+  color: var(--fg);
+}

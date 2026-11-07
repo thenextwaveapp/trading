@@ -13,6 +13,32 @@
 .hero {
   position: relative;
   overflow: hidden;
+  /* fill the viewport, but never stretch into a dead zone on tall screens */
+  min-height: min(100svh, 940px);
+  display: flex;
+  flex-direction: column;
+}
+/* blueprint grid, faded out radially so it reads as depth, not wallpaper */
+.gridBg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(139, 180, 232, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 180, 232, 0.055) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 85% 75% at 62% 18%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 62% 18%, #000 0%, transparent 72%);
+}
+/* film grain over the glows — kills banding, adds texture */
+.noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='0.55'/></svg>");
+  background-size: 160px 160px;
 }
 .heroGlow {
   position: absolute;
@@ -38,37 +64,101 @@
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   align-items: center;
-  gap: 56px;
-  padding: 104px 0 80px;
+  gap: 64px;
+  /* vertical only — horizontal gutter comes from .inner (a shorthand here
+     would zero it and pin everything to the screen edge on narrow viewports) */
+  padding-top: 120px;
+  padding-bottom: 56px;
+  width: 100%;
+  margin: auto; /* centers the copy/chart in the space above the tape */
 }
-.eyebrow {
+
+/* announcement pill with a slow conic beam tracing its border */
+@property --lp-beam {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.pill {
+  display: inline-flex;
+  padding: 1px;
+  border-radius: var(--radius-pill);
+  background:
+    conic-gradient(
+      from var(--lp-beam),
+      transparent 0%,
+      transparent 72%,
+      rgba(139, 180, 232, 0.9) 86%,
+      transparent 100%
+    ),
+    rgba(139, 180, 232, 0.16);
+  animation: beamSpin 5s linear infinite;
+}
+@keyframes beamSpin {
+  to { --lp-beam: 360deg; }
+}
+.pillInner {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--muted);
+  padding: 7px 14px;
+  border-radius: inherit;
+  background: #0a0e13;
+  color: var(--fg-2);
   font-size: 13px;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
+
 .h1 {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(40px, 5.6vw, 60px);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
-  margin-top: 20px;
+  font-size: clamp(44px, 6.4vw, 78px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  margin-top: 30px;
 }
+/* word-by-word blur-up (Linear-style hero reveal). The vertical padding keeps
+   descenders inside each word's paint box — clip-text cuts them otherwise. */
+.w {
+  display: inline-block;
+  opacity: 0;
+  white-space: pre;
+  padding: 0.04em 0 0.1em;
+  margin-bottom: -0.1em;
+  animation: wordIn 0.75s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+@keyframes wordIn {
+  from { opacity: 0; filter: blur(8px); transform: translateY(16px); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+.wGrad {
+  background: linear-gradient(180deg, #ffffff 12%, #8bb4e8 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
 .sub {
   color: var(--muted);
-  font-size: 17px;
-  line-height: 1.6;
-  margin-top: 22px;
-  max-width: 500px;
+  font-size: 18px;
+  line-height: 1.65;
+  margin-top: 30px;
+  max-width: 520px;
 }
 .ctaRow {
   display: flex;
   gap: 12px;
-  margin-top: 32px;
+  margin-top: 42px;
   flex-wrap: wrap;
+}
+.ctaNote {
+  margin-top: 14px;
+  color: var(--muted-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 .btnPri,
 .btnGhost {
@@ -83,6 +173,8 @@
 }
 /* white "keycap" primary — the brand's tactile press button */
 .btnPri {
+  position: relative;
+  overflow: hidden;
   background: #e9ecf1;
   color: #07090c;
   border: none;
@@ -90,13 +182,32 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 0 rgba(7, 9, 12, 0.1),
     0 3px 0 #7d838d, 0 6px 14px rgba(0, 0, 0, 0.45);
 }
+/* spring release — overshoots ~4% and settles (pure CSS linear() curve);
+   browsers without linear() keep the plain transition above */
+.btnPri {
+  transition: transform 350ms linear(0, 0.2831, 0.6655, 0.8966, 0.9918, 1.0156, 1.0135, 1.007, 1.0025, 1.0004, 1, 1),
+    filter 0.12s ease, background 0.15s ease;
+}
 .btnPri:hover {
   background: #f6f7f9;
 }
 .btnPri:active {
+  transition-duration: 0.06s, 0.12s, 0.15s;
   transform: translateY(3px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(7, 9, 12, 0.1),
     0 0 0 #7d838d, 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+/* sheen that sweeps across the keycap on hover */
+.btnSheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(-130%) skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  transition: transform 0.55s ease;
+}
+.btnPri:hover .btnSheen {
+  transform: translateX(130%) skewX(-18deg);
 }
 .btnGhost {
   background: transparent;
@@ -108,12 +219,52 @@
   border-color: var(--border-hover);
 }
 
+/* hero entrance choreography (words animate themselves) */
+.heroCopy .sub,
+.heroCopy .ctaRow,
+.heroCopy .ctaNote {
+  opacity: 0;
+  animation: heroUp 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.heroCopy .pill {
+  opacity: 0;
+  animation: heroUp 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0.02s forwards,
+    beamSpin 5s linear infinite;
+}
+.heroCopy .sub { animation-delay: 0.55s; }
+.heroCopy .ctaRow { animation-delay: 0.68s; }
+
+/* progressive blur at the hero's foot — stacked backdrop-filters, each masked
+   a little lower, melt the hero into the tape (per-layer blur/mask inline) */
+.blurStack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 150px;
+  pointer-events: none;
+  z-index: 1;
+}
+.blurLayer {
+  position: absolute;
+  inset: 0;
+}
+.heroInner > .heroArt {
+  animation: heroUp 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) 0.3s both;
+}
+@keyframes heroUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* hero equity-chart art */
 .heroArt {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(16, 21, 28, 0.66), rgba(10, 13, 18, 0.66));
+  background:
+    radial-gradient(42% 10% at 50% 0%, rgba(255, 255, 255, 0.07), transparent),
+    linear-gradient(180deg, rgba(16, 21, 28, 0.66), rgba(10, 13, 18, 0.66));
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   padding: 16px;
@@ -128,16 +279,154 @@
   color: var(--muted);
   font-size: 12px;
 }
-.heroArtDot {
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 6px 2px;
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+}
+.legendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.legendDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  display: inline-block;
+  flex: none;
+}
+/* floating fill chips overhanging the chart card — always above it */
+.floatChip {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 19, 26, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 14px 34px rgba(0, 0, 0, 0.5);
+  font-size: 12.5px;
+  color: var(--fg-2);
+  white-space: nowrap;
+  animation: floatY 5.5s ease-in-out infinite;
+}
+.floatChipTp {
+  top: -16px;
+  right: 22px;
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+/* ---------- live tape: glass cards gliding across the hero's foot ---------- */
+.tape {
+  position: relative;
+  z-index: 1; /* above the blur band */
+  width: 100%;
+  overflow: hidden;
+  padding: 10px 0 34px;
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  opacity: 0;
+  animation: heroUp 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) 0.55s forwards;
+}
+.tapeTrack {
+  display: flex;
+  width: max-content;
+  will-change: transform; /* rAF drives the transform — eases to a crawl on hover */
+}
+.tapeHalf {
+  display: flex;
+  flex: none;
+}
+/* mini trading card: header → hero P&L → ticker → full-bleed sparkline.
+   Each card is tinted by its bot's colour (--bc, set inline). */
+.tapeItem {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  flex: none;
+  margin-right: 18px;
+  padding: 14px 16px 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(95% 70% at 15% 0%, color-mix(in srgb, var(--bc, #3a81d7) 13%, transparent), transparent 62%),
+    linear-gradient(180deg, rgba(16, 21, 28, 0.72), rgba(10, 13, 18, 0.55));
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+}
+.tapeTop {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.tapeName {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tapeStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  color: var(--muted-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.tapeStatusLive {
+  color: var(--up);
+}
+.tapeVal {
+  font-size: 21px;
+  margin-top: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.tapeSub {
+  color: var(--muted-2);
+  font-size: 12px;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+.tapeSpark {
+  display: block;
+  width: calc(100% + 32px);
+  height: 34px;
+  margin: 10px -16px 0;
 }
 
 /* ---------- section rhythm ---------- */
 .section {
-  padding: 80px 0;
+  /* vertical only — never clobber .inner's horizontal gutter */
+  padding-top: 120px;
+  padding-bottom: 120px;
 }
 .band {
   background: linear-gradient(180deg, #080b0f, var(--sidebar-top));
@@ -157,6 +446,10 @@
   font-size: clamp(26px, 3.2vw, 34px);
   letter-spacing: -0.025em;
   margin-top: 10px;
+  background: linear-gradient(180deg, #ffffff 30%, #c6cedc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .lede {
   color: var(--muted);
@@ -166,7 +459,7 @@
   max-width: 540px;
 }
 .sectionHead {
-  margin-bottom: 36px;
+  margin-bottom: 48px;
 }
 
 /* ---------- stat strip ---------- */
@@ -184,10 +477,11 @@
 }
 .statNum {
   font-family: var(--font-display);
-  font-size: 44px;
+  font-size: 34px;
   font-weight: 650;
   letter-spacing: -0.03em;
   line-height: 1;
+  font-feature-settings: "tnum" 1;
   background: linear-gradient(180deg, #fff, #9fb6d6);
   -webkit-background-clip: text;
   background-clip: text;
@@ -207,13 +501,13 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 4px;
+  padding: 16px 8px 16px 4px;
   border-bottom: 1px solid var(--line);
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.15s ease;
 }
 .boardRow:hover {
-  background: rgba(255, 255, 255, 0.015);
+  background: linear-gradient(90deg, rgba(139, 180, 232, 0.04), transparent 70%);
 }
 .rank {
   width: 26px;
@@ -222,8 +516,17 @@
   font-size: 13px;
   text-align: right;
 }
+.rankTop {
+  color: var(--accent-soft);
+}
 .botIcon {
   flex-shrink: 0;
+}
+.boardName {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .botName {
   font-weight: 500;
@@ -234,49 +537,121 @@
   font-size: 13px;
   margin-left: 2px;
 }
+/* return magnitude bar — the list doubles as a chart */
+.barWrap {
+  flex: 1 1 auto;
+  height: 3px;
+  margin: 0 10px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.barUp {
+  background: linear-gradient(90deg, rgba(61, 220, 151, 0.15), rgba(61, 220, 151, 0.75));
+}
+.barDown {
+  background: linear-gradient(90deg, rgba(255, 92, 108, 0.15), rgba(255, 92, 108, 0.7));
+}
 .ret {
-  margin-left: auto;
   font-family: var(--font-mono);
   font-size: 15px;
   white-space: nowrap;
 }
-.bt {
+.rowArrow {
   color: var(--muted-3);
-  font-size: 11px;
-  margin-left: 3px;
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.boardRow:hover .rowArrow {
+  opacity: 1;
+  transform: none;
 }
 
-/* ---------- steps ---------- */
+/* ---------- steps: top-lit blueprint cards ---------- */
 .steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0;
+  gap: 14px;
 }
 .step {
-  padding: 0 28px;
-  border-left: 1px solid var(--line-2);
+  position: relative;
+  padding: 22px 22px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(44% 16% at 50% 0%, rgba(255, 255, 255, 0.06), transparent),
+    linear-gradient(180deg, rgba(16, 21, 28, 0.75), rgba(10, 13, 18, 0.55));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.2s ease, transform 0.2s ease;
 }
-.step:first-child {
-  padding-left: 0;
-  border-left: none;
+.step:hover {
+  transform: translateY(-3px);
+}
+.stepArt {
+  margin-bottom: 16px;
+}
+.stepSvg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pingOut 2.6s ease-out infinite;
+}
+@keyframes pingOut {
+  0% { transform: scale(0.35); opacity: 0.9; }
+  70%, 100% { transform: scale(1.1); opacity: 0; }
 }
 .stepNum {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--accent-soft);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 .stepTitle {
   font-weight: 600;
   font-size: 18px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 .stepBody {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.55;
   margin-top: 8px;
+}
+
+/* cursor-tracked edge highlight — the border lights up under the pointer
+   (radial mask over a border-only overlay; JS writes --mx/--my) */
+.heroArt::after,
+.panel::after,
+.step::after,
+.tapeItem::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(139, 180, 232, 0.65);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  mask-image: radial-gradient(170px 170px at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(170px 170px at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 72%);
+}
+.heroArt:hover::after,
+.panel:hover::after,
+.step:hover::after,
+.tapeItem:hover::after {
+  opacity: 1;
 }
 
 /* ---------- feature (command center) ---------- */
@@ -287,28 +662,17 @@
   gap: 56px;
 }
 .panel {
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(16, 21, 28, 0.6), rgba(10, 13, 18, 0.6));
+  background:
+    radial-gradient(42% 12% at 50% 0%, rgba(255, 255, 255, 0.06), transparent),
+    linear-gradient(180deg, rgba(16, 21, 28, 0.6), rgba(10, 13, 18, 0.6));
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   padding: 20px 22px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 60px rgba(0, 0, 0, 0.45),
     0 14px 30px -14px rgba(0, 0, 0, 0.7);
-}
-.panelStats {
-  display: flex;
-  gap: 30px;
-  flex-wrap: wrap;
-  padding-bottom: 16px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--line);
-}
-.panelStatNum {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
 }
 /* live-fleet spotlight card */
 .liveHead {
@@ -362,17 +726,6 @@
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.posRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 13px;
-}
-.posRow:last-child {
-  border-bottom: none;
-}
 
 /* ---------- builders ---------- */
 .builders {
@@ -385,6 +738,14 @@
   align-items: center;
   gap: 11px;
   cursor: pointer;
+  padding: 8px 14px 8px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.builder:hover {
+  border-color: var(--line-2);
+  background: rgba(255, 255, 255, 0.02);
 }
 .avatar {
   width: 46px;
@@ -410,25 +771,38 @@
   position: relative;
   overflow: hidden;
   text-align: center;
-  padding: 100px 0;
+  padding: 140px 0;
+  min-height: 72svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   border-top: 1px solid var(--line);
 }
 .ctaGlow {
   position: absolute;
   left: 50%;
-  top: 10%;
-  width: 760px;
-  height: 500px;
+  top: 8%;
+  width: 860px;
+  height: 560px;
   transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgba(58, 129, 215, 0.18), transparent 70%);
+  background:
+    radial-gradient(closest-side, rgba(58, 129, 215, 0.2), transparent 70%),
+    radial-gradient(60% 50% at 70% 60%, rgba(129, 78, 198, 0.1), transparent 70%);
   pointer-events: none;
+  animation: floatGlow 15s ease-in-out infinite alternate;
 }
 .ctaTitle {
   position: relative;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(30px, 4vw, 42px);
-  letter-spacing: -0.03em;
+  font-size: clamp(34px, 5vw, 58px);
+  letter-spacing: -0.035em;
+  line-height: 1;
+  background: linear-gradient(180deg, #ffffff 25%, #9fb6d6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .ctaSub {
   position: relative;
@@ -436,13 +810,25 @@
   font-size: 16px;
   line-height: 1.6;
   margin: 14px auto 28px;
-  max-width: 420px;
+  max-width: 440px;
 }
 
 /* ---------- footer ---------- */
 .footer {
+  position: relative;
   border-top: 1px solid var(--line);
   background: linear-gradient(180deg, var(--sidebar-top), #070a0e);
+}
+/* top-glow seam over the footer border */
+.footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 620px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 180, 232, 0.5), transparent);
 }
 .footerInner {
   max-width: 1120px;
@@ -506,12 +892,80 @@
   font-size: 13px;
 }
 
+/* ---------- motion ---------- */
+/* scroll-reveal: hidden + softly blurred until in view, then rises into place */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  filter: blur(6px);
+  transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: opacity, transform, filter;
+}
+.revealed {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+}
+
+/* glows drift slowly for a living backdrop */
+.heroGlow { animation: floatGlow 15s ease-in-out infinite alternate; }
+.heroGlow2 { animation: floatGlow2 19s ease-in-out infinite alternate; }
+@keyframes floatGlow { to { transform: translate(-34px, 28px); } }
+@keyframes floatGlow2 { to { transform: translate(38px, -22px); } }
+
+/* equity curves draw themselves in (polylines carry pathLength="1"),
+   the area fill fades up after them, the endpoint halo breathes */
+.draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.areaIn {
+  opacity: 0;
+  animation: fadeIn 1.4s ease 0.9s forwards;
+}
+@keyframes fadeIn { to { opacity: 1; } }
+.endPulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: endPulse 2.4s ease-in-out infinite;
+}
+@keyframes endPulse {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.8); opacity: 0.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .heroGlow, .heroGlow2, .draw, .w, .pill,
+  .heroCopy .pill, .heroCopy .sub, .heroCopy .ctaRow,
+  .heroInner > .heroArt, .tape, .tapeTrack, .floatChip, .ping, .endPulse,
+  .areaIn, .btnSheen, .ctaGlow, .stickyBar, .ghost::after {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .btnSheen { display: none; }
+}
+
 /* ---------- responsive ---------- */
+@media (max-width: 1000px) {
+  .steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 @media (max-width: 900px) {
+  .hero { min-height: auto; }
   .heroInner {
     grid-template-columns: 1fr;
-    gap: 40px;
-    padding: 80px 0 56px;
+    gap: 48px;
+    padding-top: 80px;
+    padding-bottom: 64px;
   }
   .heroArt {
     order: 2;
@@ -520,17 +974,187 @@
     grid-template-columns: 1fr;
     gap: 32px;
   }
-  .steps {
-    grid-template-columns: 1fr 1fr;
-    gap: 32px 0;
+  .section {
+    padding-top: 60px;
+    padding-bottom: 60px;
   }
-  .step:nth-child(3) {
-    padding-left: 0;
-    border-left: none;
+}
+
+@media (max-width: 700px) {
+  .barWrap {
+    display: none;
+  }
+  .ret {
+    margin-left: auto;
+  }
+  .rowArrow {
+    display: none;
+  }
+}
+
+/* ---------- ghost loading: shimmer placeholders hold the layout ---------- */
+.ghost {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.ghost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  animation: ghostSweep 1.5s ease-in-out infinite;
+}
+@keyframes ghostSweep {
+  to { transform: translateX(100%); }
+}
+.ghostDot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex: none;
+}
+.ghostIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* ---------- mobile: one screen + one scroll ---------- */
+/* brand row standing in for the nav — scrolls away with the hero */
+.heroTop {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(16px + env(safe-area-inset-top)) var(--gutter) 0;
+}
+.heroBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.04em;
+  color: var(--fg);
+}
+.heroLogin {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.heroLogin:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* sticky CTA bar — pinned to the thumb zone (rendered on mobile only).
+   Solid gradient, no backdrop-filter: it sits over scrolling content. */
+.stickyBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 10px var(--gutter) calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(7, 9, 12, 0), rgba(7, 9, 12, 0.9) 34%, rgba(7, 9, 12, 0.97));
+  /* deliberately last on stage — the hero and tape land first, then the CTA
+     rises with a slight overshoot and settles, like it was placed there */
+  animation: ctaRise 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) 1.7s both;
+}
+.stickyBtn {
+  width: 100%;
+  height: 52px;
+}
+@keyframes ctaRise {
+  0% { opacity: 0; transform: translateY(28px); }
+  68% { opacity: 1; transform: translateY(-4px); }
+  100% { opacity: 1; transform: none; }
+}
+
+@media (max-width: 700px) {
+  /* real side gutters (overrides the global 14–18px, too tight for marketing)
+     — .inner, the footer, and the sticky bar all read this var */
+  .page {
+    --gutter: 22px;
+    padding-bottom: 108px;
+  }
+  /* cheap hero: no filtered glow, no blur anywhere — mobile GPUs choke on it */
+  .heroGlow {
+    filter: none;
+    animation: none;
+  }
+  /* the brand row owns the top — the copy sits centered in the freed space */
+  .heroInner {
+    padding-top: 44px;
+    padding-bottom: 0;
+    gap: 0;
+  }
+  .heroCopy {
+    text-align: center;
+  }
+  .h1 {
+    font-size: clamp(40px, 11.5vw, 54px);
+    margin-top: 22px;
+  }
+  .sub {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-top: 18px;
+    max-width: 34ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* words rise without the blur (animating filter is pricey on mobile) */
+  .w {
+    animation-name: wordInMobile;
+  }
+  .reveal {
+    filter: none;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .revealed {
+    transform: none;
+  }
+  /* the tape is the hero art on mobile: opaque cards, no backdrop-filter */
+  .tape {
+    padding: 26px 0 28px;
+  }
+  .tapeItem {
+    width: 204px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background:
+      radial-gradient(95% 70% at 15% 0%, color-mix(in srgb, var(--bc, #3a81d7) 13%, transparent), transparent 62%),
+      linear-gradient(180deg, rgba(16, 21, 28, 0.94), rgba(10, 13, 18, 0.92));
   }
   .section {
-    padding: 60px 0;
+    padding-top: 48px;
+    padding-bottom: 48px;
   }
+  .sectionHead {
+    margin-bottom: 28px;
+  }
+  /* hover doesn't exist here — give taps a touch-native response */
+  .boardRow:active {
+    background: rgba(139, 180, 232, 0.07);
+  }
+}
+@keyframes wordInMobile {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
 }
 
 @media (max-width: 560px) {
@@ -544,10 +1168,6 @@
   }
   .steps {
     grid-template-columns: 1fr;
-  }
-  .step {
-    padding-left: 0;
-    border-left: none;
   }
   .footerInner {
     grid-template-columns: 1fr 1fr;

@@ -35,6 +35,7 @@ def build():
         "id": m.id,
         "label": m.label,
         "provides": sorted(m.provides),
+        "feeds": sorted(m.feeds),
         "series_kind": m.series_kind,
         "asset_class": m.asset_class,
     } for m in MARKETS.values()]

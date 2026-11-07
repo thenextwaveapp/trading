@@ -109,6 +109,27 @@ export interface DbProfile {
   onboarding_step: number;
   onboarding_checklist: Record<string, unknown>;
   onboarded_at: string | null;
+  stripe_customer_id: string | null;
+}
+
+// Mirror of the user's Stripe subscription (written only by the stripe-webhook
+// edge function). The app gates on `status`; trialing + active mean full access.
+export type SubStatus =
+  | "trialing" | "active" | "past_due" | "canceled"
+  | "incomplete" | "incomplete_expired" | "unpaid" | "paused";
+
+export interface DbSubscription {
+  id: string;
+  owner: string;
+  plan_key: string;
+  status: SubStatus;
+  renewal_date: string | null;
+  created_at: string;
+  stripe_subscription_id: string | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  updated_at: string;
 }
 
 export interface DbFamily {

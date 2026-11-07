@@ -5,7 +5,7 @@ import NewsList from "../components/NewsList";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useMarketRow, useNews } from "../db/queries";
 import { pct } from "../lib/format";
-import { fmtPrice, fmtVol } from "./Market";
+import { agoLabel, fmtPrice, fmtVol, isStale } from "./Market";
 import p from "./pages.module.css";
 
 function fmtCount(n: number): string {
@@ -67,6 +67,7 @@ export default function MarketDetail() {
         <span className={p.crumbLink} onClick={() => nav("/market")}>← Market</span>
       </div>
 
+      <div className={p.shell}>
       <div className={p.top}>
         <div>
           <h1 className={p.title} style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -84,6 +85,13 @@ export default function MarketDetail() {
       </div>
 
       <div className={p.body}>
+        {isStale(row) && (
+          <div style={{ color: "#d29922", fontSize: 13, marginBottom: 16 }}>
+            These stats are {agoLabel(row).replace(" ago", " old")} (last scan{" "}
+            {new Date(row.updated_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}).
+            The chart below is live and may disagree.
+          </div>
+        )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "20px 40px", marginBottom: 24 }}>
           {stat("Price", fmtPrice(row.price))}
           {stat("24h", pct(row.change_pct, true), up ? "up" : "down")}
@@ -94,11 +102,13 @@ export default function MarketDetail() {
           {row.market_cap != null && stat("Market cap", fmtVol(row.market_cap))}
           {row.circ_supply != null && stat("Circulating", fmtCount(row.circ_supply) + " " + row.base)}
           {row.ath != null && stat("All-time high", fmtPrice(row.ath))}
+          {stat("Updated", agoLabel(row), isStale(row) ? "down" : "")}
         </div>
 
         <div className="card" style={{ padding: 18 }}>
           <CandleChart
             sym={row.symbol}
+            market={row.market}
             onPickTime={(t) =>
               focusOn(t, new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }))
             }
@@ -111,6 +121,7 @@ export default function MarketDetail() {
           </div>
           <NewsList rows={coinNews.rows} empty="No recent headlines." />
         </div>
+      </div>
       </div>
     </>
   );

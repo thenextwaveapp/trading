@@ -21,10 +21,15 @@ import DataTable, { type Column } from "../components/DataTable";
 import FleetChart from "../components/FleetChart";
 import Rolling from "../components/Rolling";
 import ManagePosition from "../components/ManagePosition";
+import NewTrade from "../components/NewTrade";
 import { BotLink, Coin } from "../components/cells";
 import { useMyBots } from "../db/queries";
 import { botFromRow } from "../lib/bot";
+import { useCurrentFleet } from "../fleets/CurrentFleetProvider";
+import FleetSwitcher from "../fleets/FleetSwitcher";
+import Segmented from "../components/Segmented";
 import s from "./FleetView.module.css";
+import p from "./pages.module.css";
 
 type Status = { txt: string; cls: "" | "trade" | "rest" };
 function statusOf(v: Bot, live: boolean): Status {
@@ -56,8 +61,10 @@ const TILE_SHADES = ["#3a81d7", "#6FA2E8", "#A9C8F2", "#5E8FD8", "#8BB4E8"];
 export default function FleetView() {
   const d = useData();
   const { user } = useAuth();
+  const { currentId } = useCurrentFleet();
   const { data: roster } = useMyBots(user?.id ?? null);
   const [manage, setManage] = useState<Position | null>(null);
+  const [newTrade, setNewTrade] = useState(false);
   const [closing, setClosing] = useState<Set<string>>(new Set());
   const myBotId = useMemo(
     () => new Map((roster ?? []).map((b) => [b.name, b.id])),
@@ -121,10 +128,14 @@ export default function FleetView() {
 
   // The page is the signed-in Builder's own fleet: their deployed bots, as
   // created in Build. The live engine feed is shared by every account, so only
-  // match it by name — never append bots the user doesn't own.
+  // match it by name — never append bots the user doesn't own. Scope to the
+  // selected fleet when one is active (fall back to all if none loaded yet).
   const deployed = useMemo(
-    () => (roster ?? []).filter((b) => b.stage === "deployed"),
-    [roster],
+    () =>
+      (roster ?? []).filter(
+        (b) => b.stage === "deployed" && (!currentId || b.fleet_id === currentId),
+      ),
+    [roster, currentId],
   );
   const v = useMemo(() => {
     const live = new Map(d.bots.map((x) => [x.name, x]));
@@ -177,8 +188,6 @@ export default function FleetView() {
         return { v: x, live, st: statusOf(x, live) };
       });
   }, [v, liveNames, cardOrder]);
-  const inTrade = bots.filter((b) => b.st.cls === "trade").length;
-  const paused = bots.filter((b) => b.st.cls === "rest").length;
   const shownBots = filtering ? bots.filter((b) => selected.has(b.v.name)) : bots;
 
   const reorderCard = (fromName: string, toName: string) => {
@@ -269,7 +278,8 @@ export default function FleetView() {
 
   return (
     <>
-      <div className={s.body}>
+      {/* the whole command center rides the shell — one grid, no exceptions */}
+      <div className={`${p.shell} ${s.body}`}>
         <section className={s.hero}>
           <div className={s.heroMain}>
             <div className="lbl" style={{ fontSize: 13 }}>Fleet total profit</div>
@@ -308,24 +318,34 @@ export default function FleetView() {
 
         <section className={s.section}>
           <div className={s.sectionHead}>
-            <h2 className={s.h2}>
-              The fleet <span className={s.count}>({N})</span>
+            <div className={s.headTitle}>
+              <FleetSwitcher variant="title" />
+              <span className={`num ${s.h2} ${s.count}`}>({N})</span>
               {filterChip}
-            </h2>
+            </div>
             <div className={s.right}>
-              <div className={s.counts}>
-                <span className={s.countItem}><span className={s.dot} style={{ background: "#3a81d7" }} />Watching · {N - inTrade - paused}</span>
-                <span className={s.countItem}><span className={s.dot} style={{ background: "#8BB4E8", animation: "pulse 1.4s infinite" }} />In a trade · {inTrade}</span>
-                <span className={s.countItem}><span className={s.dot} style={{ background: "#2A313C" }} />Paused · {paused}</span>
-              </div>
-              <div className={s.seg}>
-                <button className={`${s.vb} ${view === "cards" ? s.sel : ""}`} onClick={() => setViewP("cards")} title="Cards view" aria-label="Cards view"><CardsIcon /></button>
-                <button className={`${s.vb} ${view === "rows" ? s.sel : ""}`} onClick={() => setViewP("rows")} title="Rows view" aria-label="Rows view"><RowsIcon /></button>
-              </div>
+              {/* the fleet grows from here — straight into Compose */}
+              <button className={`${p.btn} ${p.pri}`} onClick={() => (window.location.hash = "#/build/compose")}>
+                Create new +
+              </button>
+              <Segmented
+                ariaLabel="View mode"
+                size="sm"
+                value={view}
+                onChange={setViewP}
+                options={[
+                  { value: "cards", label: <CardsIcon />, title: "Cards view" },
+                  { value: "rows", label: <RowsIcon />, title: "Rows view" },
+                ]}
+              />
             </div>
           </div>
 
-          {view === "rows" ? (
+          {N === 0 ? (
+            <div className={s.emptyFleet}>
+              No bots in this fleet yet — build one and deploy it here, or switch fleets above.
+            </div>
+          ) : view === "rows" ? (
             <div style={{ marginTop: 18 }}>
               <DataTable columns={botCols} rows={shownBots.map((b) => b.v)} />
             </div>
@@ -396,6 +416,11 @@ export default function FleetView() {
               <span className={`num ${fOpenUnreal >= 0 ? "up" : "down"}`} style={{ fontSize: 14, marginLeft: 4 }}>{usd(fOpenUnreal, true)}</span>
               {filterChip}
             </h2>
+            {user && (
+              <button className={s.newBtn} onClick={() => setNewTrade(true)} title="Enter a trade by hand">
+                + New trade
+              </button>
+            )}
           </div>
           <DataTable columns={openCols} rows={fOpen.filter((o) => !closing.has(o.bot + ":" + o.ticker))} />
         </section>
@@ -426,6 +451,9 @@ export default function FleetView() {
           onClose={() => setManage(null)}
           onClosed={() => setClosing((c) => new Set(c).add(manage.bot + ":" + manage.ticker))}
         />
+      )}
+      {newTrade && user && (
+        <NewTrade owner={user.id} onClose={() => setNewTrade(false)} />
       )}
     </>
   );

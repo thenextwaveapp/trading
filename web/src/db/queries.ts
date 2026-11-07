@@ -220,6 +220,30 @@ export const fetchBotVersions = (botId: string) =>
 
 export const fetchPlans = () => supabase.from("pf_plans").select("*").order("position");
 
+// The caller's own subscription row (owner-only RLS). maybeSingle() because a
+// user with no subscription yet simply has no row.
+export const fetchMySubscription = (owner: string) =>
+  supabase.from("pf_subscriptions").select("*").eq("owner", owner).maybeSingle();
+
+// Store the onboarding answers and stamp the account as onboarded, so the
+// first-run funnel never shows again (checked via pf_profiles.onboarded_at).
+export const finishOnboarding = (owner: string, checklist: Record<string, unknown>) =>
+  supabase
+    .from("pf_profiles")
+    .update({ onboarding_checklist: checklist, onboarded_at: new Date().toISOString() })
+    .eq("id", owner);
+
+// How many bots this owner currently has live on the fleet — the Free plan caps
+// this (head+count avoids pulling rows).
+export const countDeployedBots = async (owner: string): Promise<number> => {
+  const { count } = await supabase
+    .from("pf_bots")
+    .select("id", { count: "exact", head: true })
+    .eq("owner", owner)
+    .eq("stage", "deployed");
+  return count ?? 0;
+};
+
 // ---- typed convenience hooks ----
 
 export const useBots = () => useQuery<DbBot[]>(() => fetchBots(), [], "bots");
@@ -762,6 +786,17 @@ export const createFleet = (owner: string, name = "My Fleet") =>
     .select("*")
     .single();
 
+/** Edit a fleet's settings. RLS (pf_fleets_rw) scopes it to owner = auth.uid(). */
+export const updateFleet = (
+  id: string,
+  patch: Partial<Omit<DbFleet, "id" | "owner">>,
+) => supabase.from("pf_fleets").update(patch).eq("id", id).select("*").single();
+
+/** Delete a fleet. Its bots keep existing (pf_bots.fleet_id ON DELETE SET NULL),
+ *  so they fall out of every fleet view until reassigned. */
+export const deleteFleet = (id: string) =>
+  supabase.from("pf_fleets").delete().eq("id", id);
+
 /** Enqueue a backtest for a bot: the engine worker drains pending rows,
  *  runs the strategy over history, and writes results + Trials back. */
 export const createBacktest = (input: { bot_id: string; universe_id: string | null }) =>
@@ -829,6 +864,63 @@ export const queuePositionAction = (input: {
   supabase.from("pf_position_actions").insert({
     bot_id: input.bot_id, ticker: input.ticker, action: input.action,
     value: input.value ?? null,
+  });
+
+/** The name of each user's "manual" account bot — the owner of hand-entered
+ *  trades. One per owner (pf_bots has a unique (owner, name) key). */
+export const MANUAL_BOT_NAME = "Manual";
+
+/** Find-or-create the signed-in user's manual account. It carries no strategy
+ *  (spec = null), so the trading engine's load_fleet skips it; but it is
+ *  deployed + non-private, so the fleet server lists it and marks its positions
+ *  to live price. fast_drain opens/closes its trades by bot_id. RLS (pf_bots_rw)
+ *  requires owner = auth.uid(), so a live session is required. */
+export const ensureManualBot = async (owner: string): Promise<string> => {
+  const found = await supabase
+    .from("pf_bots")
+    .select("id")
+    .eq("owner", owner)
+    .eq("name", MANUAL_BOT_NAME)
+    .limit(1)
+    .maybeSingle();
+  if (found.data?.id) return found.data.id as string;
+  const created = await supabase
+    .from("pf_bots")
+    .insert({
+      name: MANUAL_BOT_NAME,
+      owner,
+      params: { manual: true },
+      spec: null,
+      stage: "deployed",
+      visibility: "results",
+      market: "crypto",
+    })
+    .select("id")
+    .single();
+  if (created.error) throw created.error;
+  return created.data.id as string;
+};
+
+/** Queue a hand-entered trade on the user's manual account. The engine prices it
+ *  live and opens it within seconds (fast_drain). side: 1 long, -1 short. */
+export const queueOpenTrade = (input: {
+  bot_id: string;
+  ticker: string;
+  symbol: string; // binance symbol, e.g. BTCUSDT
+  side: 1 | -1;
+  notional: number;
+  stop?: number | null;
+  tp?: number | null;
+}) =>
+  supabase.from("pf_position_actions").insert({
+    bot_id: input.bot_id,
+    ticker: input.ticker,
+    symbol: input.symbol,
+    action: "open",
+    side: input.side,
+    notional: input.notional,
+    stop: input.stop ?? null,
+    tp: input.tp ?? null,
   });
 
 /** Permanently delete a bot owned by the signed-in user (cascades to child rows). */

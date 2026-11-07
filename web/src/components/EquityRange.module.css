@@ -1,0 +1,28 @@
+/* readout + date ticks for the equity curve; the brush strip itself is the
+   shared RangeBrush component */
+.readout {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+}
+.dates {
+  font-size: 13px;
+  color: var(--muted);
+}
+.money {
+  font-size: 13px;
+  color: var(--fg-2);
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted-2);
+}

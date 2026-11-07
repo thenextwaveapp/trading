@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Clock, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth, useCurrentHandle } from "../auth";
@@ -13,28 +14,41 @@ import {
   usePublicProfiles,
 } from "../db/queries";
 import type { DbBot, DbProfile } from "../db/types";
-import { dol, identicon, pct } from "../lib/format";
+import { dol, pct } from "../lib/format";
+import { BotAvatar, UserAvatar } from "../components/Avatar";
 import { RowsSkeleton } from "../components/Skeleton";
 import FeedRow from "../components/FeedRow";
+import Segmented from "../components/Segmented";
+import p from "./pages.module.css";
 import s from "./Feed.module.css";
+import { botPath, builderPath } from "../lib/paths";
 
-function Avatar({ seed, color, url, size = 38 }: { seed: string; color: string; url?: string | null; size?: number }) {
-  if (url) return <img src={url} alt="" width={size} height={size} style={{ borderRadius: "50%", objectFit: "cover", background: "#12161D", flex: "none" }} />;
-  const inner = Math.round(size * 0.62);
-  const off = Math.round((size - inner) / 2);
+/* lucide has no trending-up-inside-circle glyph, so compose one in its style:
+   same 24px grid, currentColor stroke, round caps */
+function TrendCircle({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flex: "none" }}>
-      <rect width={size} height={size} rx={size / 2} fill="#12161D" />
-      <path d={identicon(seed, inner)} fill={color} transform={`translate(${off} ${off})`} />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="7 14.5 10.25 11.25 12.75 13.75 17 9.5" />
+      <polyline points="14 9.5 17 9.5 17 12.5" />
     </svg>
   );
 }
 
 const TABS = [
-  ["moves", "Moves"],
-  ["trending", "Trending"],
-  ["following", "Following"],
-  ["recent", "Recent"],
+  ["trending", "Trending", <TrendCircle />],
+  ["recent", "Recent", <Clock size={18} strokeWidth={1.5} />],
+  ["following", "Following", <UserCheck size={18} strokeWidth={1.5} />],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
@@ -72,10 +86,7 @@ export default function Feed() {
 
   const feed = useMemo(() => {
     let xs = (events ?? []).slice();
-    if (tab === "moves") {
-      xs = xs.filter((e) => e.type === "exited")
-        .sort((a, b) => Math.abs(Number(b.payload?.net ?? 0)) - Math.abs(Number(a.payload?.net ?? 0)));
-    } else if (tab === "trending") {
+    if (tab === "trending") {
       xs = xs.filter((e) => e.bot_name && topBotNames.has(e.bot_name));
     } else if (tab === "following") {
       xs = xs.filter((e) => {
@@ -116,19 +127,27 @@ export default function Feed() {
   const topUsers = (profiles ?? []).filter((p) => p.id !== user?.id).slice(0, 6);
 
   return (
+    <div className={p.shell}>
     <div className={s.wrap}>
       <div>
-        <div className={s.tabs}>
-          {TABS.map(([k, label]) => (
-            <button key={k} className={`${s.tab} ${tab === k ? s.on : ""}`} onClick={() => setTab(k)}>{label}</button>
-          ))}
+        <div className={s.tabsRow}>
+          <Segmented
+            ariaLabel="Feed filter"
+            value={tab}
+            onChange={setTab}
+            labels="selected"
+            options={TABS.map(([k, label, icon]) => ({ value: k, label, icon }))}
+          />
         </div>
 
         {loading ? (
           <RowsSkeleton rows={6} avatar />
         ) : feed.length === 0 ? (
-          <div className="muted" style={{ padding: "40px 0" }}>
-            {tab === "following" ? "Follow some builders to see their trades here." : "Nothing here yet."}
+          <div className={s.empty}>
+            <RowsSkeleton rows={6} avatar ghost />
+            <div className={`muted ${s.emptyMsg}`}>
+              {tab === "following" ? "Follow some builders to see their trades here." : "Nothing here yet."}
+            </div>
           </div>
         ) : (
           <div className={s.list}>
@@ -147,8 +166,8 @@ export default function Feed() {
 
       <aside className={s.rail}>
         {user && (
-          <div className={`card ${s.meCard}`} style={{ cursor: "pointer" }} onClick={() => nav(handle ? "/builder/" + handle : "/settings")}>
-            <Avatar seed={"@" + (handle ?? "me")} color={profile?.avatar_color || "#3a81d7"} url={profile?.avatar_url} size={42} />
+          <div className={`card ${s.meCard}`} style={{ cursor: "pointer" }} onClick={() => nav(handle ? builderPath(handle) : "/settings")}>
+            <UserAvatar handle={handle} name={profile?.display_name} url={profile?.avatar_url} color={profile?.avatar_color || undefined} size={42} />
             <div style={{ minWidth: 0 }}>
               <div className={s.railName}>{profile?.display_name || (handle ? "@" + handle : "You")}</div>
               {handle && <div className={s.railMeta}>@{handle}</div>}
@@ -162,8 +181,8 @@ export default function Feed() {
             <div className={s.railMeta}>No live bots yet.</div>
           ) : (
             topBots.map((v) => (
-              <div key={v.name} className={s.railRow} onClick={() => nav("/bot/" + encodeURIComponent(v.name))}>
-                <Avatar seed={v.name} color={v.color || "#3a81d7"} size={30} />
+              <div key={v.name} className={s.railRow} onClick={() => { const db = botMap.get(v.name); nav(db ? botPath(db) : "/bot/" + encodeURIComponent(v.name)); }}>
+                <BotAvatar seed={v.name} color={v.color || undefined} size={30} />
                 <div style={{ minWidth: 0 }}>
                   <div className={s.railName}>{v.name}</div>
                   <div className={s.railMeta}>{dol(v.equity)}</div>
@@ -181,10 +200,10 @@ export default function Feed() {
               const on = followed.has(pr.id);
               return (
                 <div key={pr.id} className={s.railRow}>
-                  <span onClick={() => nav("/builder/" + encodeURIComponent(pr.handle))} style={{ display: "inline-flex" }}>
-                    <Avatar seed={"@" + pr.handle} color={pr.avatar_color || "#3a81d7"} url={pr.avatar_url} size={30} />
+                  <span onClick={() => nav(builderPath(pr.handle))} style={{ display: "inline-flex" }}>
+                    <UserAvatar handle={pr.handle} name={pr.display_name} url={pr.avatar_url} color={pr.avatar_color || undefined} size={30} />
                   </span>
-                  <div style={{ minWidth: 0 }} onClick={() => nav("/builder/" + encodeURIComponent(pr.handle))}>
+                  <div style={{ minWidth: 0 }} onClick={() => nav(builderPath(pr.handle))}>
                     <div className={s.railName}>@{pr.handle}</div>
                     {pr.display_name && <div className={s.railMeta}>{pr.display_name}</div>}
                   </div>
@@ -199,6 +218,7 @@ export default function Feed() {
           </div>
         )}
       </aside>
+    </div>
     </div>
   );
 }

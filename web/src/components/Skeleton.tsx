@@ -7,10 +7,14 @@ export function Skeleton({ w = "100%", h = 13, r, style }: {
 }
 
 /** A card of shimmer rows — stands in for a table or list while it loads, so the
- *  layout holds its space and nothing jumps when the real rows arrive. */
-export function RowsSkeleton({ rows = 12, avatar = false }: { rows?: number; avatar?: boolean }) {
+ *  layout holds its space and nothing jumps when the real rows arrive.
+ *  ghost: static dimmed variant for empty states — holds the same space as real
+ *  rows without implying anything is loading. */
+export function RowsSkeleton({ rows = 12, avatar = false, ghost = false }: {
+  rows?: number; avatar?: boolean; ghost?: boolean;
+}) {
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+    <div className={`card ${ghost ? s.ghost : ""}`} style={{ padding: 0, overflow: "hidden" }}>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className={s.rowline}>
           {avatar && <Skeleton w={28} h={28} r="50%" />}

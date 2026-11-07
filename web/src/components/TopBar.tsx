@@ -1,34 +1,67 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Crown,
+  FlaskConical,
+  Globe,
+  LogOut,
+  Menu,
+  Newspaper,
+  Search,
+  Settings,
+  Swords,
+  User,
+} from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth, useCurrentHandle } from "../auth";
-import { identicon } from "../lib/format";
+import { useData } from "../api/context";
+import { useMyBots } from "../db/queries";
+import { useCurrentFleet } from "../fleets/CurrentFleetProvider";
+import Logo from "./Logo";
+import { builderPath } from "../lib/paths";
+import { UserAvatar } from "./Avatar";
 import SearchPalette from "./SearchPalette";
 import s from "./TopBar.module.css";
 
-const gearIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
+const searchIcon = <Search size={14} strokeWidth={1.5} style={{ flex: "none" }} />;
 
-const searchIcon = (
-  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-    <circle cx="7" cy="7" r="5" strokeWidth="1.4" />
-    <path d="M11 11l3.5 3.5" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-);
+// same glyph vocabulary as the search palette / old sidebar, sized for pills
+const ICONS: Record<string, JSX.Element> = {
+  fleet: <Logo size={16} mono />,
+  feed: <Newspaper size={21} strokeWidth={1.5} />,
+  market: <Globe size={21} strokeWidth={1.5} />,
+  build: <FlaskConical size={21} strokeWidth={1.5} />,
+  board: <Crown size={21} strokeWidth={1.5} />,
+  user: <User size={15} strokeWidth={1.5} />,
+  gear: <Settings size={15} strokeWidth={1.5} />,
+  out: <LogOut size={15} strokeWidth={1.5} />,
+  trophy: <Swords size={21} strokeWidth={1.5} />,
+};
 
 export default function TopBar() {
   const nav = useNavigate();
   const loc = useLocation();
-  const { user, profile } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const handle = useCurrentHandle();
+  const live = useData();
+  const { currentId } = useCurrentFleet();
+  const { data: roster } = useMyBots(user?.id ?? null);
+  // telltale: how many open positions does this fleet hold right now?
+  const openCount = useMemo(() => {
+    const names = new Set(
+      (roster ?? [])
+        .filter((b) => b.stage === "deployed" && (!currentId || b.fleet_id === currentId))
+        .map((b) => b.name),
+    );
+    return live.bots.reduce((a, b) => a + (names.has(b.name) ? (b.open?.length ?? 0) : 0), 0);
+  }, [roster, currentId, live.bots]);
+  const inTrade = openCount > 0;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(false);
+  const [menu, setMenu] = useState(false);
 
-  useEffect(() => setOpen(false), [loc.pathname]);
+  useEffect(() => { setOpen(false); setMenu(false); }, [loc.pathname]);
   useEffect(() => {
+    if (!user) return; // search is a logged-in tool — no palette for visitors
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -37,88 +70,168 @@ export default function TopBar() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [user]);
 
-  const items = user
+  // One rule: Fleet is the command center and wears the single dressed-up
+  // (labeled) control; every other destination is a badged icon — glyph only,
+  // label in the tooltip. The daily surfaces (Feed, Markets, Build) sit left
+  // by Fleet; the community surfaces (Leaderboard, Arena) sit right.
+  const primary = user
     ? [
-        { l: "Home", p: "/feed" },
-        { l: "Market", p: "/market" },
-        { l: "Fleet", p: "/fleet" },
-        { l: "Build", p: "/build" },
-        { l: "Leaderboard", p: "/leaderboard" },
-        { l: "Challenges", p: "/challenges" },
+        { l: "Feed", p: "/feed", i: "feed" },
+        { l: "Markets", p: "/market", i: "market" },
+        { l: "Build", p: "/build", i: "build" },
       ]
-    : [
-        { l: "Home", p: "/" },
-        { l: "Market", p: "/market" },
-        { l: "Leaderboard", p: "/leaderboard" },
-        { l: "Challenges", p: "/challenges" },
-      ];
+    : [{ l: "Markets", p: "/market", i: "market" }];
+  const secondary = [
+    { l: "Leaderboard", p: "/leaderboard", i: "board" },
+    { l: "Arena", p: "/challenges", i: "trophy" },
+  ];
 
-  const isActive = (p: string) =>
-    p === "/" ? loc.pathname === "/"
-      : loc.pathname.startsWith(p) ||
-        (p === "/challenges" && loc.pathname.startsWith("/challenge"));
+  const isActive = (p: string) => {
+    if (p === "/") return loc.pathname === "/";
+    // "/build" must not light up on "/builder/:handle" (profile pages)
+    if (p === "/build") return loc.pathname === "/build" || loc.pathname.startsWith("/build/");
+    return (
+      loc.pathname.startsWith(p) ||
+      (p === "/challenges" && loc.pathname.startsWith("/challenge"))
+    );
+  };
 
   const go = (p: string) => () => nav(p);
 
-  const links = items.map((it) => (
+  // bar: badged icon that reveals its name on hover; sheet (mobile): icon + label
+  const iconPill = (it: { l: string; p: string; i?: string }) => (
+    <button
+      key={it.p}
+      className={`${s.iconLink} ${isActive(it.p) ? s.active : ""}`}
+      onClick={go(it.p)}
+      aria-label={it.l}
+    >
+      {it.i && ICONS[it.i]}
+      {/* 0fr→1fr grid track: label animates to its real width on hover */}
+      <span className={s.hoverLbl}>
+        <span>{it.l}</span>
+      </span>
+    </button>
+  );
+  // right cluster (crown = Leaderboard, swords = Arena): same reveal, mirrored —
+  // the label grows to the LEFT so the icon sits to the right of the word.
+  const iconPillRight = (it: { l: string; p: string; i?: string }) => (
+    <button
+      key={it.p}
+      className={`${s.iconLink} ${isActive(it.p) ? s.active : ""}`}
+      onClick={go(it.p)}
+      aria-label={it.l}
+    >
+      <span className={`${s.hoverLbl} ${s.hoverLblRight}`}>
+        <span>{it.l}</span>
+      </span>
+      {it.i && ICONS[it.i]}
+    </button>
+  );
+  const pill = (it: { l: string; p: string; i?: string }) => (
     <button key={it.p} className={`${s.link} ${isActive(it.p) ? s.active : ""}`} onClick={go(it.p)}>
+      {it.i && ICONS[it.i]}
       {it.l}
     </button>
-  ));
+  );
+  const links = primary.map(iconPill);
+  const rightLinks = secondary.map(iconPillRight);
+  const sheetLinks = [...primary, ...secondary].map(pill);
+
+  // says nothing at rest — a pulsing telltale; hover/on-station slides the
+  // status readout open inside the pill
+  const fleetBtn = user ? (
+    <button
+      className={`${s.fleet} ${isActive("/fleet") ? s.fleetActive : ""}`}
+      onClick={go("/fleet")}
+      title="Fleet"
+      aria-label="Fleet"
+    >
+      {inTrade ? (
+        <svg className={`${s.fleetWave} ${s.fleetWaveOn}`} viewBox="0 0 24 14" aria-hidden>
+          <g>
+            <path
+              d="M0 7 C3 1 3 1 6 7 C9 13 9 13 12 7 C15 1 15 1 18 7 C21 13 21 13 24 7 C27 1 27 1 30 7 C33 13 33 13 36 7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </g>
+        </svg>
+      ) : (
+        <span className={s.fleetDot} aria-hidden />
+      )}
+      <span className={`${s.fleetStatus} ${inTrade ? s.fleetStatusOn : ""}`}>
+        {inTrade ? `IN TRADE · ${openCount}` : "WATCHING"}
+      </span>
+    </button>
+  ) : null;
 
   return (
     <header className={s.bar}>
-      <button className={s.menuBtn} aria-label="Menu" onClick={() => setOpen((o) => !o)}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-          <path d="M3 6h18M3 12h18M3 18h18" />
-        </svg>
-      </button>
-
-      <span className={s.brand} onClick={go(user ? "/feed" : "/")}>
-        <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden>
-          <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
-          <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
-        </svg>
-        paper fleet
-      </span>
-
-      <nav className={s.nav}>{links}</nav>
-
-      <div className={s.right}>
-        <button className={s.search} onClick={() => setSearch(true)} aria-label="Search">
-          {searchIcon}
-          <span className={s.searchText}>Search</span>
-          <span className={s.kbd}>⌘K</span>
+      <div className={s.inner}>
+        <button className={s.menuBtn} aria-label="Menu" onClick={() => setOpen((o) => !o)}>
+          <Menu size={20} strokeWidth={1.5} />
         </button>
-        {user ? (
-          <>
-            <button className={s.gear} aria-label="Settings" title="Settings" onClick={go("/settings")}>
-              {gearIcon}
+
+        {fleetBtn}
+
+        <nav className={s.nav}>{links}</nav>
+
+        {/* the brand mark holds the bar's center; the plane dances on hover */}
+        <button className={s.brand} onClick={go(user ? "/feed" : "/")} aria-label="Paper Fleet home">
+          <Logo size={28} />
+        </button>
+
+        <div className={s.right}>
+          {/* icons lead the right cluster: their hover-reveal grows leftward into
+              the bar's empty center, so the search and avatar never move */}
+          <nav className={s.nav}>{rightLinks}</nav>
+          {user && (
+            <button className={s.searchBar} onClick={() => setSearch(true)} aria-label="Search" title="Search · ⌘K">
+              {searchIcon}
+              <span className={s.searchPh}>Search</span>
+              <kbd className={s.kbd}>⌘K</kbd>
             </button>
-            <span
-              className={s.avatar}
-              title={handle ? `@${handle}` : "Your profile"}
-              onClick={() => nav(handle ? "/builder/" + encodeURIComponent(handle) : "/settings")}
-            >
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" width={32} height={32}
-                     style={{ borderRadius: "50%", objectFit: "cover", background: "#12161D" }} />
-              ) : (
-                <svg width="32" height="32" viewBox="0 0 32 32">
-                  <rect width="32" height="32" rx="16" fill="#12161D" />
-                  <path d={identicon("@" + (handle ?? "me"), 20)} fill={profile?.avatar_color || "#3a81d7"} transform="translate(6 6)" />
-                </svg>
-              )}
-            </span>
-          </>
-        ) : (
-          <button className={s.link} onClick={go("/signin")}>Log in</button>
-        )}
+          )}
+          {user ? (
+            <>
+              <span className={s.avatarWrap}>
+                <span className={s.avatar} title={handle ? `@${handle}` : "Account"} onClick={() => setMenu((m) => !m)}>
+                  <UserAvatar
+                    handle={handle}
+                    name={profile?.display_name}
+                    url={profile?.avatar_url}
+                    color={profile?.avatar_color || undefined}
+                    size={32}
+                  />
+                </span>
+                {menu && (
+                  <div className={s.menu} role="menu">
+                    <button
+                      className={s.menuItem}
+                      onClick={() => nav(handle ? builderPath(handle) : "/settings")}
+                    >
+                      {ICONS.user}
+                      Your profile
+                    </button>
+                    <button className={s.menuItem} onClick={go("/settings")}>{ICONS.gear}Settings</button>
+                    <div className={s.menuSep} />
+                    <button className={s.menuItem} onClick={() => { setMenu(false); signOut(); }}>{ICONS.out}Log out</button>
+                  </div>
+                )}
+              </span>
+            </>
+          ) : (
+            <button className={s.link} onClick={go("/signin")}>Log in</button>
+          )}
+        </div>
       </div>
 
-      {open && <div className={s.sheet}>{links}</div>}
+      {open && <div className={s.sheet}>{sheetLinks}</div>}
       {search && <SearchPalette onClose={() => setSearch(false)} />}
     </header>
   );

@@ -78,6 +78,30 @@ def _collect_requires(node, acc):
         _collect_operand_requires(node.get(side), acc)
 
 
+FEED_KINDS = ("social", "news")
+FEED_FIELDS = ("score", "confidence")
+
+
+def _collect_operand_feeds(o, acc):
+    """Collect feed kinds (social/news) used by an operand, through arithmetic."""
+    if not isinstance(o, dict):
+        return
+    if "feed" in o:
+        acc.add(o["feed"])
+    elif "op" in o:
+        _collect_operand_feeds(o.get("left"), acc)
+        _collect_operand_feeds(o.get("right"), acc)
+
+
+def _collect_feeds(node, acc):
+    if "children" in node:
+        for c in node["children"]:
+            _collect_feeds(c, acc)
+        return
+    for side in ("left", "right"):
+        _collect_operand_feeds(node.get(side), acc)
+
+
 def _operand_lookback(o):
     if isinstance(o, (int, float)):
         return 0
@@ -100,6 +124,18 @@ def _operand_lookback(o):
             return 0
         return REGISTRY[ind].lookback(o.get("params", {})) \
             + abs(o.get("offset", 0))
+    if "feed" in o:                              # social/news feed operand
+        if o["feed"] not in FEED_KINDS:
+            raise StrategyError(
+                f"operand feed must be one of {FEED_KINDS}, got {o['feed']!r}")
+        field = o.get("field", "score")
+        if field not in FEED_FIELDS:
+            raise StrategyError(
+                f"operand feed field must be one of {FEED_FIELDS}, got {field!r}")
+        # A feed operand reads the aux feed series, not the base tape, so like a
+        # cross-series operand it does not constrain the base gapless/lookback
+        # window; its own history is handled by the aligned aux series.
+        return 0
     if "op" in o:                                # arithmetic operand
         if o["op"] not in _ARITH:
             raise StrategyError(f"unknown arithmetic op: {o['op']!r}")
@@ -282,6 +318,29 @@ def parse(spec):
         if ec:
             _collect_requires(ec, reqs)
     out["_requires"] = sorted(reqs, key=lambda x: (x[0] or "", x[1] or ""))
+
+    # feed (social/news) inputs the bot needs, and the feed-spec contract. A spec
+    # that reads any feed operand is an event-driven bot, so it MUST declare a
+    # plain-language thesis (shown on the build page, so the trade's intent is
+    # never lost) and a hard staleness gate (feed.max_signal_age_sec) — a late
+    # trigger is worse than no trigger, so acting on a stale event is forbidden.
+    feeds = set()
+    for book in out["_books"]:
+        _collect_feeds(book["entry"], feeds)
+        ec = book["exit"].get("exit_conditions")
+        if ec:
+            _collect_feeds(ec, feeds)
+    out["_requires_feeds"] = sorted(feeds)
+    if feeds:
+        if not str(out.get("thesis") or "").strip():
+            raise StrategyError(
+                "a feed/social spec requires a plain-language 'thesis'")
+        mage = (out.get("feed") or {}).get("max_signal_age_sec")
+        if isinstance(mage, bool) or not isinstance(mage, int) or mage < 1:
+            raise StrategyError(
+                "a feed/social spec requires feed.max_signal_age_sec "
+                "(an integer number of seconds >= 1)")
+
     out.setdefault("fresh", False)
     hours, days = timing_sets(out)
     out["_timing_hours"] = hours
@@ -302,8 +361,13 @@ def parse(spec):
                 _collect_indicators(ec, refs)
         for ind in refs:
             if not available(REGISTRY[ind], m):
-                missing = sorted(set(REGISTRY[ind].inputs) - set(m.provides))
+                missing = sorted(set(REGISTRY[ind].inputs)
+                                 - (set(m.provides) | set(m.feeds)))
                 raise StrategyError(
                     f"indicator {ind!r} needs {missing}, which market "
                     f"{market!r} does not provide")
+        for kind in out["_requires_feeds"]:
+            if kind not in m.feeds:
+                raise StrategyError(
+                    f"feed {kind!r} is not wired on market {market!r}")
     return out

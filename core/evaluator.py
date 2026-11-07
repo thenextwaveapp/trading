@@ -11,7 +11,7 @@ window, a non-flat current bar, and optional UTC hour/day signal windows.
 from bisect import bisect_right
 from datetime import datetime, timezone
 
-from .expr import eval_node
+from .expr import FEED_KEY, eval_node
 from .markets import MARKETS, is_resolution
 
 M15 = 900_000
@@ -43,6 +43,56 @@ def build_aux(base, base_ms, series_by_key):
     return {key: {"candles": c,
                   "align": align_series(base, base_ms, c, ms)}
             for key, (c, ms) in series_by_key.items()}
+
+
+def build_feed_aux(base, base_ms, feed_series_by_kind, max_age_ms):
+    """Build aux entries for social/news feed operands, keyed (FEED_KEY, kind) so
+    they ride the same `aux` dict the evaluator already threads without colliding
+    with cross-series (symbol, tf) keys.
+
+    Each feed series is a list of rows sampled at bar close, newest-last:
+        {"t": bar_close_ms, "score": float, "confidence": float,
+         "event_ts": event_created_ms, ...}
+    Rows align causally like any aux tape — a row "closes" at its own `t`
+    (aux_ms=0), so a base bar reads the most recent feed row at or before its
+    close, never a future one. On top of alignment we precompute `fresh`: the
+    aligned row's *source event* (`event_ts`, falling back to the row timestamp)
+    must be within `max_age_ms` of the base bar's close. Freshness is the
+    staleness gate — a stale trigger reads as None in expr and never fires.
+
+    Merge the result into the cross-series aux (both live in one dict)."""
+    base_close = [c["t"] + base_ms for c in base]
+    out = {}
+    for kind, rows in feed_series_by_kind.items():
+        align = align_series(base, base_ms, rows, 0)
+        fresh = []
+        for i, j in enumerate(align):
+            if j < 0:
+                fresh.append(False)
+                continue
+            ev = rows[j].get("event_ts", rows[j]["t"])
+            fresh.append(base_close[i] - ev <= max_age_ms)
+        out[(FEED_KEY, kind)] = {"rows": rows, "align": align, "fresh": fresh}
+    return out
+
+
+def feed_confidence(aux, i):
+    """Max feed confidence across all fresh feed series at base bar i, or None if
+    no feed series is fresh there. Used by the backtest to confidence-weight
+    position size without the evaluator having to know about sizing."""
+    best = None
+    for key, e in (aux or {}).items():
+        if not (isinstance(key, tuple) and key and key[0] == FEED_KEY):
+            continue
+        if i < 0 or i >= len(e["fresh"]) or not e["fresh"][i]:
+            continue
+        j = e["align"][i]
+        if j < 0:
+            continue
+        c = e["rows"][j].get("confidence")
+        if c is not None:
+            best = c if best is None else max(best, c)
+    return best
 
 
 def _index_ok(candles, i, L):

@@ -1,0 +1,123 @@
+/* Thin glass segmented control. The container is a hairline translucent pill;
+   the selected option is a soft frosted thumb that slides between equal-width
+   cells. Deliberately slim — the padding is 3px and the cells are short. */
+.seg {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.block { display: grid; width: 100%; }
+/* stretched variant: cells are already equal-width, so slim the padding and
+   let the label center inside its cell instead of overflowing it */
+.block .btn {
+  padding: 0 6px;
+  min-width: 0;
+}
+
+/* Sliding frosted thumb. Width = one cell; translate by whole cells. The % in
+   translateX is relative to the thumb's own width (one cell), so i cells. */
+.thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--n));
+  transform: translateX(calc(var(--i) * 100%));
+  border-radius: 7px; /* concentric: outer 10px − 3px padding */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+
+.btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 15px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+.btn:hover:not(.on):not(:disabled) { color: var(--fg-2); }
+.btn.on { color: var(--fg); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* compact variant for toolbars / chart headers */
+.sm .btn { height: 22px; padding: 0 11px; font-size: 12px; }
+
+/* labels="selected": icon-only cells, the active one expands to reveal its
+   text in a fixed-width slot. Because collapsed cells are equal width
+   (--seg-cell = 12px padding + icon + 12px padding) and the label slot is
+   fixed (--seg-label), the geometry is deterministic — so the SAME sliding
+   thumb as the default mode works: it is one cell + label slot wide and
+   slides by whole cells, with the original timing and curve. */
+.collapse {
+  --seg-cell: 42px; /* keep = horizontal padding (24px) + icon size (18px) */
+  /* --seg-label: the fixed label slot, settable in px (NOT em — the thumb and
+     the label resolve em against different font sizes) from any ancestor;
+     size it to the control's widest label. Defaults to 62px below. */
+  /* one clock for the whole move — thumb slide, label expand, fade. Slower
+     than the default mode's 0.24s: the wider pill travelling with its label
+     reads better with a bit more weight. */
+  --seg-dur: 0.34s;
+  --seg-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  grid-auto-columns: max-content;
+}
+/* No explicit widths: a collapsed cell is naturally --seg-cell wide (padding +
+   icon + 0px label), and the label's width transition drives the cell size in
+   BOTH directions. Forcing width here would snap the deselected cell shut
+   instantly and make the control's total width breathe. */
+.collapse .btn {
+  gap: 0;
+  padding: 0 12px;
+}
+.collapse .thumb {
+  width: calc(var(--seg-cell) + var(--seg-label, 62px) + 7px);
+  transform: translateX(calc(var(--i) * var(--seg-cell)));
+  transition: transform var(--seg-dur) var(--seg-ease);
+}
+/* Every expanded label gets the SAME fixed slot (--seg-label, sized to the
+   widest label), not its own width. One pill collapses W→0 while the next
+   expands 0→W on the same curve, so the control's total width is constant —
+   no shifting, mid-animation included. Override --seg-label where the control
+   is used if its longest label needs more room. */
+.collapse .lbl {
+  display: block;
+  width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    width var(--seg-dur) var(--seg-ease),
+    margin-left var(--seg-dur) var(--seg-ease),
+    opacity var(--seg-dur) var(--seg-ease);
+}
+.collapse .btn.on .lbl {
+  width: var(--seg-label, 62px);
+  margin-left: 7px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb, .collapse .btn, .collapse .lbl { transition: none; }
+}

@@ -20,7 +20,10 @@ CREATE POLICY pf_auth_methods_rw    ON public.pf_auth_methods    FOR ALL USING (
 CREATE POLICY pf_bot_defaults_rw    ON public.pf_bot_defaults    FOR ALL USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
 CREATE POLICY pf_invoices_rw        ON public.pf_invoices        FOR ALL USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
 CREATE POLICY pf_payment_methods_rw ON public.pf_payment_methods FOR ALL USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
-CREATE POLICY pf_subscriptions_rw   ON public.pf_subscriptions   FOR ALL USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
+-- Read-only for the owner: the subscription mirror is written ONLY by the
+-- stripe-webhook edge function (service role, bypasses RLS). A client must never
+-- be able to insert/update its own entitlement, or the paywall is forgeable.
+CREATE POLICY pf_subscriptions_read ON public.pf_subscriptions   FOR SELECT USING (owner = auth.uid());
 
 -- owner-write + public read
 CREATE POLICY pf_fleets_rw      ON public.pf_fleets    FOR ALL USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
@@ -84,3 +87,8 @@ CREATE POLICY pf_universe_filters_read ON public.pf_universe_filters FOR SELECT 
 CREATE POLICY pf_follows_rw   ON public.pf_follows FOR ALL USING (follower = auth.uid()) WITH CHECK (follower = auth.uid());
 CREATE POLICY pf_follows_read ON public.pf_follows FOR SELECT USING (true);
 CREATE POLICY pf_events_read  ON public.pf_events  FOR SELECT USING (visibility <> 'private' OR actor = auth.uid());
+
+-- assistant chat history (strictly private to its owner)
+CREATE POLICY assistant_msgs_select_own ON public.pf_assistant_messages FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY assistant_msgs_insert_own ON public.pf_assistant_messages FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY assistant_msgs_delete_own ON public.pf_assistant_messages FOR DELETE USING (auth.uid() = user_id);

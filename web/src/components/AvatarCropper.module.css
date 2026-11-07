@@ -1,0 +1,78 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(7, 9, 12, 0.42);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  animation: cropfade 0.18s ease;
+}
+@keyframes cropfade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.panel {
+  width: 360px;
+  max-width: 94vw;
+  border-radius: 20px;
+  padding: 24px 24px 20px;
+  background: rgba(18, 22, 29, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: center;
+}
+
+.title {
+  align-self: flex-start;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* circular crop viewport */
+.stage {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0d1117;
+  touch-action: none;
+  cursor: grab;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 9999px rgba(7, 9, 12, 0.35);
+}
+.stage:active {
+  cursor: grabbing;
+}
+.img {
+  position: absolute;
+  user-select: none;
+  pointer-events: none;
+  max-width: none;
+}
+
+.zoom {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+.zoom input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

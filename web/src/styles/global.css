@@ -13,9 +13,12 @@ body,
 
 /* always reserve the scrollbar gutter so short pages and tall pages have the
    same content width — no left-jerk / background shift when navigating between
-   a page that scrolls and one that doesn't. */
+   a page that scrolls and one that doesn't. scrollbar-gutter alone is NOT
+   enough here: Chromium ignores it for custom ::-webkit-scrollbar styles
+   (see the thin-scrollbar block below), so force the track to always exist. */
 html {
   scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 body {
@@ -23,6 +26,22 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* quiet app-wide depth: one cool light source from the top, one faint violet
+   counterpoint, one teal rise from below — pinned to the viewport so glass
+   surfaces always have colour to catch. Sits between the body fill and the
+   app shell (which must stay transparent for this to show). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 600px at 30% -10%, rgba(58, 129, 215, 0.1), transparent 70%),
+    radial-gradient(900px 560px at 92% 22%, rgba(129, 78, 198, 0.06), transparent 70%),
+    radial-gradient(1000px 640px at 45% 108%, rgba(25, 169, 176, 0.06), transparent 72%);
 }
 
 /* never let the page itself scroll sideways — wide content (tables, charts)
@@ -54,6 +73,12 @@ button {
 
 /* tabular, zero-slashed numerics everywhere we show figures */
 .num {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero" 1, "tnum" 1;
+}
+
+/* tables are data surfaces — mono throughout, with the same tabular numerals */
+table {
   font-family: var(--font-mono);
   font-feature-settings: "zero" 1, "tnum" 1;
 }
@@ -96,6 +121,8 @@ button {
   gap: 6px;
   height: 28px;
   padding: 0 13px;
+  /* stays in the wordmark's voice even inside mono card surfaces */
+  font-family: var(--font-sans);
   border-radius: var(--radius-sm);
   border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   background: color-mix(in srgb, var(--accent) 15%, transparent);
@@ -109,13 +136,17 @@ button {
 .copyBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .copyBtn.block { width: 100%; height: 34px; }
 
-/* shared primitives (match the mockup); layout stays in CSS Modules */
+/* shared primitives; layout stays in CSS Modules.
+   Frosted glass data surface: translucent fill blurring the page-depth colour
+   pools (body::before), one white hairline ring, a top sheen, one deep soft
+   drop. No internal lines on glass. */
 .card {
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, var(--card-top) 0%, var(--card-bottom) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.065),
-    0 1px 0 rgba(0, 0, 0, 0.6), 0 14px 30px -14px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(13, 16, 22, 0.52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -20px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
 }
 /* a flat tag, not a lozenge */
 .chip {
@@ -132,6 +163,13 @@ button {
 }
 .chip.danger {
   color: var(--down);
+}
+/* labels inside glass cards speak in the machine's voice: tracked mono caps */
+.card .lbl {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 .lbl {
   font-size: 12px;

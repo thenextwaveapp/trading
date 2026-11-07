@@ -4,13 +4,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth } from "../auth";
-import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useBotVersions, useLatestBacktest, useMyBot } from "../db/queries";
+import { copyBotToDraft, deleteBot, setBotVisibility, useBot, useBots, useBotVersions, useLatestBacktest, useMyBot } from "../db/queries";
+import { botPath, botSlugOf, builderPath } from "../lib/paths";
 import type { Visibility } from "../db/types";
 import type { Position, Trade } from "../api/types";
 import { botFromRow } from "../lib/bot";
 import {
   DIRLBL,
   REASON,
+  MKTLBL,
   START,
   clock,
   dol,
@@ -144,7 +146,17 @@ export default function BotProfile() {
   const d = useData();
   const { user, profile } = useAuth();
   const nav = useNavigate();
-  const { name = "" } = useParams();
+  // legacy /bot/:name, or canonical /@handle/:botSlug (slug column or
+  // slugified name — spaces never reach the address bar)
+  const { name: nameParam, handle: hParam, botSlug } = useParams();
+  const { data: allBots } = useBots();
+  const name =
+    nameParam ??
+    (hParam?.startsWith("@") && botSlug
+      ? (allBots ?? []).find(
+          (b) => b.builder?.handle === hParam.slice(1) && botSlugOf(b) === botSlug,
+        )?.name ?? ""
+      : "");
   const liveV = d.bots.find((x) => x.name === name);
   const { data: bot, loading: botLoading } = useBot(name);
   const { data: parentBot } = useMyBot(bot?.copied_from ?? null);
@@ -382,7 +394,7 @@ export default function BotProfile() {
             {bot?.builder?.handle && (
               <div className={s.note} style={{ marginTop: 2 }}>
                 by{" "}
-                <span className="lk" onClick={() => nav("/builder/" + encodeURIComponent(bot.builder!.handle))}>
+                <span className="lk" onClick={() => nav(builderPath(bot.builder!.handle))}>
                   @{bot.builder.handle}
                 </span>
               </div>
@@ -390,9 +402,7 @@ export default function BotProfile() {
             <div className={s.chips}>
               <span className="chip">Launched {dstr(d.start)}</span>
               <span className="chip">
-                {({ crypto: "Crypto", equity: "Stocks", fx_spot: "FX",
-                    futures: "Futures", prediction: "Predictions" } as Record<string, string>)
-                  [bot?.market ?? ""] ?? "Crypto"}
+                {MKTLBL[bot?.market ?? ""] ?? bot?.market ?? "Crypto"}
               </span>
               {grp && <span className="chip">{grp}</span>}
               <span className="chip">
@@ -401,7 +411,7 @@ export default function BotProfile() {
               {bot?.copied_from && (
                 <span
                   className={`chip ${parentBot ? "lk" : ""}`}
-                  onClick={() => parentBot && nav("/bot/" + encodeURIComponent(parentBot.name))}
+                  onClick={() => parentBot && nav(botPath(parentBot))}
                   title={parentBot ? `Copied from ${parentBot.name}` : "Copied from another bot"}
                 >
                   {parentBot ? (

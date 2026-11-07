@@ -1,8 +1,21 @@
+/* the filter row rides a 12-col grid over the shell: the market filter is a
+   third (= the first podium card), the range a quarter, search a quarter
+   pinned to the right rail. Same 12px gaps as the cards, so edges align. */
 .filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
   gap: 12px;
-  flex-wrap: wrap;
+  align-items: center;
   margin-bottom: 24px;
+}
+.filters > * {
+  min-width: 0;
+}
+.fMarket { grid-column: span 4; }
+.fRange { grid-column: span 3; }
+.fSearch { grid-column: 10 / -1; }
+@media (max-width: 860px) {
+  .fMarket, .fRange, .fSearch { grid-column: 1 / -1; }
 }
 .cards {
   display: grid;

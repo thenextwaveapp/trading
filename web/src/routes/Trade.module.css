@@ -1,0 +1,93 @@
+/* single-trade page: header, big stat tiles (shared), full-width chart */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.names {
+  min-width: 0;
+  flex: 1;
+}
+.title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.sep {
+  color: var(--muted-3);
+}
+.tkr {
+  color: var(--fg-2);
+}
+.sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  padding: 2.5px 7px;
+  border-radius: 5px;
+  flex: none;
+}
+.long { color: var(--up); background: color-mix(in srgb, var(--up) 14%, transparent); }
+.short { color: var(--down); background: color-mix(in srgb, var(--down) 14%, transparent); }
+.mut { color: var(--fg-2); background: rgba(255, 255, 255, 0.07); }
+.openTag {
+  color: var(--trade);
+  background: color-mix(in srgb, var(--trade) 14%, transparent);
+  animation: tradeOpenBreathe 2.4s ease-in-out infinite;
+}
+@keyframes tradeOpenBreathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* market jump: a quiet frosted pill, same height as the interval control */
+.mkt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mkt:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+}
+
+.chartCard {
+  padding: 10px;
+}
+.chart {
+  height: 520px;
+}
+@media (max-width: 860px) {
+  .chart { height: 360px; }
+}

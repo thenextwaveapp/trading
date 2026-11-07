@@ -3,7 +3,13 @@
 The capability rule drives everything:
 
     an indicator is available on a market iff
-        set(indicator.inputs) <= market.provides
+        set(indicator.inputs) <= (market.provides | market.feeds)
+
+`provides` is the columns physically on the candle (open/high/low/close/volume)
+— an indicator fn reads them straight off the bar. `feeds` is externally-sourced
+inputs (social/news scores) that arrive via the aux path, NOT off the candle;
+they are kept distinct so `provides` retains its one precise meaning while feed
+inputs still gate the palette and validation through the same subset check.
 
 Consequences:
   - volume indicators (OBV, MFI, VWAP, VOL_RATIO) drop where there's no volume
@@ -11,6 +17,7 @@ Consequences:
   - candlestick patterns (need open/high/low) drop on prediction markets
     (which only have a probability `close`)
   - plain close-momentum (RSI, ROC, EMA) is available everywhere
+  - feed inputs (social/news) are available only where a feed is wired
 
 The same check powers the Builder palette and strategy validation (no
 per-indicator-per-market table).
@@ -43,6 +50,8 @@ class Market:
     cost: CostModel            # the market's trading-cost model
     regime_benchmark: str | None  # ticker whose trend x vol defines Weather;
     #                                None = this market has no regime gate
+    feeds: frozenset = frozenset()  # externally-sourced inputs (social/news)
+    #                                 available via the aux path, not the candle
 
     @property
     def has_volume(self) -> bool:
@@ -59,15 +68,18 @@ def register_market(m: Market) -> Market:
 
 # Cost models are market-appropriate defaults (tunable), not guesses pinned to
 # Binance perp fees. regime_benchmark is the series Weather measures trend/vol on.
+CRYPTO_FEEDS = frozenset({"social", "news"})
+EQUITY_FEEDS = frozenset({"social", "news"})
+
 register_market(Market("crypto_perp", "Crypto Perpetuals", OHLCV,
                        "continuous", "crypto_perp",
-                       CostModel(0.00045, 0.0005), "BTC"))
+                       CostModel(0.00045, 0.0005), "BTC", feeds=CRYPTO_FEEDS))
 register_market(Market("crypto_spot", "Crypto Spot", OHLCV,
                        "continuous", "crypto_spot",
-                       CostModel(0.001, 0.0005), "BTC"))
+                       CostModel(0.001, 0.0005), "BTC", feeds=CRYPTO_FEEDS))
 register_market(Market("equity", "Equities", OHLCV,
                        "continuous", "equity",
-                       CostModel(0.0001, 0.0005), "SPY"))
+                       CostModel(0.0001, 0.0005), "SPY", feeds=EQUITY_FEEDS))
 register_market(Market("futures", "Futures", OHLCV,
                        "continuous", "futures",
                        CostModel(0.00002, 0.0003), "SPY"))
@@ -88,9 +100,14 @@ def is_resolution(market_id):
     return bool(m and m.series_kind == "resolution")
 
 
+def _market_inputs(market):
+    return set(market.provides) | set(market.feeds)
+
+
 def available(indicator, market):
-    """True if `market` provides every column `indicator` needs."""
-    return set(indicator.inputs) <= set(market.provides)
+    """True if `market` supplies every input `indicator` needs — whether off the
+    candle (provides) or via a wired feed (feeds)."""
+    return set(indicator.inputs) <= _market_inputs(market)
 
 
 def available_indicators(market_id):
@@ -102,5 +119,6 @@ def available_indicators(market_id):
 def unavailable_indicators(market_id):
     """{id: missing_columns} — what's greyed out, and why."""
     m = MARKETS[market_id]
-    return {i: sorted(set(ind.inputs) - set(m.provides))
+    inputs = _market_inputs(m)
+    return {i: sorted(set(ind.inputs) - inputs)
             for i, ind in REGISTRY.items() if not available(ind, m)}

@@ -62,6 +62,7 @@ export default function ChallengeDetail() {
         <span className={p.crumbLink} onClick={() => nav("/challenges")}>← Challenges</span>
       </div>
 
+      <div className={p.shell}>
       <div className={p.top}>
         <div>
           <h1 className={p.title}>{ch.title}</h1>
@@ -165,7 +166,7 @@ export default function ChallengeDetail() {
             )}
             {entries.length === 0 ? (
               <div className="muted" style={{ padding: "40px 0" }}>
-                No entries yet.{canEnter ? " Be the first — enter above." : ""}
+                No entries yet.
               </div>
             ) : (
               <div className={s.grid}>
@@ -182,6 +183,7 @@ export default function ChallengeDetail() {
             )}
           </>
         )}
+      </div>
       </div>
     </>
   );

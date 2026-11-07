@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Search } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { botColor } from "../lib/brand";
 import { identicon } from "../lib/format";
 import { useBots, useChallenges, useMarket, usePublicProfiles } from "../db/queries";
 import s from "./SearchPalette.module.css";
+import { botPath, builderPath } from "../lib/paths";
 
 interface Res {
   id: string;
@@ -61,7 +64,7 @@ const PAGES: { label: string; path: string; icon: string }[] = [
   { label: "Market", path: "/market", icon: "market" },
   { label: "Build a bot", path: "/build", icon: "build" },
   { label: "Leaderboard", path: "/leaderboard", icon: "board" },
-  { label: "Challenges", path: "/challenges", icon: "trophy" },
+  { label: "Arena", path: "/challenges", icon: "trophy" },
   { label: "Settings", path: "/settings", icon: "gear" },
 ];
 
@@ -99,7 +102,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
       dot: <span className={s.dot} style={{ color: "var(--muted)" }}>{ICONS[p.icon]}</span>,
     }));
     const botRes: Res[] = take((bots ?? []).filter((b) => has(b.name) || has(b.family_slug ?? ""))).map((b) => ({
-      id: "bot:" + b.id, label: b.name, sub: "Bot", path: "/bot/" + encodeURIComponent(b.name),
+      id: "bot:" + b.id, label: b.name, sub: "Bot", path: botPath(b),
       dot: <span className={s.dot}>{ident(b.name, botColor(b))}</span>,
     }));
     const chRes: Res[] = take((challenges ?? []).filter((c) => has(c.title) || has(c.slug))).map((c) => ({
@@ -107,7 +110,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
       dot: <span className={s.dot} style={{ color: "var(--muted)" }}>{ICONS.trophy}</span>,
     }));
     const blRes: Res[] = take((profiles ?? []).filter((p) => has(p.handle) || has(p.display_name ?? ""))).map((p) => ({
-      id: "bl:" + p.id, label: "@" + p.handle, sub: "Builder", path: "/builder/" + encodeURIComponent(p.handle),
+      id: "bl:" + p.id, label: "@" + p.handle, sub: "Builder", path: builderPath(p.handle),
       dot: <span className={s.dot}>{ident("@" + p.handle, p.avatar_color || "#3a81d7")}</span>,
     }));
     const mkRes: Res[] = query
@@ -138,15 +141,15 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
     if (e.key === "Enter" && flat[active]) { e.preventDefault(); go(flat[active]); }
   };
 
-  return (
+  // Portal to <body>: the TopBar that mounts this has backdrop-filter, which
+  // would otherwise make it the containing block for our position:fixed overlay
+  // and trap the blur behind the page instead of over it.
+  return createPortal(
     <div className="ovl" onClick={onClose}>
       <div className={s.wrap} onKeyDown={onKey}>
         <div className={`glass ${s.panel}`} onClick={(e) => e.stopPropagation()}>
           <div className={s.inputRow}>
-            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" style={{ color: "var(--muted)" }}>
-              <circle cx="7" cy="7" r="5" strokeWidth="1.4" />
-              <path d="M11 11l3.5 3.5" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <Search size={17} strokeWidth={1.5} style={{ color: "var(--muted)", flex: "none" }} />
             <input
               ref={inputRef}
               className={s.input}
@@ -184,6 +187,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

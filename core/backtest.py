@@ -18,7 +18,7 @@ stops on either side.
 """
 from bisect import bisect_left
 
-from .evaluator import build_aux, entry_signal, M15
+from .evaluator import build_aux, build_feed_aux, entry_signal, feed_confidence, M15
 from .expr import eval_node
 from .markets import MARKETS, is_resolution
 
@@ -220,6 +220,18 @@ def exit_trade(pos, candles, taker, slip, aux=None):
     return None
 
 
+def _conf_factor(cscale, conf):
+    """Linear size multiplier in [0, 1] from a feed confidence. No scale set, or
+    a non-feed trade (conf None) -> full size (1.0)."""
+    if not cscale or conf is None:
+        return 1.0
+    lo = cscale.get("min_conf", 0.5)
+    hi = cscale.get("full_conf", 0.9)
+    if hi <= lo:
+        return 1.0 if conf >= hi else 0.0
+    return max(0.0, min(1.0, (conf - lo) / (hi - lo)))
+
+
 def summarize(trades, cfg):
     """Pooled expectancy + a risk-sized compounded equity curve."""
     n = len(trades)
@@ -239,12 +251,17 @@ def summarize(trades, cfg):
     peak = eq
     max_dd = 0.0
     curve = [[min(t["t_sig"] for t in trades), round(eq, 2)]]
+    cscale = cfg.get("confidence_scale")
     for t in sorted(trades, key=lambda x: x["exit_t"]):
         if "size_frac" in t:                 # prediction: flat stake, no stop
             notional = t["size_frac"] * eq
         else:
             sl_dist = t["stop"] / t["entry"] - 1
-            notional = min(cfg["risk"] * eq / max(abs(sl_dist), 0.005),
+            # confidence-weighted sizing: a feed trade's risk ramps linearly
+            # from 0 at min_conf to full at full_conf, so a marginal trigger
+            # takes a marginal position instead of a binary all-or-nothing.
+            factor = _conf_factor(cscale, t.get("conf"))
+            notional = min(cfg["risk"] * factor * eq / max(abs(sl_dist), 0.005),
                            cfg["notional_cap"] * eq)
         eq += notional * t["net"]
         peak = max(peak, eq)
@@ -266,7 +283,7 @@ def summarize(trades, cfg):
 
 
 def backtest(strategy, candles, cfg=None, start=0, entry_delay=0,
-             aux_series=None):
+             aux_series=None, feed_series=None):
     """Run `strategy` over one instrument's candle list. Returns
     {trades, stats}. `start` skips leading bars; entry_signal refuses to fire
     before the strategy's lookback is satisfied, so start=0 fires as soon as a
@@ -274,21 +291,36 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0,
 
     `entry_delay` fills `d` bars after the signal (enter at candles[i+d]'s
     close instead of the signal close). The stop reference still comes from
-    the signal bar; only the fill moves.
+    the signal bar; only the fill moves. For a feed bot this is where the
+    measured ingest+score latency is modeled — enter a bar (or more) after the
+    trigger, not at the clean signal close.
 
     `aux_series` supplies cross-series data for multi-timeframe / cross-asset
-    operands: {(symbol, tf): (candles, interval_ms)}. It is aligned to this
-    tape once (causally, no lookahead) before the run. strategy["_requires"]
-    lists the (symbol, tf) keys the bot needs."""
+    operands: {(symbol, tf): (candles, interval_ms)}. `feed_series` supplies
+    social/news score series: {kind: rows}, aligned causally with the spec's
+    staleness gate. strategy["_requires"] / ["_requires_feeds"] list what the
+    bot needs."""
     cfg = {**DEFAULTS, **market_cost(strategy), **(cfg or {})}
+    # confidence-weighted sizing is a property of the spec, not the run config;
+    # surface it into cfg so summarize() can size each feed trade by its trigger
+    # confidence. Absent -> every trade sizes at full risk (unchanged behavior).
+    cscale = (strategy.get("sizing") or {}).get("confidence_scale")
+    if cscale and "confidence_scale" not in cfg:
+        cfg = {**cfg, "confidence_scale": cscale}
     taker, slip = cfg["taker"], cfg["slip"]
-    aux = build_aux(candles, strategy.get("_interval_ms", M15), aux_series) \
-        if aux_series else None
+    base_ms = strategy.get("_interval_ms", M15)
+    aux = build_aux(candles, base_ms, aux_series) if aux_series else None
+    if feed_series:
+        max_age_ms = int((strategy.get("feed") or {}).get(
+            "max_signal_age_sec", 0)) * 1000
+        feed_aux = build_feed_aux(candles, base_ms, feed_series, max_age_ms)
+        aux = {**(aux or {}), **feed_aux}
     trades, cache, open_until = [], {}, -1
     for i in range(start, len(candles)):
         sig = entry_signal(strategy, candles, i, cache, aux)
         if not sig or sig["t_sig"] < open_until:
             continue
+        conf = feed_confidence(aux, i)
         fi = i + entry_delay
         if fi >= len(candles):
             continue
@@ -306,6 +338,8 @@ def backtest(strategy, candles, cfg=None, start=0, entry_delay=0,
               "stop": pos["stop"], "exit_t": exit_t, "kind": kind, "net": net}
         if "size_frac" in pos:
             tr["size_frac"] = pos["size_frac"]
+        if conf is not None:
+            tr["conf"] = conf
         trades.append(tr)
         open_until = exit_t
     return {"trades": trades, "stats": summarize(trades, cfg)}

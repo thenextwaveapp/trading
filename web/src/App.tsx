@@ -1,12 +1,17 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import PaperLoader from "./components/PaperLoader";
 import { FleetCtx, EMPTY_PAYLOAD } from "./api/context";
 import { useFleet } from "./api/useFleet";
 import { useAuth } from "./auth";
 import { CandleProvider } from "./components/CandleModal";
 import { AssistantProvider } from "./assistant/AssistantProvider";
+import { CurrentFleetProvider } from "./fleets/CurrentFleetProvider";
 import Assistant from "./assistant/Assistant";
 import { useTrackNav } from "./components/cells";
 import RequireAuth from "./components/RequireAuth";
+import RequireOnboarded from "./components/RequireOnboarded";
+import { UpgradeProvider } from "./components/UpgradeModal";
 import TopBar from "./components/TopBar";
 import FleetView from "./routes/FleetView";
 import Feed from "./routes/Feed";
@@ -18,8 +23,11 @@ import MarketDetail from "./routes/MarketDetail";
 import Challenges from "./routes/Challenges";
 import ChallengeDetail from "./routes/ChallengeDetail";
 import Builder from "./routes/Builder";
+import Trade from "./routes/Trade";
 import Build from "./routes/Build";
 import Settings from "./routes/Settings";
+import Upgrade from "./routes/Upgrade";
+import Onboarding from "./routes/Onboarding";
 import Privacy from "./routes/Privacy";
 import NotFound from "./routes/NotFound";
 import styles from "./App.module.css";
@@ -30,15 +38,22 @@ export default function App() {
   const loc = useLocation();
   useTrackNav();
 
-  if (authLoading || (!data && !error)) {
+  // A minimum display floor, not a fixed hold: the app appears as soon as data
+  // is ready AND this short beat has passed. Fast loads glimpse the plane; slow
+  // loads see the animation until data lands. ~800ms kills the flash-frame
+  // glitch without making a returning user wait.
+  const [minElapsed, setMinElapsed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMinElapsed(true), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!minElapsed || authLoading || (!data && !error)) {
     return (
       <div className={styles.center}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-          <svg width="34" height="34" viewBox="0 0 200 200" fill="none" aria-hidden style={{ opacity: 0.9 }}>
-            <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
-            <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
-          </svg>
-          <span style={{ color: "var(--muted)", fontSize: 14 }}>Paper Fleet</span>
+        <div className={styles.splash}>
+          <div className={styles.splashPaper}><PaperLoader size={72} /></div>
+          <div className={styles.splashWord}>paper fleet</div>
         </div>
       </div>
     );
@@ -59,6 +74,8 @@ export default function App() {
   return (
     <FleetCtx.Provider value={fleet}>
       <CandleProvider>
+       <CurrentFleetProvider>
+       <UpgradeProvider>
        <AssistantProvider>
         <div className={styles.app}>
           <TopBar />
@@ -71,25 +88,35 @@ export default function App() {
             )}
             <Routes>
               <Route path="/" element={<Navigate to="/feed" replace />} />
-              <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
-              <Route path="/fleet" element={<RequireAuth><FleetView /></RequireAuth>} />
+              <Route path="/feed" element={<RequireOnboarded><Feed /></RequireOnboarded>} />
+              <Route path="/fleet" element={<RequireOnboarded><FleetView /></RequireOnboarded>} />
               <Route path="/bot/:name" element={<BotProfile />} />
+              <Route path="/trade/:bot/:ticker/:t?" element={<Trade />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/market" element={<Market />} />
               <Route path="/market/:symbol" element={<MarketDetail />} />
               <Route path="/challenges" element={<Challenges />} />
               <Route path="/challenge/:slug" element={<ChallengeDetail />} />
               <Route path="/builder/:handle?" element={<Builder />} />
-              <Route path="/build/*" element={<RequireAuth><Build /></RequireAuth>} />
+              <Route path="/build/*" element={<RequireOnboarded><Build /></RequireOnboarded>} />
               <Route path="/settings/*" element={<RequireAuth><Settings /></RequireAuth>} />
+              <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
+              <Route path="/upgrade" element={<Upgrade />} />
               <Route path="/signin" element={<Navigate to="/?auth=signin" replace />} />
               <Route path="/privacy" element={<Privacy />} />
+              {/* readable canonical paths: /@handle, /@handle/bot-slug,
+                  /@handle/bot-slug/TICKER/:t — components 404 non-@ handles */}
+              <Route path="/:handle" element={<Builder />} />
+              <Route path="/:handle/:botSlug" element={<BotProfile />} />
+              <Route path="/:handle/:botSlug/:ticker/:t?" element={<Trade />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
           <Assistant />
         </div>
        </AssistantProvider>
+       </UpgradeProvider>
+       </CurrentFleetProvider>
       </CandleProvider>
     </FleetCtx.Provider>
   );

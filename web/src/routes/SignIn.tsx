@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import Logo from "../components/Logo";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 
@@ -47,10 +48,7 @@ export default function SignIn() {
   return (
     <Shell>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <svg width="26" height="26" viewBox="0 0 200 200" fill="none" aria-hidden>
-          <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
-          <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
-        </svg>
+        <Logo size={26} />
         <span style={{ fontSize: 17, fontWeight: 600 }}>Paper Fleet</span>
       </div>
 

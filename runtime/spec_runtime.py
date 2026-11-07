@@ -215,9 +215,10 @@ def run_spec_signals(name, spec, st, universe, candles, *, gate=None,
         if sig["t_sig"] < st["kill_until"]:
             continue
         hist = [e for e in st["eq_hist"] if e[0] >= sig["t_sig"] - KILL_LOOKBACK]
-        if hist and st["equity"] / max(e[1] for e in hist) - 1 < KILL_DD:
+        kill_dd = st.get("kill_dd", KILL_DD)   # per-fleet threshold; -5% default
+        if hist and st["equity"] / max(e[1] for e in hist) - 1 < kill_dd:
             st["kill_until"] = sig["t_sig"] + KILL_PAUSE
-            log(f"[{name}] KILL-SWITCH: 7d drawdown < -5%")
+            log(f"[{name}] KILL-SWITCH: 7d drawdown < {kill_dd * 100:.0f}%")
             notes.append(dict(kind="kill", v=name))
             continue
 
@@ -393,6 +394,10 @@ def run_fleet(bots, states, candles, universes, *, fetch, gate=None,
             sym, start, limit, _iv)
         run_exits_spec(bot["name"], st, bot_fetch, notes=notes,
                        interval=iv, log=log, resolve=resolve)
+        # A paused fleet keeps managing open positions (exits above) but opens
+        # nothing new — the per-fleet equivalent of the global PAUSE file.
+        if bot.get("fleet_status") == "paused":
+            continue
         uni = universes.get(bot["id"]) or {}
         if not uni:
             log(f"[{bot['name']}] SKIP entries: universe did not resolve")

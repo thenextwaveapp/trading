@@ -20,37 +20,125 @@
 }
 .chips {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 14px;
   flex-wrap: wrap;
 }
+/* settings: a soft grey circle, no outline (theme greys) */
+.settingsBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.settingsBtn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--fg);
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  gap: 18px;
 }
+
+/* ---- glass iteration (this page is the testbed) ----
+   The page-depth colour pools the glass blurs over live app-wide now:
+   body::before in global.css. */
+
+/* frosted panel — the login's glass recipe, sized for cards */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 36px;
+}
+/* stat labels in the machine's voice */
+.statcell :global(.lbl) {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.statcell {
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: rgba(13, 16, 22, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -20px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
+/* activity — same single-column ticket stream as the home feed */
 .feed {
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  background: var(--card-bottom);
-  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
 }
 .more {
-  width: 100%;
-  padding: 11px 8px;
+  padding: 10px 8px;
   border: none;
-  border-top: 1px solid var(--line);
   background: none;
   color: var(--muted);
   font-size: 13px;
   cursor: pointer;
 }
 .more:hover { color: var(--fg); }
+/* builder-profile bot card: frosted glass with a very faint, static (never
+   breathing) bot-coloured glow at rest, swelling slightly on hover. */
 .bc {
-  padding: 18px;
+  --bot: var(--accent);
+  position: relative;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+  cursor: pointer;
+  border-radius: 16px;
+  background: rgba(13, 16, 22, 0.52);
+  border: 1px solid color-mix(in srgb, var(--bot) 14%, rgba(255, 255, 255, 0.08));
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 16px 40px -20px rgba(0, 0, 0, 0.55),
+    0 0 10px -7px color-mix(in srgb, var(--bot) 28%, transparent);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.bc:hover {
+  border-color: color-mix(in srgb, var(--bot) 30%, rgba(255, 255, 255, 0.08));
+  background: rgba(16, 20, 27, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 40px -20px rgba(0, 0, 0, 0.55),
+    0 0 24px -12px color-mix(in srgb, var(--bot) 40%, transparent);
+}
+/* cursor-tracked edge highlight — same recipe as the Build bays */
+.bc::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--bot) 80%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  mask-image: radial-gradient(150px 150px at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(150px 150px at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 72%);
+}
+.bc:hover::after {
+  opacity: 1;
+}
+/* no lines inside the glass — tags read as tinted fills, not outlined chips */
+.bc :global(.chip) {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.07);
 }
 .bcTop {
   display: flex;

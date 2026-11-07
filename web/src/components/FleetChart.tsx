@@ -8,6 +8,7 @@ import {
 } from "lightweight-charts";
 import type { Bot } from "../api/types";
 import { START, lt, pct, vcolor } from "../lib/format";
+import Segmented from "./Segmented";
 import s from "./FleetChart.module.css";
 
 export const LW_OPTS = {
@@ -193,21 +194,25 @@ export default function FleetChart({
       <div className={s.head}>
         <h2 className={s.h2}>Performance</h2>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div className={s.range} title="$ equity vs % return from the $10k fund">
-            <button className={`${s.rb} ${mode === "usd" ? s.sel : ""}`} onClick={() => setMode("usd")}>$</button>
-            <button className={`${s.rb} ${mode === "pct" ? s.sel : ""}`} onClick={() => setMode("pct")}>%</button>
-          </div>
-          <div className={s.range}>
-            {RANGES.map(([label, days]) => (
-              <button
-                key={label}
-                className={`${s.rb} ${range === days ? s.sel : ""}`}
-                onClick={() => setRange(days)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <span title="$ equity vs % return from the $10k fund">
+            <Segmented
+              ariaLabel="Units"
+              size="sm"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "usd", label: "$" },
+                { value: "pct", label: "%" },
+              ]}
+            />
+          </span>
+          <Segmented
+            ariaLabel="Time range"
+            size="sm"
+            value={range}
+            onChange={setRange}
+            options={RANGES.map(([label, days]) => ({ value: days, label }))}
+          />
         </div>
       </div>
       <div className="card" style={{ marginTop: 18, padding: "18px 18px 14px" }}>

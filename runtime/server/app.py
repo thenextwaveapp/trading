@@ -79,7 +79,7 @@ def coin_map():
 
 def valid_symbols():
     return set(coin_map().values())
-IVALS = {"15m", "1h", "4h", "1d"}
+IVALS = {"1m", "5m", "15m", "1h", "4h", "1d", "1w", "1M"}
 # Built React app (web/dist copied here on deploy). Served at / with an SPA
 # fallback to index.html; if the build is absent, / returns 503.
 WEB_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web_dist")
@@ -447,7 +447,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 start = int(q.get("start", ["0"])[0]) or None
                 end = int(q.get("end", ["0"])[0]) or None
-                limit = max(10, min(int(q.get("limit", ["400"])[0]), 1500))
+                limit = max(10, min(int(q.get("limit", ["400"])[0]), 10_000))
             except ValueError:
                 self.send_error(400)
                 return

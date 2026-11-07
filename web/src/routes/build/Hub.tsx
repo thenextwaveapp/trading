@@ -10,17 +10,12 @@ import { CardsSkeleton } from "../../components/Skeleton";
 import p from "../pages.module.css";
 import r from "./build.module.css";
 import { STAGES, resumePath } from "./stages";
+import { edgeGlow } from "../../lib/fx";
 
 const PIPELINE = STAGES;
 const STAGE_LABEL: Record<string, string> = Object.fromEntries(
   STAGES.map((s) => [s.key, s.label]),
 );
-
-const START = [
-  ["pump_short", "Fade a pump", "Short the first red bar after a parabolic move."],
-  ["capit_long", "Buy a capitulation", "Buy a sharp 24h crash and time the exit."],
-  ["momo_long", "Ride momentum", "Buy a high-volume breakout that closes strong."],
-];
 
 export default function Hub() {
   const nav = useNavigate();
@@ -155,17 +150,7 @@ export default function Hub() {
 
   return (
     <>
-      <div className={p.top}>
-        <div>
-          <h1 className={p.title}>Build</h1>
-          <div className={p.subtitle}>Compose, train and deploy bots.</div>
-        </div>
-        <button className={`${p.btn} ${p.pri}`} onClick={() => nav("/build/compose")}>
-          New bot
-        </button>
-      </div>
-
-      <div className={p.body}>
+      <div className={`${p.body} ${r.mono}`} style={{ paddingTop: 28 }}>
         {loading ? (
           <CardsSkeleton cards={6} />
         ) : (bots ?? []).length === 0 ? (
@@ -185,34 +170,32 @@ export default function Hub() {
           <Stat label="Paper equity" value={dol(paperEquity)} sub="across the fleet" />
         </section>
 
-        {/* roster, grouped by stage */}
-        <div className={p.sectionHead} style={{ marginBottom: 18 }}>
-          <div>
-            <h2 className={p.h2}>Your bots</h2>
-            <div className="lbl" style={{ marginTop: 4 }}>Every bot you've made, by where it is.</div>
-          </div>
-        </div>
+        {/* roster, grouped by stage — the stage labels carry the wayfinding */}
         <div style={{ display: "flex", flexDirection: "column", gap: 28, marginBottom: 44 }}>
           {STAGES.map((s) => {
             const items = columns.get(s.key) ?? [];
-            if (items.length === 0) return null;
+            // drafts always render — the new-bot bay lives there
+            if (items.length === 0 && s.key !== "draft") return null;
             return (
               <div key={s.key}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
                   <h2 className={p.h2}>{s.label}</h2>
-                  <span className="num muted">{items.length}</span>
-                  <span className="lbl">{s.blurb}</span>
+                  <span className="num muted">({items.length})</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 12 }}>
-                  {items.map((b) => (
+                  {items.map((b, i) => (
                     <div
                       key={b.id}
-                      className={`${r.kcard} ${["training", "trials", "weather"].includes(b.stage) ? "pulseCard" : ""}`}
+                      className={`${r.kcard} ${["training", "trials", "weather"].includes(b.stage) ? r.alive : ""}`}
                       style={{
+                        "--bot": botColor(b),
+                        // desync the breathing — bays swell on their own time
+                        animationDelay: `${-((i * 1.3) % 3.6).toFixed(2)}s`,
                         cursor: dragId === b.id ? "grabbing" : "grab",
                         opacity: dragId === b.id ? 0.45 : 1,
                         borderColor: dragOverId === b.id && dragId !== b.id ? "var(--trade)" : undefined,
-                      }}
+                      } as React.CSSProperties}
+                      onMouseMove={edgeGlow}
                       draggable
                       onDragStart={(e) => {
                         setDragId(b.id);
@@ -271,6 +254,11 @@ export default function Hub() {
                       {b.stage === "training" && <TrainingElapsed botId={b.id} />}
                     </div>
                   ))}
+                  {s.key === "draft" && (
+                    <button className={`${r.kcard} ${r.dashed} ${r.newBay}`} onClick={() => nav("/build/compose")}>
+                      + New bot
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -280,10 +268,7 @@ export default function Hub() {
         <section style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
           <div style={{ flex: "999 1 560px", minWidth: 0 }}>
             <div className={p.sectionHead}>
-              <div>
-                <h2 className={p.h2}>Reports <span className="num muted" style={{ fontSize: 14, fontWeight: 400 }}>{reports.length}</span></h2>
-                <div className="lbl" style={{ marginTop: 4 }}>Every bot you've tested, with its backtest and live result.</div>
-              </div>
+              <h2 className={p.h2}>Reports <span className="num muted" style={{ fontSize: 14, fontWeight: 400 }}>({reports.length})</span></h2>
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
@@ -327,18 +312,6 @@ export default function Hub() {
             </div>
           </div>
 
-          <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div className={p.sectionHead} style={{ margin: "0 0 4px" }}><h2 className={p.h2}>Start a new bot</h2></div>
-            {START.map(([mode, t, d]) => (
-              <div key={mode} className="card" style={{ padding: 18, display: "flex", gap: 14, alignItems: "center", cursor: "pointer" }} onClick={() => nav("/build/compose?family=" + mode)}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{t}</div>
-                  <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>{d}</div>
-                </div>
-                <span className="muted">›</span>
-              </div>
-            ))}
-          </div>
         </section>
         </>
         )}
@@ -350,20 +323,7 @@ export default function Hub() {
 function EmptyBuild({ onStart }: { onStart: (family?: string) => void }) {
   return (
     <section style={{ maxWidth: 560, padding: "48px 0" }}>
-      <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>You haven't built a bot yet.</h2>
-      <p className={p.subtitle} style={{ marginTop: 10, lineHeight: 1.6 }}>
-        Compose a strategy, send it through training, the stress tests, the weather gate —
-        and track every one you test right here. Your pipeline and reports fill in as you go.
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
-        {START.map(([mode, t, d]) => (
-          <div key={mode} className="card" style={{ padding: 18, flex: "1 1 220px", minWidth: 0, cursor: "pointer" }} onClick={() => onStart(mode)}>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{t}</div>
-            <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>{d}</div>
-          </div>
-        ))}
-      </div>
-      <button className={`${p.btn} ${p.pri}`} style={{ marginTop: 20, height: 46 }} onClick={() => onStart()}>
+      <button className={`${p.btn} ${p.pri}`} style={{ height: 46 }} onClick={() => onStart()}>
         Build your first bot →
       </button>
     </section>

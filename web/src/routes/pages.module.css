@@ -7,10 +7,12 @@
   align-items: flex-end;
   padding: 36px var(--gutter) 24px;
 }
+/* page headers speak in the wordmark's voice: DM Sans bold, tight tracking */
 .title {
+  font-family: var(--font-display);
   font-size: 40px;
-  letter-spacing: -0.03em;
-  font-weight: 500;
+  letter-spacing: -0.035em;
+  font-weight: 700;
 }
 .subtitle {
   color: var(--muted);
@@ -20,15 +22,25 @@
 .body {
   padding: 0 var(--gutter) 72px;
 }
-/* content pages (market, feed) read better capped + centered. */
-.narrow {
-  max-width: 1000px;
+/* The app grid: one column, the exact width and edges of the floating nav bar.
+   Content sits flush to the shell edges (inner gutter zeroed — cards carry
+   their own padding), so nav pill, cards and tables all share the same rails.
+   Fleet is the deliberate exception and keeps the full-width command center. */
+.shell {
+  width: min(100% - 28px, var(--shell-w));
   margin: 0 auto;
+  --gutter: 0px;
 }
+.narrow {
+  composes: shell;
+}
+/* back bar: rides the shell (left edge = nav bar's left edge); the link is a
+   small frosted pill, no full-bleed hairline */
 .crumb {
-  padding: 18px var(--gutter);
-  border-bottom: 1px solid var(--line);
-  font-size: 14px;
+  width: min(100% - 28px, var(--shell-w));
+  margin: 0 auto;
+  padding: 16px 0 4px;
+  font-size: 13px;
   color: var(--muted);
 }
 .crumb b {
@@ -39,36 +51,69 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 30px;
+  padding: 0 12px 0 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .crumbLink:hover {
-  color: var(--fg-2);
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
+/* Thin glass control: a faint translucent fill over the dark page reads as light
+   frosted glass, with a hairline edge and a soft inner top-sheen. No hard bottom
+   edge (that's what made it look thick). .pri stays solid white so the primary
+   action still carries the most contrast. */
 .btn {
-  height: 40px;
-  padding: 0 18px;
+  height: 36px;
+  padding: 0 16px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: #10141a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--fg);
   font-size: 13px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 0 #030406;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 .btn:hover {
-  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
 }
+/* The primary action: a short, tactile white key. Soft top-down gradient (domed
+   face), glossy top edge, and a hard bottom lip + drop shadow that read as
+   physical thickness — then it depresses on :active. */
 .btn.pri {
-  background: #e9ecf1;
+  height: 32px;
+  background: linear-gradient(180deg, #ffffff 0%, #d9dde4 100%);
   color: #07090c;
-  border-color: #e9ecf1;
-  font-weight: 500;
-  box-shadow: none;
+  border: 1px solid #c4cad3;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 0 #9aa2ad,
+    0 2px 5px rgba(0, 0, 0, 0.45);
+  transition: transform 0.06s ease, box-shadow 0.12s ease, background 0.15s ease;
+}
+.btn.pri:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #e3e7ec 100%);
+  border-color: #d0d5dd;
+}
+.btn.pri:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.4);
 }
 .btn.sm {
   height: 28px;
@@ -84,9 +129,9 @@
   display: flex;
   gap: 4px;
   padding: 3px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-sm);
-  background: var(--card-bottom);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
 }
 .segBtn {
   height: 30px;
@@ -108,31 +153,26 @@
   opacity: 0.4;
 }
 
-.search {
-  height: 40px;
-  width: 280px;
-  max-width: 100%;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: #0d1117;
-  color: var(--fg);
-  padding: 0 14px;
-  font: inherit;
-  font-size: 13px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
-}
-
+/* stats: separate glass tiles, no fused hairline grid */
 .statgrid {
   display: grid;
-  gap: 1px;
-  background: var(--line-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  overflow: hidden;
+  gap: 14px;
 }
 .statcell {
-  background: linear-gradient(180deg, #0f141b, var(--card-bottom));
   padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 16, 22, 0.52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -20px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
+/* stat labels in the machine's voice (global .lbl is sans elsewhere) */
+.statcell :global(.lbl) {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 .statBig {
   font-size: 26px;
@@ -172,9 +212,6 @@
   }
   .statBig {
     font-size: 22px;
-  }
-  .search {
-    width: 100%;
   }
 }
 @media (max-width: 480px) {

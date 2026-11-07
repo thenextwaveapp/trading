@@ -1,10 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-// The data comes from the existing backend (runtime.server.app),
-// which proxies the live Hetzner paper fleet. In dev we proxy /api + /candles
-// to it so the React app hits the exact same source as :8787 / :8789.
-// Override the target with VITE_API_TARGET (e.g. a tunnelled port).
-var API_TARGET = process.env.VITE_API_TARGET || "http://127.0.0.1:8787";
+// The data comes from the existing backend (runtime.server.app). In dev we
+// proxy /api + /candles to it so the React app hits the same source as prod.
+// Default is the live VPS — nobody runs the python server locally anymore;
+// override with VITE_API_TARGET (e.g. http://127.0.0.1:8787 or a tunnel).
+var API_TARGET = process.env.VITE_API_TARGET || "https://fleet.presencenet.io";
 export default defineConfig({
     plugins: [react()],
     server: {

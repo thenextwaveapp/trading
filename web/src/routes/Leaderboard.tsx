@@ -10,7 +10,10 @@ import type { DbBot } from "../db/types";
 import { DIRLBL, START, dol, identicon, pct, windowReturn } from "../lib/format";
 import Spark from "../components/Spark";
 import { RowsSkeleton } from "../components/Skeleton";
+import Segmented from "../components/Segmented";
+import SearchField from "../components/SearchField";
 import p from "./pages.module.css";
+import { botPath, builderPath } from "../lib/paths";
 import s from "./Leaderboard.module.css";
 
 const RANGES: [string, number | null][] = [
@@ -140,37 +143,33 @@ export default function Leaderboard() {
 
   return (
     <>
-      <div className={p.top}>
-        <div>
-          <h1 className={p.title}>Leaderboard</h1>
-          <div className={p.subtitle}>Bots ranked by live paper results. Real returns from each bot's equity curve.</div>
-        </div>
-        <input className={p.search} placeholder="Search bots, builders" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
-
-      <div className={p.body}>
+      {/* no page title — the nav's active pill already says where you are */}
+      <div className={`${p.shell} ${p.body}`} style={{ paddingTop: 28 }}>
         <div className={s.filters}>
-          <div className={p.seg}>
-            {([
-              ["all", "All"],
-              ["crypto", "Crypto"],
-              ["equity", "Stocks"],
-              ["prediction", "Predictions"],
-            ] as const).map(([k, label]) => (
-              <button
-                key={k}
-                className={`${p.segBtn} ${marketFilter === k ? p.sel : ""}`}
-                onClick={() => setMarketFilter(k)}
-              >
-                {label}
-              </button>
-            ))}
+          <div className={s.fMarket}>
+            <Segmented
+              ariaLabel="Market"
+              block
+              value={marketFilter}
+              onChange={setMarketFilter}
+              options={[
+                { value: "all", label: "All" },
+                { value: "crypto", label: "Crypto" },
+                { value: "equity", label: "Stocks" },
+                { value: "prediction", label: "Predictions" },
+              ]}
+            />
           </div>
-          <div className={p.seg}>
-            {RANGES.map(([label], i) => (
-              <button key={label} className={`${p.segBtn} ${range === i ? p.sel : ""}`} onClick={() => setRange(i)}>{label}</button>
-            ))}
+          <div className={s.fRange}>
+            <Segmented
+              ariaLabel="Time range"
+              block
+              value={range}
+              onChange={setRange}
+              options={RANGES.map(([label], i) => ({ value: i, label }))}
+            />
           </div>
+          <SearchField value={q} onChange={setQ} placeholder="Search bots, builders" className={s.fSearch} />
         </div>
 
         {loading ? (
@@ -190,7 +189,7 @@ export default function Leaderboard() {
                         key={pr.id}
                         className="card"
                         style={{ padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
-                        onClick={() => nav("/builder/" + encodeURIComponent(pr.handle))}
+                        onClick={() => nav(builderPath(pr.handle))}
                       >
                         <svg width="36" height="36" viewBox="0 0 36 36" style={{ flex: "none" }}>
                           <rect width="36" height="36" rx="18" fill="#12161D" />
@@ -221,8 +220,8 @@ export default function Leaderboard() {
                       <svg width="52" height="52" viewBox="0 0 52 52"><rect width="52" height="52" rx="26" fill="#12161D" /><path d={identicon(row.bot.name, 34)} fill={col} transform="translate(9 9)" /></svg>
                       <span className={`num gradtext ${s.rank}`}>{i + 1}</span>
                     </div>
-                    <div className={s.cardName} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>{row.bot.name}</div>
-                    <div className={`lk ${s.builder}`} onClick={() => row.builder && nav("/builder/" + row.builder)}>{row.builder ? `@${row.builder}` : "—"}</div>
+                    <div className={s.cardName} onClick={() => nav(botPath(row.bot))}>{row.bot.name}</div>
+                    <div className={`lk ${s.builder}`} onClick={() => row.builder && nav(builderPath(row.builder))}>{row.builder ? `@${row.builder}` : "—"}</div>
                     <Spark data={sparkPts} w={260} h={44} up={up} color={col} />
                     <div className={s.cardFoot}>
                       <div>
@@ -242,7 +241,7 @@ export default function Leaderboard() {
                               {copyingId === row.bot.id ? "…" : "Copy"}
                             </button>
                           )}
-                          <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button>
+                          <button className={`${p.btn} ${p.sm}`} onClick={() => nav(botPath(row.bot))}>Open</button>
                         </div>
                       </div>
                     </div>
@@ -280,7 +279,7 @@ export default function Leaderboard() {
                           <span
                             className="lk"
                             style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
-                            onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}
+                            onClick={() => nav(botPath(row.bot))}
                           >
                             <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: "none" }}>
                               <rect width="28" height="28" rx="14" fill="#12161D" />
@@ -290,7 +289,7 @@ export default function Leaderboard() {
                             {row.openCount > 0 && <span className="blueDot" title={`${row.openCount} open trade(s)`} />}
                           </span>
                         </td>
-                        <td className={s.left}><span className="lk muted" onClick={() => row.builder && nav("/builder/" + row.builder)}>{row.builder ? `@${row.builder}` : "–"}</span></td>
+                        <td className={s.left}><span className="lk muted" onClick={() => row.builder && nav(builderPath(row.builder))}>{row.builder ? `@${row.builder}` : "–"}</span></td>
                         <td className={s.left}><span className="muted">{DIRLBL[row.bot.direction ?? ""] ?? row.bot.direction}</span></td>
                         <td className={`num ${up ? "up" : "down"}`}>{pct(row.ret, true)}</td>
                         <td className="num">{dol(row.equity)}</td>
@@ -308,7 +307,7 @@ export default function Leaderboard() {
                                 {copyingId === row.bot.id ? "…" : "Copy"}
                               </button>
                             )}
-                            <button className={`${p.btn} ${p.sm}`} onClick={() => nav("/bot/" + encodeURIComponent(row.bot.name))}>Open</button>
+                            <button className={`${p.btn} ${p.sm}`} onClick={() => nav(botPath(row.bot))}>Open</button>
                           </span>
                         </td>
                       </tr>

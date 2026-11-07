@@ -1,6 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { fetchCandles } from "../api/client";
+import { useAuth } from "../auth";
+import { supabase } from "../db/supabase";
+import { entitlementOf } from "../lib/billing";
+import { useUpgrade } from "../components/UpgradeModal";
 
 export interface Proposal {
   name: string;
@@ -24,6 +28,12 @@ export interface PageContext {
   screen?: { title: string; rows: string[] };
 }
 
+export interface ConvoMeta {
+  id: string;
+  title: string;
+  ts: string;
+}
+
 interface AssistantApi {
   enabled: boolean;
   setEnabled: (v: boolean) => void;
@@ -33,6 +43,11 @@ interface AssistantApi {
   busy: boolean;
   send: (text: string) => Promise<void>;
   clear: () => void;
+  /** chat history: past conversations, open one, start fresh, delete one */
+  conversations: ConvoMeta[];
+  openConversation: (id: string) => Promise<void>;
+  newChat: () => void;
+  deleteConversation: (id: string) => void;
   setPageContext: (ctx: PageContext | null) => void;
   /** Point the assistant at a specific candle/time (from a chart click). */
   focusLabel: string | null;
@@ -47,9 +62,14 @@ export const useAssistant = (): AssistantApi => {
 };
 
 const KEY = "pf_assistant_enabled";
+// Free users get a small taste of the co-pilot, then it's a Pro feature.
+const AI_USED_KEY = "pf_ai_used";
+const FREE_AI_QUOTA = 5;
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const loc = useLocation();
+  const { user, subscription } = useAuth();
+  const upgrade = useUpgrade();
   const [enabled, setEnabledState] = useState(() => localStorage.getItem(KEY) !== "false");
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -74,14 +94,139 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     pageCtx.current = ctx;
   }, []);
 
-  const clear = useCallback(() => setMessages([]), []);
+  // History lives in pf_assistant_messages (RLS: owner only), grouped into
+  // conversations. On sign-in: resume the latest conversation and build the
+  // history list. Signed-out chats stay ephemeral.
+  const convId = useRef<string>(crypto.randomUUID());
+  const [conversations, setConversations] = useState<ConvoMeta[]>([]);
+  const mapRow = (r: { role: string; content: string; proposal: unknown }): ChatMsg => ({
+    role: r.role as ChatMsg["role"],
+    content: r.content,
+    proposal: (r.proposal as Proposal | null) ?? undefined,
+  });
+
+  useEffect(() => {
+    if (!user) {
+      setMessages([]);
+      setConversations([]);
+      return;
+    }
+    let dead = false;
+    void supabase
+      .from("pf_assistant_messages")
+      .select("conversation_id,role,content,proposal,created_at")
+      .order("created_at", { ascending: true })
+      .limit(400)
+      .then(({ data }) => {
+        if (dead || !data) return;
+        const groups = new Map<string, typeof data>();
+        for (const r of data) {
+          const k = (r.conversation_id as string | null) ?? "legacy";
+          if (!groups.has(k)) groups.set(k, []);
+          groups.get(k)!.push(r);
+        }
+        const metas = [...groups.entries()]
+          .map(([id, rows]) => ({
+            id,
+            title: (rows.find((r) => r.role === "user")?.content ?? "Conversation").slice(0, 64),
+            ts: rows[rows.length - 1].created_at as string,
+            rows,
+          }))
+          .sort((a, b) => (a.ts < b.ts ? 1 : -1));
+        setConversations(metas.map(({ id, title, ts }) => ({ id, title, ts })));
+        const latest = metas[0];
+        if (latest) {
+          convId.current = latest.id === "legacy" ? crypto.randomUUID() : latest.id;
+          setMessages(latest.rows.map(mapRow));
+        }
+      });
+    return () => {
+      dead = true;
+    };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // fire-and-forget persistence — a history hiccup never blocks the chat
+  const persist = useCallback(
+    (msg: ChatMsg) => {
+      if (!user) return;
+      const id = convId.current;
+      // NB: supabase builders are lazy — nothing fires until .then() is called
+      void supabase
+        .from("pf_assistant_messages")
+        .insert({
+          user_id: user.id,
+          conversation_id: id,
+          role: msg.role,
+          content: msg.content,
+          proposal: msg.proposal ?? null,
+        })
+        .then(({ error }) => {
+          if (error) console.warn("assistant history save failed:", error.message);
+        });
+      // a conversation exists in the list from its first user message
+      if (msg.role === "user") {
+        setConversations((cs) =>
+          cs.some((c) => c.id === id)
+            ? cs
+            : [{ id, title: msg.content.slice(0, 64), ts: new Date().toISOString() }, ...cs],
+        );
+      }
+    },
+    [user],
+  );
+
+  const openConversation = useCallback(async (id: string) => {
+    let q = supabase
+      .from("pf_assistant_messages")
+      .select("role,content,proposal")
+      .order("created_at", { ascending: true });
+    q = id === "legacy" ? q.is("conversation_id", null) : q.eq("conversation_id", id);
+    const { data } = await q;
+    convId.current = id === "legacy" ? crypto.randomUUID() : id;
+    setMessages((data ?? []).map(mapRow));
+  }, []);
+
+  const newChat = useCallback(() => {
+    convId.current = crypto.randomUUID();
+    setMessages([]);
+  }, []);
+
+  const deleteConversation = useCallback(
+    (id: string) => {
+      if (user) {
+        let q = supabase.from("pf_assistant_messages").delete().eq("user_id", user.id);
+        q = id === "legacy" ? q.is("conversation_id", null) : q.eq("conversation_id", id);
+        void q.then(({ error }) => {
+          if (error) console.warn("assistant history delete failed:", error.message);
+        });
+      }
+      setConversations((cs) => cs.filter((c) => c.id !== id));
+      if (convId.current === id) {
+        convId.current = crypto.randomUUID();
+        setMessages([]);
+      }
+    },
+    [user],
+  );
+
+  const clear = useCallback(() => deleteConversation(convId.current), [deleteConversation]);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || busy) return;
+      // Pro feature with a small free taste: count free sends, then prompt.
+      if (!entitlementOf(subscription).entitled) {
+        const used = Number(localStorage.getItem(AI_USED_KEY) ?? "0");
+        if (used >= FREE_AI_QUOTA) {
+          upgrade.open("The AI co-pilot is a Pro feature.");
+          return;
+        }
+        localStorage.setItem(AI_USED_KEY, String(used + 1));
+      }
       const nextHistory: ChatMsg[] = [...messages, { role: "user", content: trimmed }];
       setMessages(nextHistory);
+      persist({ role: "user", content: trimmed });
       setBusy(true);
       try {
         const pc = pageCtx.current;
@@ -184,18 +329,25 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             ? m
             : [...m, { role: "assistant", content: acc || "…", proposal }],
         );
+        if (acc) persist({ role: "assistant", content: acc, proposal });
       } catch (e) {
         setMessages((m) => [...m, { role: "assistant", content: "Couldn't reach the assistant. Try again." }]);
       } finally {
         setBusy(false);
       }
     },
-    [busy, messages, loc.pathname],
+    [busy, messages, loc.pathname, subscription, upgrade, persist],
   );
 
   const api = useMemo<AssistantApi>(
-    () => ({ enabled, setEnabled, open, setOpen, messages, busy, send, clear, setPageContext, focusLabel, focusOn }),
-    [enabled, setEnabled, open, messages, busy, send, clear, setPageContext, focusLabel, focusOn],
+    () => ({
+      enabled, setEnabled, open, setOpen, messages, busy, send, clear,
+      conversations, openConversation, newChat, deleteConversation,
+      setPageContext, focusLabel, focusOn,
+    }),
+    [enabled, setEnabled, open, messages, busy, send, clear,
+     conversations, openConversation, newChat, deleteConversation,
+     setPageContext, focusLabel, focusOn],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

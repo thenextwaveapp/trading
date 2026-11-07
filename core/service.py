@@ -193,9 +193,10 @@ def _fetch_equity(symbol, interval="15m", limit=1500, start=None, end=None):
         "6h": ("1h", "730d"),
         "8h": ("1h", "730d"),
         "12h": ("1h", "730d"),
-        "1d": ("1d", "5y"),
-        "3d": ("1d", "5y"),
-        "1w": ("1wk", "5y"),
+        "1d": ("1d", "max"),
+        "3d": ("1d", "max"),
+        "1w": ("1wk", "max"),
+        "1M": ("1mo", "max"),
     }
     yf_iv, yf_rng = iv_map.get(interval, ("15m", "60d"))
     url = f"{YAHOO_CHART}/{symbol}?interval={yf_iv}&range={yf_rng}"

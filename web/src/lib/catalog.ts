@@ -20,6 +20,9 @@ export interface CatalogMarket {
   id: string;
   label: string;
   provides: string[];
+  /** Externally-sourced inputs (social/news) available via the aux path, not
+   *  off the candle. Unioned with `provides` for indicator availability. */
+  feeds: string[];
   series_kind: string;
   asset_class: string;
 }
@@ -116,8 +119,9 @@ export function marketById(id: string): CatalogMarket | undefined {
 export function indicatorsForMarket(marketId: string): CatalogIndicator[] {
   const m = marketById(marketId);
   if (!m) return [];
+  const inputs = new Set([...m.provides, ...(m.feeds ?? [])]);
   return CATALOG.indicators.filter((ind) =>
-    ind.inputs.every((i) => m.provides.includes(i)),
+    ind.inputs.every((i) => inputs.has(i)),
   );
 }
 

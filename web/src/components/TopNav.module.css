@@ -1,52 +1,51 @@
+/* floating glass bar — detached from the edges, centered. Soft-rect container,
+   pill controls inside: two shape tiers, like the cards vs their chips. */
 .topnav {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 50;
-  background: transparent;
-  border-bottom: 1px solid transparent;
-  transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
+  width: min(100% - 28px, 760px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, rgba(16, 21, 28, 0.52), rgba(10, 13, 18, 0.42));
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* scrolled: fade in the frosted background */
+/* scrolled: the glass densifies and lifts */
 .scrolled {
-  background: rgba(10, 13, 18, 0.85);
-  backdrop-filter: saturate(150%) blur(14px);
-  -webkit-backdrop-filter: saturate(150%) blur(14px);
-  border-bottom-color: var(--line);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(14, 18, 25, 0.85), rgba(10, 13, 18, 0.8));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 44px rgba(0, 0, 0, 0.5);
 }
 
 .inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  height: 60px;
-  padding: 0 var(--gutter);
+  height: 54px;
+  padding: 0 10px 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
+/* the lockup is one SVG (Wordmark) — spacing/alignment are baked into it */
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
   background: transparent;
   border: none;
+  padding: 0;
   cursor: pointer;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: -0.04em;
-  color: var(--fg);
 }
 
 .links {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .link {
@@ -56,13 +55,18 @@
   color: var(--fg-2);
   font: inherit;
   font-size: 14px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  border-radius: 9px;
   transition: color 0.15s ease, background 0.15s ease;
 }
 .link:hover {
   color: var(--fg);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+}
+/* utility link (Log in) sits one step quieter than the content link —
+   it still brightens fully on hover */
+.linkQuiet {
+  color: var(--muted);
 }
 
 .cta {
@@ -73,19 +77,19 @@
   font: inherit;
   font-size: 14px;
   font-weight: 600;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
+  padding: 9px 18px;
+  border-radius: 9px;
+  margin-left: 4px;
   transition: filter 0.15s ease;
 }
 .cta:hover {
   filter: brightness(1.07);
 }
 
-@media (max-width: 560px) {
-  .link {
-    padding: 8px 8px;
-  }
-  .inner {
-    gap: 8px;
+/* no marketing nav on mobile — the landing carries its own brand row and a
+   sticky thumb-zone CTA instead */
+@media (max-width: 700px) {
+  .topnav {
+    display: none;
   }
 }

@@ -204,6 +204,44 @@ const ARITH = [
 const EXIT_CUSTOM = new Set(["exit.trailing.k", "exit.trailing.natr"]);
 // Sentinel universe value for "building a custom subset" (not a real slug).
 const CUSTOM_UNI = "__custom__";
+
+// What one tradeable thing is called in each market, so the universe picker
+// never says "tokens" for stocks or FX pairs.
+const INSTRUMENT_NOUN: Record<string, { one: string; many: string }> = {
+  crypto_perp: { one: "token", many: "tokens" },
+  crypto_spot: { one: "token", many: "tokens" },
+  equity: { one: "stock", many: "stocks" },
+  futures: { one: "contract", many: "contracts" },
+  fx_spot: { one: "pair", many: "pairs" },
+  prediction: { one: "market", many: "markets" },
+};
+const instrumentNoun = (market: string) =>
+  INSTRUMENT_NOUN[market] ?? { one: "instrument", many: "instruments" };
+
+// Plain-English descriptions for the market cards — keyed by catalog id, with a
+// couple of familiar examples so the choice reads at a glance.
+const MARKET_BLURB: Record<string, string> = {
+  crypto_perp: "Leveraged crypto, no expiry. e.g. BTC, ETH, SOL",
+  crypto_spot: "The coins themselves. e.g. BTC, ETH, SOL",
+  equity: "Shares in public companies. e.g. AAPL, NVDA",
+  futures: "Dated commodity & index contracts. e.g. ES, CL, GC",
+  fx_spot: "Currency pairs. e.g. EUR/USD, GBP/USD",
+  prediction: "Payouts on real-world events. e.g. elections",
+};
+
+// The Compose screen reveals the strategy in the order a trader decides it:
+// market, then the universe (its instruments), then the rules. Later sections
+// stay hidden until the one before them is filled in, so you're never handed the
+// whole form at once — but by the end it's all on a single scrolling page.
+
+// Rotating entry-box examples — cycles while the prompt is empty to hint at range.
+const PROMPT_EXAMPLES = [
+  "short pumps: price up 12% in 4h, red candle, volume 2x, hold 16 bars",
+  "buy BTC when RSI(14) drops below 30 on the 1h, take profit at +3%",
+  "long SPY when it closes above its 50-day EMA, stop 2% below entry",
+  "fade the London open: short EUR/USD when RSI(14) is over 70",
+  "momentum: enter as price crosses above EMA(20) with volume over 1.5x average",
+];
 // Universes/coins are tagged by asset class ('crypto' / 'equity'), while the
 // market catalog ids are finer ('crypto_perp', 'crypto_spot', 'equity', …).
 const ASSET_CLASS = (marketId: string): string => (marketId.startsWith("crypto") ? "crypto" : marketId);
@@ -743,6 +781,79 @@ function Opt() {
   return <span className="lbl" style={{ fontWeight: 400, marginLeft: 7, fontSize: 12 }}>· optional</span>;
 }
 
+// A line-glyph per market, inked in `currentColor` (the tile sets that to a
+// bright tint of the bot colour, so it reads against the glow). Swapped with a
+// small pop whenever the market changes, so the top of the form feels alive.
+function MarketGlyph({ market }: { market: string }) {
+  const s = {
+    fill: "none" as const,
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  const body = (() => {
+    switch (market) {
+      case "crypto_perp":
+        return (
+          <>
+            <circle cx="12" cy="12" r="8.5" {...s} />
+            <path d="M12.6 7l-3.4 6h3l-1 4 3.9-6.2h-2.9z" fill="currentColor" stroke="none" />
+          </>
+        );
+      case "crypto_spot":
+        return (
+          <>
+            <ellipse cx="12" cy="8" rx="7" ry="3" {...s} />
+            <path d="M5 8v8c0 1.66 3.13 3 7 3s7-1.34 7-3V8" {...s} />
+            <path d="M5 12c0 1.66 3.13 3 7 3s7-1.34 7-3" {...s} />
+          </>
+        );
+      case "equity":
+        return (
+          <>
+            <line x1="8" y1="4" x2="8" y2="20" {...s} />
+            <rect x="6" y="8" width="4" height="8" rx="1" {...s} />
+            <line x1="16" y1="5" x2="16" y2="19" {...s} />
+            <rect x="14" y="9" width="4" height="6" rx="1" {...s} />
+          </>
+        );
+      case "futures":
+        return (
+          <>
+            <rect x="4" y="5.5" width="16" height="14.5" rx="2" {...s} />
+            <line x1="4" y1="10" x2="20" y2="10" {...s} />
+            <line x1="8.5" y1="3.5" x2="8.5" y2="7" {...s} />
+            <line x1="15.5" y1="3.5" x2="15.5" y2="7" {...s} />
+            <line x1="14.5" y1="15.5" x2="17" y2="15.5" {...s} />
+          </>
+        );
+      case "fx_spot":
+        return (
+          <>
+            <path d="M4.5 9h12l-3.2-3.2" {...s} />
+            <path d="M19.5 15h-12l3.2 3.2" {...s} />
+          </>
+        );
+      case "prediction":
+        return (
+          <>
+            <circle cx="12" cy="12" r="8.5" {...s} />
+            <circle cx="12" cy="12" r="4.4" {...s} />
+            <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+          </>
+        );
+      default:
+        return <circle cx="12" cy="12" r="8.5" {...s} />;
+    }
+  })();
+  return (
+    <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden>
+      {body}
+    </svg>
+  );
+}
+
 
 function DirTabs({ dir, onDir }: {
   dir: "long" | "short";
@@ -1157,9 +1268,13 @@ export default function Compose() {
 
   const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_BOT_COLOR);
+  const [showColors, setShowColors] = useState(false);
+  const [egIdx, setEgIdx] = useState(0);
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [prompt, setPrompt] = useState(() => sp.get("prompt") ?? "");
   const [started, setStarted] = useState(() => Boolean(botId || startFamily));
+  // Set when the spec was just built from a prompt, so we can say so.
+  const [fromPrompt, setFromPrompt] = useState(false);
   const [presetKey, setPresetKey] = useState<string>("blank");
   const [spec, setSpec] = useState<StrategySpec>(blankSpec("fleet-60"));
   const [seeded, setSeeded] = useState(false);
@@ -1209,6 +1324,7 @@ export default function Compose() {
       .slice(0, 40);
   }, [coinList, coinQuery, customCoins]);
   const marketMeta = CATALOG.markets.find((m) => m.id === spec.market);
+  const noun = instrumentNoun(spec.market);
   const familySlug = PRESETS.find((pr) => pr.key === presetKey)?.family ?? null;
   const backtestIssues = specIssues(spec, "backtest");
   const liveIssues = specIssues(spec, "live");
@@ -1289,6 +1405,14 @@ export default function Compose() {
     runParse(pr);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parseTok]);
+
+  // Cycle the entry-box example while it's empty on the start screen.
+  useEffect(() => {
+    if (started || prompt) return;
+    const t = setInterval(
+      () => setEgIdx((i) => (i + 1) % PROMPT_EXAMPLES.length), 3500);
+    return () => clearInterval(t);
+  }, [started, prompt]);
 
   // An existing bot whose universe is an owned, unsaved (throwaway) universe is
   // edited inline as a custom selection — not shown as a dropdown preset.
@@ -1482,6 +1606,29 @@ export default function Compose() {
     });
   };
 
+  // Switching market. A universe belongs to exactly one market, so we never
+  // carry the old one across: reach for a saved universe in the new market, and
+  // if there is none drop into custom-build mode (the picker then only offers
+  // the new market's instruments — e.g. an fx bot never inherits fleet-60).
+  const chooseMarket = (nextMarket: string) => {
+    if (nextMarket === spec.market) return;
+    const first = universeList.find(
+      (u) => u.market === ASSET_CLASS(nextMarket) && u.saved && (u.owner === null || u.owner === me),
+    );
+    customUni.current = null;
+    setCustomMode(!first);
+    setCustomCoins([]);
+    setCustomName("");
+    setCustomSaved(false);
+    setSpec((s) => ({
+      ...s,
+      market: nextMarket,
+      universe: first?.slug ?? CUSTOM_UNI,
+      filters: s.filters.filter((f) => f.kind !== "universe"),
+    }));
+  };
+
+
   // Apply a parse-strategy / assistant spec (same JSON schema either way) to the
   // Builder. Used by the NL "Parse & build" button AND the assistant's structured
   // hand-off, so every field the conversation settled (timing, exits, days) lands
@@ -1558,6 +1705,7 @@ export default function Compose() {
     setSpec(next);
     setPresetKey("blank");
     setStarted(true);
+    setFromPrompt(true);
     setErr(null);
   };
 
@@ -1739,13 +1887,24 @@ export default function Compose() {
     nav(withBot(base, id ?? savedId ?? botId));
   };
 
+  // Progressive disclosure: a section stays hidden until the one before it is
+  // genuinely filled in. Derived live from the spec (never "did you scroll past
+  // it"), so the form grows as you make real choices and ends up whole on one
+  // page. Universe reveals the rules; the first entry condition reveals the rest.
+  const bookFilled = (g?: CondGroup) => Boolean(g && g.children.length > 0);
+  const universeReady = customMode ? customCoins.length > 0 : Boolean(spec.universe);
+  const entryReady = isBoth
+    ? bookFilled(spec.entry) && bookFilled(spec.entry_short)
+    : bookFilled(spec.entry);
+  const canStart = !saving && backtestBlockers.length === 0 && entryReady;
+
   return (
     <>
       <BackBar to="/build" label="Build" />
       <Steps current={1} onNavigate={(target) => void handleStepNav(target)} />
        <div className={p.body}>
         <div className="lbl" style={{ fontSize: 12, marginBottom: 16 }}>
-          <Req /> required — everything else has a sensible default you can tune.
+          <Req /> required
         </div>
         {/* Identity — always first */}
         <div style={{ paddingBottom: 28, borderBottom: "1px solid var(--line)", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", marginBottom: 28 }}>
@@ -1762,41 +1921,52 @@ export default function Compose() {
               style={{ background: "transparent", border: "none", color: "var(--fg)", fontSize: 32, fontWeight: 500, letterSpacing: "-0.02em", width: "100%", marginTop: 6, outline: "none" }}
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, position: "relative" }}>
             <span className={r.label}>Color</span>
-            <div className={r.swatchRows}>
-              {FLEET_PALETTE.map((hue) => (
-                <div key={hue.name} className={r.swatchRow} title={hue.name}>
-                  {hue.shades.map((c, i) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className={`${r.swatch} ${color === c ? r.swatchOn : ""}`}
-                      style={{ background: c }}
-                      onClick={() => setColor(c)}
-                      aria-label={`${hue.name} ${[100, 200, 300, 400, 500][i]}`}
-                      aria-pressed={color === c}
-                      title={`${hue.name} ${[100, 200, 300, 400, 500][i]} · ${c}`}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowColors((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent",
+                       border: "1px solid var(--line)", borderRadius: 8, padding: "7px 11px",
+                       cursor: "pointer", color: "var(--muted)", fontSize: 13 }}
+              aria-expanded={showColors}
+            >
+              <span style={{ width: 18, height: 18, borderRadius: 5, background: color, display: "inline-block", flex: "none" }} />
+              {showColors ? "Done" : "Change"}
+            </button>
+            {showColors && (
+              <div className={r.swatchRows}
+                style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 20,
+                         background: "#12161D", border: "1px solid var(--line)", borderRadius: 10, padding: 10 }}>
+                {FLEET_PALETTE.map((hue) => (
+                  <div key={hue.name} className={r.swatchRow} title={hue.name}>
+                    {hue.shades.map((c, i) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`${r.swatch} ${color === c ? r.swatchOn : ""}`}
+                        style={{ background: c }}
+                        onClick={() => { setColor(c); setShowColors(false); }}
+                        aria-label={`${hue.name} ${[100, 200, 300, 400, 500][i]}`}
+                        aria-pressed={color === c}
+                        title={`${hue.name} ${[100, 200, 300, 400, 500][i]} · ${c}`}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {!started && (
           <section style={{ maxWidth: 720, padding: "0 0 48px" }}>
-            <h1 className={p.title} style={{ fontSize: 34 }}>Compose your bot's strategy</h1>
-            <div className={p.subtitle} style={{ marginTop: 8 }}>
-              Describe the strategy you want in plain English. We'll parse it into rules you can refine.
-            </div>
             <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
               <textarea
                 className={r.input}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder='e.g. "short pumps: price up 12% in 4h, red candle, volume 2x, hold 16 bars"'
+                placeholder={`e.g. "${PROMPT_EXAMPLES[egIdx]}"`}
                 rows={3}
                 style={{ resize: "vertical", padding: 12, fontFamily: "inherit" }}
               />
@@ -1808,13 +1978,13 @@ export default function Compose() {
                   onClick={() => {
                     const text = (prompt || name).trim();
                     if (!text) {
-                      setErr("Describe the strategy you want to parse.");
+                      setErr("Describe the strategy you want to build.");
                       return;
                     }
                     runParse(text);
                   }}
                 >
-                  {parsing ? "Parsing…" : "Parse & build"}
+                  {parsing ? "Building…" : "Build it"}
                 </button>
                 <button
                   className={p.btn}
@@ -1822,6 +1992,7 @@ export default function Compose() {
                   onClick={() => {
                     setSpec(blankSpec("fleet-60"));
                     setPresetKey("blank");
+                    setFromPrompt(false);
                     setStarted(true);
                   }}
                 >
@@ -1829,19 +2000,49 @@ export default function Compose() {
                 </button>
               </div>
             </div>
+            <div style={{ marginTop: 32 }}>
+              <span className="lbl" style={{ fontSize: 12 }}>Or start from a template</span>
+              <div className={r.tmplRow}>
+                {PRESETS.filter((pr) => pr.key !== "blank").map((pr) => (
+                  <button
+                    key={pr.key}
+                    type="button"
+                    className={r.tmpl}
+                    onClick={() => {
+                      loadPreset(pr.key);
+                      setFromPrompt(false);
+                      setStarted(true);
+                    }}
+                  >
+                    {pr.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             </section>
           )}
         {started && (
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            <button className={p.btn} style={{ height: 36, fontSize: 13 }} onClick={() => setStarted(false)}>← Back to parse</button>
-          </div>
-        )}
-        {started && (
 
-        <section style={{ display: "flex", flexWrap: "wrap", gap: 32, paddingTop: 28, alignItems: "flex-start" }}>
-           <div style={{ flex: "999 1 620px", minWidth: 0 }}>
+        <section style={{ display: "flex", flexWrap: "wrap", gap: 32, paddingTop: 20, alignItems: "flex-start" }}>
+          <div style={{ flex: "999 1 620px", minWidth: 0 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", marginBottom: 12 }}>
+              <button
+                type="button"
+                className="lbl"
+                style={{ background: "none", border: "none", padding: 0, color: "var(--muted)", cursor: "pointer" }}
+                onClick={() => { setStarted(false); setFromPrompt(false); }}
+              >
+                ← Start over
+              </button>
+              {fromPrompt && (
+                <span className="lbl" style={{ fontSize: 12, color: "#8BB4E8" }}>
+                  ✦ Built from your prompt — review and refine below.
+                </span>
+              )}
+            </div>
+
             {bot?.stage === "deployed" && (
-              <div className={r.statusCard} style={{ marginTop: 20 }}>
+              <div className={r.statusCard} style={{ marginBottom: 8 }}>
                 <span className="downDot" style={{ background: "#d29922" }} />
                 <div className="lbl" style={{ lineHeight: 1.5 }}>
                   This bot is deployed. Saving any change takes it off the fleet and back to Draft.
@@ -1849,67 +2050,41 @@ export default function Compose() {
               </div>
             )}
 
-            {/* Preset */}
-            <div className={r.formRow}>
-              <h2 className={r.h2}>Starting point</h2>
-              <div className={r.label} style={{ margin: "4px 0 12px" }}>Load a preset, then edit freely. Or start blank.</div>
-              <select
-                className={r.input}
-                value={presetKey}
-                onChange={(e) => loadPreset(e.target.value)}
-                style={{ width: "100%", maxWidth: 420 }}
-              >
-                {PRESETS.map((pr) => (
-                  <option key={pr.key} value={pr.key}>
-                    {pr.label}
-                  </option>
+            {/* Market — the top-level choice everything else hangs off. */}
+            <div className={r.formRow} style={{ paddingTop: 8 }}>
+              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                <div key={spec.market} className={r.mktGlyph}>
+                  <MarketGlyph market={spec.market} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h2 className={r.h2}>Market <Req /></h2>
+                  <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
+                    {marketMeta?.label ?? "Pick one"} — {MARKET_BLURB[spec.market] ?? "the arena this bot trades in."}
+                  </div>
+                </div>
+              </div>
+              <div className={r.marketGrid}>
+                {CATALOG.markets.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`${r.marketCard} ${spec.market === m.id ? r.marketCardOn : ""}`}
+                    onClick={() => chooseMarket(m.id)}
+                  >
+                    <span className={r.marketName}>{m.label}</span>
+                    <span className={r.marketMeta}>{MARKET_BLURB[m.id] ?? ""}</span>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
-            {/* Market + Universe */}
+            {/* Universe — the instruments inside the chosen market. */}
             <div className={r.formRow}>
-              <h2 className={r.h2}>Market &amp; universe <Req /></h2>
+              <h2 className={r.h2}>Universe <Req /></h2>
               <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>
-                A universe is a subset of a market — pick a ready-made one or build your own.
+                The slice of {marketMeta?.label ?? "the market"} this bot trades — pick a ready-made set or hand-pick your own instruments.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginTop: 12 }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span className={r.label}>Market</span>
-                  <select
-                    className={r.input}
-                    value={spec.market}
-                    onChange={(e) => {
-                      const nextMarket = e.target.value;
-                      const first = universeList.find(
-                        (u) => u.market === ASSET_CLASS(nextMarket) && u.saved && (u.owner === null || u.owner === me),
-                      );
-                      // A universe belongs to exactly one market — never carry
-                      // the previous market's universe across a switch. Use an
-                      // in-market saved one if present, else drop into custom
-                      // build mode so the picker offers only the new market's
-                      // instruments (stops e.g. an fx bot inheriting fleet-60).
-                      customUni.current = null;
-                      setCustomMode(!first);
-                      setCustomCoins([]);
-                      setCustomName("");
-                      setCustomSaved(false);
-                      setSpec((s) => ({
-                        ...s,
-                        market: nextMarket,
-                        universe: first?.slug ?? CUSTOM_UNI,
-                        filters: s.filters.filter((f) => f.kind !== "universe"),
-                      }));
-                    }}
-                  >
-                    {CATALOG.markets.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="lbl">{marketMeta?.provides.join(", ")}</span>
-                </label>
                 <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <span className={r.label}>Universe</span>
                   <select
@@ -1926,11 +2101,11 @@ export default function Compose() {
                         {u.name ?? u.slug}
                       </option>
                     ))}
-                    <option value={CUSTOM_UNI}>Custom — pick tokens…</option>
+                    <option value={CUSTOM_UNI}>Custom — pick {noun.many}…</option>
                   </select>
                   <span className="lbl">
                     {customMode
-                      ? `${customCoins.length} token${customCoins.length === 1 ? "" : "s"} picked`
+                      ? `${customCoins.length} ${customCoins.length === 1 ? noun.one : noun.many} picked`
                       : (selectedUniverse?.description ?? "")}
                   </span>
                 </label>
@@ -1941,7 +2116,7 @@ export default function Compose() {
                 <div className={r.uniPicker}>
                   <input
                     className={r.input}
-                    placeholder={`Search ${spec.market === "equity" ? "stocks" : "coins"} to add…`}
+                    placeholder={`Search ${noun.many} to add…`}
                     value={coinQuery}
                     onChange={(e) => setCoinQuery(e.target.value)}
                   />
@@ -1968,7 +2143,7 @@ export default function Compose() {
                       ))}
                     </div>
                   ) : (
-                    <div className="lbl" style={{ marginTop: 8 }}>No tokens yet — search above and click to add.</div>
+                    <div className="lbl" style={{ marginTop: 8 }}>No {noun.many} yet — search above and click to add.</div>
                   )}
                   <label className={r.saveUni}>
                     <input type="checkbox" checked={customSaved} onChange={(e) => setCustomSaved(e.target.checked)} />
@@ -1984,30 +2159,26 @@ export default function Compose() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Direction / fresh / sizing */}
-            <div className={r.formRow}>
-              <h2 className={r.h2}>{groupLabel("direction")} &amp; {groupLabel("sizing")}</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginTop: 12 }}>
-                {paramsForGroup("direction").map((p) => (
-                  <ParamControl key={p.key} spec={spec} path={p.key} onChange={setParam} />
-                ))}
-                {paramsForGroup("sizing")
-                  .filter((p) => p.status !== "ignored")
-                  .map((p) => (
-                    <ParamControl key={p.key} spec={spec} path={p.key} onChange={setParam} />
-                  ))}
-              </div>
-              {spec.sizing.weight !== undefined && spec.sizing.weight !== 1 && (
-                <div className="lbl" style={{ marginTop: 10, color: "#d29922" }}>
-                  Portfolio weight is stored but this single-bot engine does not
-                  read it, so it cannot change results.
-                </div>
+              {!customMode && uniCoins.length > 0 && (
+                <>
+                  <div className={r.label} style={{ marginTop: 20 }}>
+                    {uniCoins.length} instrument{uniCoins.length === 1 ? "" : "s"} in this universe
+                  </div>
+                  <div className={r.instGrid}>
+                    {uniCoins.slice(0, 24).map((c) => (
+                      <div key={c} className={r.instCell}>{c}</div>
+                    ))}
+                    {uniCoins.length > 24 && (
+                      <div className={r.instCell} style={{ color: "var(--muted)" }}>+{uniCoins.length - 24}</div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Entry conditions */}
+            {/* Entry — revealed once a universe is set. Direction, freshness,
+                and the condition tree. */}
+            {universeReady && (
             <div className={r.formRow}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <h2 className={r.h2}>
@@ -2020,12 +2191,15 @@ export default function Compose() {
                     : spec.entry.children.length)} top-level
                 </span>
               </div>
-              <div className={r.label} style={{ margin: "4px 0 12px" }}>
+              <div className={r.label} style={{ margin: "4px 0 16px" }}>
                 {isBoth
                   ? "Two-sided bot: compose the long and short books separately. When flat, whichever fires opens; if both fire, the bar is skipped."
-                  : "Compose the condition tree. Indicators available depend on the market."}
+                  : "Set the direction, then compose the condition tree. Indicators available depend on the market."}
               </div>
-              <div style={{ maxWidth: 240, marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginBottom: 18 }}>
+                {paramsForGroup("direction").map((pp) => (
+                  <ParamControl key={pp.key} spec={spec} path={pp.key} onChange={setParam} />
+                ))}
                 <ParamControl spec={spec} path="fresh" onChange={setParam} />
               </div>
               {isBoth && <DirTabs dir={dir} onDir={setDir} />}
@@ -2041,10 +2215,12 @@ export default function Compose() {
                 onRemove={() => {}}
               />
             </div>
+            )}
 
-            {/* Timing */}
-            <div className={r.formRow}>
-              <h2 className={r.h2}>{groupLabel("timing")} (UTC) <Opt /></h2>
+            {/* Timing — optional, revealed once there's an entry rule. */}
+            {entryReady && (
+            <details className={r.formRow}>
+              <summary className={r.h2} style={{ cursor: "pointer" }}>{groupLabel("timing")} (UTC) <Opt /></summary>
               <div className={r.label} style={{ margin: "4px 0 12px" }}>
                 Optional entry windows, measured at bar close. Leave the window
                 clear and every day selected to trade around the clock.
@@ -2063,9 +2239,11 @@ export default function Compose() {
                   setSpec((s) => ({ ...s, timing: { ...s.timing, dates } }))
                 }
               />
-            </div>
+            </details>
+            )}
 
-            {/* Exit */}
+            {/* Exit & risk — revealed once there's an entry rule. */}
+            {entryReady && (
             <div className={r.formRow}>
               <h2 className={r.h2}>
                 {groupLabel("exit")}
@@ -2144,11 +2322,30 @@ export default function Compose() {
                   </div>
                 )}
               </div>
+              {/* Sizing rides with risk — how much to commit per trade. */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+                <h3 className={r.label} style={{ fontSize: 15, color: "var(--fg)" }}>{groupLabel("sizing")}</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginTop: 12 }}>
+                  {paramsForGroup("sizing")
+                    .filter((pp) => pp.status !== "ignored")
+                    .map((pp) => (
+                      <ParamControl key={pp.key} spec={spec} path={pp.key} onChange={setParam} />
+                    ))}
+                </div>
+                {spec.sizing.weight !== undefined && spec.sizing.weight !== 1 && (
+                  <div className="lbl" style={{ marginTop: 10, color: "#d29922" }}>
+                    Portfolio weight is stored but this single-bot engine does not
+                    read it, so it cannot change results.
+                  </div>
+                )}
+              </div>
             </div>
+            )}
 
-            {/* Filters */}
-            <div className={r.formRow}>
-              <h2 className={r.h2}>Filters <Opt /></h2>
+            {/* Filters — optional live gates, revealed with the exit block. */}
+            {entryReady && (
+            <details className={r.formRow}>
+              <summary className={r.h2} style={{ cursor: "pointer" }}>Filters <Opt /></summary>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input
@@ -2190,7 +2387,8 @@ export default function Compose() {
                   </div>
                 )}
               </div>
-            </div>
+            </details>
+            )}
           </div>
 
           {/* Sticky Checkout / Strategy Sidebar */}
@@ -2237,7 +2435,7 @@ export default function Compose() {
                   <span className={r.tag} style={{ width: "auto" }}>
                     Universe · {selectedUniverse?.name ?? spec.universe}
                   </span>
-                  <span className="num lbl">{uniCoins.length} coins</span>
+                  <span className="num lbl">{uniCoins.length} {noun.many}</span>
                 </div>
                 {uniCoins.length > 0 && (
                   <div className="num muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
@@ -2271,7 +2469,7 @@ export default function Compose() {
                     }}
                     onClick={() => setShowUniModal(true)}
                   >
-                    View all {uniCoins.length} coins →
+                    View all {uniCoins.length} {noun.many} →
                   </button>
                 )}
               </div>
@@ -2333,20 +2531,19 @@ export default function Compose() {
             <button
               className={`${p.btn} ${p.pri}`}
               style={{ height: 48, fontSize: 14, justifyContent: "center" }}
-              disabled={saving || backtestBlockers.length > 0}
-              title={backtestBlockers[0]?.reason}
+              disabled={!canStart}
+              title={
+                backtestBlockers[0]?.reason
+                ?? (!entryReady ? "Add at least one entry condition first." : undefined)
+              }
               onClick={() => save(true)}
             >
               {saving ? "Starting…" : "Start training →"}
             </button>
-            {(savedId || botId) && (
-              <button
-                className={p.btn}
-                style={{ height: 42, justifyContent: "center" }}
-                onClick={() => void handleStepNav("/build/training")}
-              >
-                Continue to training →
-              </button>
+            {!canStart && !saving && !backtestBlockers.length && !entryReady && (
+              <div className="lbl" style={{ fontSize: 12 }}>
+                Add an entry condition to enable training.
+              </div>
             )}
             {!user && <div className="lbl">Log in to save this strategy to your roster.</div>}
             {err && <div style={{ color: "var(--down, #ff5c6c)", fontSize: 13 }}>{err}</div>}
@@ -2384,7 +2581,7 @@ export default function Compose() {
                   <div style={{ fontSize: 18, fontWeight: 500 }}>
                     {selectedUniverse?.name ?? spec.universe}{" "}
                     <span className="num muted" style={{ fontSize: 14, fontWeight: 400 }}>
-                      ({uniCoins.length} coins)
+                      ({uniCoins.length} {noun.many})
                     </span>
                   </div>
                   {selectedUniverse?.description && (

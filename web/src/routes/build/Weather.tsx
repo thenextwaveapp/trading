@@ -118,11 +118,6 @@ export default function Weather() {
       <BackBar to={withBot("/build/trials", bot.id)} label="Trials" />
       <Steps current={4} />
       <div className={p.body}>
-        <section style={{ padding: "32px 0 24px" }}>
-          <h1 className={p.title} style={{ fontSize: 34 }}>Market conditions</h1>
-          <div className={p.subtitle} style={{ marginTop: 8 }}>Performance by Bitcoin trend and market volatility at entry.</div>
-        </section>
-
         {!done ? (
           <div className={r.statusCard}>
             <span className="downDot" style={{ background: "#d29922" }} />

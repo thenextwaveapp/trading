@@ -81,6 +81,7 @@ GROUPS = (
     {"id": "direction", "label": "Direction"},
     {"id": "market", "label": "Market"},
     {"id": "entry", "label": "Entry"},
+    {"id": "feed", "label": "Feed / Social"},
     {"id": "timing", "label": "Timing"},
     {"id": "exit", "label": "Exit"},
     {"id": "sizing", "label": "Sizing"},
@@ -136,6 +137,22 @@ PARAMS = (
         {"logic": "AND", "children": []}, "entry",
         help="Composable condition tree evaluated on each closed bar.",
         live=True,
+    ),
+    Param(
+        "thesis", "Thesis", "string", "", "feed",
+        help="Plain-language reason this bot exists — the event it bets on. "
+             "Shown on the build page beside the logic so a feed bot's intent "
+             "is never lost. Required for any spec that reads a social/news "
+             "feed operand.",
+        in_default=False, live=True,
+    ),
+    Param(
+        "feed.max_signal_age_sec", "Max signal age", "int", 90, "feed",
+        help="Hard staleness gate: skip the entry if the triggering event is "
+             "older than this many seconds at bar close. For an event-driven "
+             "bot a late fill flips the edge negative, so a stale trigger never "
+             "fires. Required for feed specs.",
+        min=1, step=1, unit="sec", in_default=False, live=True,
     ),
     Param(
         "timing.hours_utc", "Hours (UTC)", "int_list", [], "timing",
@@ -257,6 +274,20 @@ PARAMS = (
         reason="The single-bot backtest and runtime have no portfolio "
                "allocation step; this value is stored but has no effect.",
     ),
+    Param(
+        "sizing.confidence_scale.min_conf", "Min confidence to size", "float",
+        0.5, "sizing",
+        help="Feed confidence below which position size scales to zero (no "
+             "trade). Size ramps linearly from here to full_conf.",
+        min=0, max=1, step=0.01, in_default=False, live=True,
+    ),
+    Param(
+        "sizing.confidence_scale.full_conf", "Full-size confidence", "float",
+        0.9, "sizing",
+        help="Feed confidence at or above which the trade takes full risk. "
+             "Below it (down to min_conf) risk is scaled down proportionally.",
+        min=0, max=1, step=0.01, in_default=False, live=True,
+    ),
 )
 
 PARAM_BY_KEY = {p.key: p for p in PARAMS}
@@ -311,6 +342,17 @@ FEATURES = (
     _feature(
         "operand.cross_series", "Multi-timeframe / cross-asset operand",
         "entry", op="cross_series", backtest=True, live=True,
+    ),
+    _feature(
+        "operand.feed", "Social / news feed operand", "entry", op="feed",
+        backtest=True, live=True, status="partial",
+        reason="Feed operands backtest and gate live against a supplied "
+               "pf_feed_score series; historical backtests are only as good as "
+               "the recorded (forward-logged) score history available.",
+    ),
+    _feature(
+        "sizing.confidence_scale", "Confidence-weighted sizing",
+        "sizing.confidence_scale", op="exists", backtest=True, live=True,
     ),
     _feature(
         "filters", "Live regime filters", "filters", op="nonempty",
@@ -421,10 +463,40 @@ def _uses_cross_series(spec: dict) -> bool:
     return any(node_cross(t) for t in trees)
 
 
+def _uses_feed(spec: dict) -> bool:
+    """True if any operand in the spec's condition trees reads a social/news
+    feed (carries a 'feed' key)."""
+    def op_feed(o):
+        if not isinstance(o, dict):
+            return False
+        if "feed" in o:
+            return True
+        if "op" in o:
+            return op_feed(o.get("left")) or op_feed(o.get("right"))
+        return False
+
+    def node_feed(n):
+        if not isinstance(n, dict):
+            return False
+        if "children" in n:
+            return any(node_feed(c) for c in n["children"])
+        return op_feed(n.get("left")) or op_feed(n.get("right"))
+
+    trees = [spec[k] for k in ("entry", "entry_long", "entry_short")
+             if spec.get(k)]
+    for xk in ("exit", "exit_long", "exit_short"):
+        ex = spec.get(xk)
+        if isinstance(ex, dict) and ex.get("exit_conditions"):
+            trees.append(ex["exit_conditions"])
+    return any(node_feed(t) for t in trees)
+
+
 def _feature_active(f: dict, spec: dict) -> bool:
     op = f.get("op", "eq")
     if op == "cross_series":
         return _uses_cross_series(spec)
+    if op == "feed":
+        return _uses_feed(spec)
     v = get_path(spec, f["path"])
     if op == "exists":
         return v is not None

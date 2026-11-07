@@ -53,21 +53,13 @@ export default function Challenges() {
 
   return (
     <>
-      <div className={p.top}>
-        <div>
-          <h1 className={p.title}>Challenges</h1>
-          <div className={p.subtitle}>
-            One spec, one hole. Everyone tunes the same thing, the market votes.
-          </div>
-        </div>
-      </div>
-
-      <div className={p.body}>
+      {/* no page title — the nav's active pill already says where you are */}
+      <div className={`${p.shell} ${p.body}`} style={{ paddingTop: 28 }}>
         {loading ? (
           <CardsSkeleton cards={6} />
         ) : ordered.length === 0 ? (
           <div className="muted" style={{ padding: "40px 0" }}>
-            No challenges yet. Check back when the first prompt drops.
+            No challenges yet.
           </div>
         ) : (
           <div className={s.grid}>

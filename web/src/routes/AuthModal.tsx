@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import Wordmark from "../components/Wordmark";
 import { useAuth } from "../auth";
 import s from "./AuthModal.module.css";
 
@@ -47,90 +48,82 @@ export default function AuthModal({
   return (
     <div className={s.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className={s.panel} role="dialog" aria-modal="true" aria-label={signup ? "Create your account" : "Log in"}>
-        <div className={s.head}>
+        <button className={s.close} onClick={onClose} aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
+        <div className={s.formPane}>
           <span className={s.brand}>
-            <Plane /> paper fleet
+            <Wordmark height={28} />
           </span>
-          <button className={s.close} onClick={onClose} aria-label="Close">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
 
-        {step === "email" ? (
-          <>
-            <div>
-              <div className={s.title}>{signup ? "Create your account" : "Welcome back"}</div>
-              <div className={s.sub}>
-                {signup
-                  ? "Free, paper money only. No password — we email you a link to log in."
-                  : "No password — we email you a link to log in."}
-              </div>
-            </div>
-
-            <button className={s.alt} onClick={google}>
-              <GoogleMark /> Continue with Google
-            </button>
-
-            <div className={s.divider}>
-              <span /> or <span />
-            </div>
-
-            <form className={s.form} onSubmit={send}>
+          {step === "email" ? (
+            <>
               <div>
-                <label className={s.label} htmlFor="auth-email">Email</label>
-                <input
-                  id="auth-email"
-                  className={s.input}
-                  type="email"
-                  placeholder="you@email.com"
-                  value={email}
-                  autoComplete="email"
-                  autoFocus
-                  required
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+                <div className={s.title}>{signup ? "Create your account" : "Log in to your fleet"}</div>
+                <div className={s.sub}>
+                  {signup
+                    ? "Get started for free. No credit card required."
+                    : "No password — we email you a link to log in."}
+                </div>
               </div>
-              <button className={s.key} type="submit" disabled={busy}>
-                {busy ? "…" : "Log in"}
+
+              <button className={s.alt} onClick={google}>
+                <GoogleMark /> Continue with Google
               </button>
-            </form>
 
-            {err && <div className={s.err}>{err}</div>}
+              <div className={s.divider}>
+                <span /> or <span />
+              </div>
 
-            <p className={s.swap}>
-              {signup ? (
-                <>Already have an account? <button onClick={() => setMode("signin")}>Log in</button></>
-              ) : (
-                <>New here? <button onClick={() => setMode("signup")}>Create an account</button></>
-              )}
-            </p>
-            <p className={s.fine}>Paper money only. Not investment advice.</p>
-          </>
-        ) : (
-          <>
-            <div className={s.title}>Check your email</div>
-            <div className={s.sub}>
-              We sent a login link to <b>{email}</b>. Open it on this device to finish.
-            </div>
-            {err && <div className={s.err}>{err}</div>}
-            <button className={s.switch} onClick={() => { setStep("email"); setErr(null); }}>
-              Use a different email
-            </button>
-          </>
-        )}
+              <form className={s.form} onSubmit={send}>
+                <div>
+                  <label className={s.label} htmlFor="auth-email">Email</label>
+                  <input
+                    id="auth-email"
+                    className={s.input}
+                    type="email"
+                    placeholder="you@email.com"
+                    value={email}
+                    autoComplete="email"
+                    autoFocus
+                    required
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <button className={s.key} type="submit" disabled={busy}>
+                  {busy ? "…" : signup ? "Create account" : "Log in"}
+                </button>
+              </form>
+
+              {err && <div className={s.err}>{err}</div>}
+
+              <p className={s.swap}>
+                {signup ? (
+                  <>Already have an account? <button onClick={() => setMode("signin")}>Log in</button></>
+                ) : (
+                  <>New here? <button onClick={() => setMode("signup")}>Create an account</button></>
+                )}
+              </p>
+              <p className={s.fine}>Paper money only. Not investment advice.</p>
+            </>
+          ) : (
+            <>
+              <div className={s.title}>Check your email</div>
+              <div className={s.sub}>
+                We sent a login link to <b>{email}</b>. Open it on this device to finish.
+              </div>
+              {err && <div className={s.err}>{err}</div>}
+              <button className={s.switch} onClick={() => { setStep("email"); setErr(null); }}>
+                Use a different email
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
-  );
-}
-
-function Plane() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden>
-      <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
-      <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
-    </svg>
   );
 }
 

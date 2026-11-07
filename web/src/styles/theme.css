@@ -29,6 +29,9 @@
   /* layout */
   --gutter: 40px;          /* page left/right inset; shrinks on mobile */
   --topbar-h: 56px;        /* mobile top app bar height */
+  /* THE column. The floating nav bar is min(100% - 28px, --shell-w); page
+     content aligns to the same edges (see .shell in pages.module.css). */
+  --shell-w: 1140px;
 
   /* radius scale — radius = meaning. Sharp for instrument/data surfaces,
      circles for living things (avatars/bots). Pill is reserved for ~toggles. */

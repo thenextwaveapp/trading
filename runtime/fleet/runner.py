@@ -45,6 +45,9 @@ GATE_COOLDOWN = regime.COOLDOWN_MS
 GATE_LONG_THR = regime.LONG_THR
 MOMO_VOL = 2.5
 MOMO_HOLD = 48           # 12h
+# Hand-entered ("manual" account) trades have no time-based exit; this large
+# bar count pushes their computed exits_at ~a year out so the UI reads "open".
+MANUAL_HOLD = 35040      # 1y of 15m bars
 
 # Bounded concerns live in the fleet package; re-exported here so the server
 # (runtime.server.app) and `import runtime.fleet.runner as pf` callers resolve them.
@@ -56,6 +59,28 @@ from .events import (EVENTS, NOTES, _bot_map, _bot_iv, _mark_t,
 
 _pause_state = [None]
 _btc_cache = [0.0, None]        # (ts, is_bear) — 10-min cache for btc_bear()
+_fleet_due = {}                 # fleet_id -> epoch sec it's next allowed to run
+
+
+def _due_bots(bots):
+    """Honor each fleet's check_interval_min. A fleet slower than the 15-min loop
+    only runs its bots once its interval has elapsed; the default (<=15m) runs
+    every cycle. In-memory next-due map — it resets on restart, which just means
+    every fleet runs on the first cycle after a restart (harmless)."""
+    now = time.time()
+    decided = {}
+    for b in bots:
+        fid = b.get("fleet_id")
+        if fid in decided:
+            continue
+        iv = max(1, int(b.get("check_interval_min") or 15))
+        decided[fid] = iv <= 15 or now >= _fleet_due.get(fid, 0.0)
+        if decided[fid] and iv > 15 and fid is not None:
+            _fleet_due[fid] = now + iv * 60 - 30
+    out = [b for b in bots if decided.get(b.get("fleet_id"), True)]
+    if len(out) != len(bots):
+        log(f"cadence: {len(bots) - len(out)} bot(s) not due this cycle")
+    return out
 
 
 def btc_bear():
@@ -127,6 +152,9 @@ def cycle_db(states):
     if not bots:
         log("no runnable bots in pf_bots — idle cycle")
         return
+    bots = _due_bots(bots)
+    if not bots:
+        return  # every fleet's cadence says wait — nothing to do this cycle
     universes = _resolve_universes(bots)
     by_interval = {}
     bars_by_interval = {}
@@ -179,6 +207,10 @@ def cycle_db(states):
                 if legacy.get("eq_hist") or legacy.get("trades") or legacy.get("positions") or legacy.get("equity", START_EQUITY) != START_EQUITY:
                     st = legacy
             states[b["id"]] = st
+        # Refresh the per-fleet kill-switch each cycle so editing it in Settings
+        # takes effect live; spec_runtime reads st["kill_dd"] (fraction).
+        kp = b.get("kill_pct")
+        states[b["id"]]["kill_dd"] = (kp / 100.0) if isinstance(kp, (int, float)) else KILL_DD
     prev_counts = {b["id"]: len(states[b["id"]].get("trades", []))
                    for b in bots}
     fetch = lambda sym, start, limit, iv: klines(
@@ -293,7 +325,7 @@ def cycle_db(states):
                 "closed": closed_n,
                 "win": win_pct,
                 "kill": bool(st.get("kill_until", 0) > time.time() * 1000),
-                "paused": os.path.exists(PAUSE),
+                "paused": os.path.exists(PAUSE) or b.get("fleet_status") == "paused",
             })
         except Exception:
             pass
@@ -375,7 +407,8 @@ def fast_drain(states):
     from .. import pf_db
     try:
         acts = pf_db.get("pf_position_actions",
-                         "status=eq.pending&select=id,bot_id,ticker,action,value"
+                         "status=eq.pending&select=id,bot_id,ticker,action,value,"
+                         "side,notional,stop,tp,symbol"
                          "&order=created_at.asc")
     except Exception:
         return
@@ -415,6 +448,30 @@ def fast_drain(states):
                 pos["stop"] = float(a["value"]); save_state(bid, st)
             elif a["action"] == "set_tp" and pos and a.get("value") is not None:
                 pos["tp"] = float(a["value"]); save_state(bid, st)
+            elif a["action"] == "open":
+                # Hand-entered trade (the "manual" account). Price it live, like a
+                # manual close, and append a position the server marks to market.
+                if pos is not None:
+                    log(f"[{bid}] MANUAL OPEN skipped — {tk} already open")
+                else:
+                    sym = a.get("symbol") or f"{tk}USDT"
+                    px = _live_price(sym)
+                    notional = float(a.get("notional") or 0)
+                    if px is None or notional <= 0:
+                        continue  # couldn't price / no size — leave pending, retry
+                    side_i = 1 if str(a.get("side") or 1) in ("1", "long") else -1
+                    now_ms = int(time.time() * 1000)
+                    st.setdefault("positions", []).append({
+                        "ticker": tk, "symbol": sym, "side": side_i, "entry": px,
+                        "stop": float(a["stop"]) if a.get("stop") is not None else 0.0,
+                        "tp": float(a["tp"]) if a.get("tp") is not None else None,
+                        "notional": round(notional, 2), "t_sig": now_ms,
+                        "hold": MANUAL_HOLD, "taker": TAKER, "slip": SLIP,
+                        "kind": "manual"})
+                    save_state(bid, st)
+                    _push_mark(bid, st)
+                    log(f"[{bid}] MANUAL OPEN {'LONG' if side_i == 1 else 'SHORT'} "
+                        f"{tk} @ {px} notional {notional:.2f}")
             pf_db.patch("pf_position_actions", f"id=eq.{a['id']}", {"status": "done"})
         except Exception:
             try:

@@ -147,7 +147,9 @@ CREATE TABLE IF NOT EXISTS public.pf_checks (
 CREATE TABLE IF NOT EXISTS public.pf_instruments (
     symbol text NOT NULL,
     binance_symbol text NOT NULL,
-    name text
+    name text,
+    market text,
+    logo text
 );
 
 CREATE TABLE IF NOT EXISTS public.pf_conditions (
@@ -248,7 +250,8 @@ CREATE TABLE IF NOT EXISTS public.pf_profiles (
     onboarding_step integer NOT NULL DEFAULT 0,
     onboarding_checklist jsonb NOT NULL DEFAULT '{}'::jsonb,
     onboarded_at timestamp with time zone,
-    updated_at timestamp with time zone NOT NULL DEFAULT now()
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    stripe_customer_id text
 );
 
 CREATE TABLE IF NOT EXISTS public.pf_strategy_conditions (
@@ -284,7 +287,12 @@ CREATE TABLE IF NOT EXISTS public.pf_subscriptions (
     plan_key text NOT NULL,
     status text NOT NULL DEFAULT 'active'::text,
     renewal_date date,
-    created_at timestamp with time zone NOT NULL DEFAULT now()
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    stripe_subscription_id text,
+    trial_ends_at timestamp with time zone,
+    current_period_end timestamp with time zone,
+    cancel_at_period_end boolean NOT NULL DEFAULT false,
+    updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.pf_universe_instruments (
@@ -411,3 +419,19 @@ ALTER TABLE public.pf_subscriptions       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_universe_instruments      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_universe_filters    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pf_universes           ENABLE ROW LEVEL SECURITY;
+
+-- assistant chat history: one row per message, owned by the user
+CREATE TABLE public.pf_assistant_messages (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role       text NOT NULL CHECK (role IN ('user','assistant')),
+    content    text NOT NULL,
+    proposal   jsonb,
+    conversation_id uuid,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX pf_assistant_messages_user_time
+    ON public.pf_assistant_messages (user_id, created_at);
+CREATE INDEX pf_assistant_messages_convo
+    ON public.pf_assistant_messages (user_id, conversation_id, created_at);
+ALTER TABLE public.pf_assistant_messages  ENABLE ROW LEVEL SECURITY;

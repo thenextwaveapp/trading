@@ -8,6 +8,15 @@
   0% { background-position: 100% 0; }
   100% { background-position: 0 0; }
 }
+/* empty-state ghost: no shimmer, dimmed, fading out toward the bottom so an
+   overlaid message reads clearly while the card still holds the list's space */
+.ghost { pointer-events: none; }
+.ghost .sk { animation: none; opacity: 0.4; }
+.ghost {
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 95%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 95%);
+}
+
 .rowline {
   display: flex;
   align-items: center;

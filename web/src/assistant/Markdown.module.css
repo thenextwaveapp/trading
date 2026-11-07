@@ -1,0 +1,84 @@
+/* Scoped styling for rendered assistant markdown. Tight vertical rhythm so a
+   chat bubble stays compact; first/last children shed their outer margins. */
+.md {
+  font-size: 14px;
+  line-height: 1.55;
+  color: inherit;
+}
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+
+.md p { margin: 0 0 8px; }
+
+.md h1, .md h2, .md h3, .md h4 {
+  margin: 12px 0 6px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+.md h1 { font-size: 16px; }
+.md h2 { font-size: 15px; }
+.md h3, .md h4 { font-size: 14px; }
+
+.md ul, .md ol { margin: 0 0 8px; padding-left: 20px; }
+.md li { margin: 2px 0; }
+.md li::marker { color: var(--muted); }
+
+.md a {
+  color: #8bb4e8;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(139, 180, 232, 0.35);
+}
+.md a:hover { border-bottom-color: #8bb4e8; }
+
+.md strong { font-weight: 600; color: var(--fg); }
+.md em { font-style: italic; }
+
+.md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: #0d1117;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.md pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  background: #0d1117;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+.md pre code {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.md blockquote {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--line-2);
+  color: var(--muted);
+}
+
+.md hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 12px 0;
+}
+
+.md table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.md th, .md td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  text-align: left;
+}
+.md th { background: #10141a; font-weight: 600; }

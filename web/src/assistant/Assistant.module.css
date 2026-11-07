@@ -1,51 +1,216 @@
-.bubble {
+/* the dock: a floating composer bar at the bottom (the top nav's sibling),
+   with the conversation growing upward out of it. */
+.dock {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 1px solid var(--line-2);
-  background: linear-gradient(180deg, #1b2230, #11151c);
-  color: var(--fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: min(620px, calc(100vw - 24px));
   z-index: 70;
-}
-.bubble:hover { border-color: var(--border-hover); color: #8bb4e8; }
-
-.panel {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: min(380px, calc(100vw - 32px));
-  height: min(560px, calc(100vh - 100px));
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-  z-index: 70;
+  gap: 10px;
+}
+
+/* ── full screen: a sheet over the blurred page, history as a sidebar ────── */
+/* backdrop behind the sheet — framer-motion fades it in/out */
+.fullWrap {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  /* the page stays faintly visible behind — "you're still kind of there" */
+  background: rgba(6, 8, 11, 0.45);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+}
+/* centers the morphing panel; bottom room so it clears the floating composer.
+   the cage is click-through so clicks in the padding hit the backdrop (close). */
+.sheetCage {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 22px 22px 88px;
+  pointer-events: none;
+}
+.sheet {
+  pointer-events: auto;
+  width: min(1180px, 100%);
+  height: 100%;
+  display: grid;
+  grid-template-columns: 252px 1fr;
+  transition: grid-template-columns 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(16, 21, 28, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 50px 120px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(30px) saturate(140%);
+  -webkit-backdrop-filter: blur(30px) saturate(140%);
   overflow: hidden;
 }
+.sheetNoRail {
+  grid-template-columns: 0fr 1fr;
+}
+
+/* left rail: new chat + history list. Collapses by zeroing its grid track;
+   the fixed-width inner keeps the content from reflowing as it slides away. */
+.side {
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+}
+.sheetNoRail .side {
+  border-right-color: transparent;
+}
+.sideInner {
+  width: 252px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 12px;
+  gap: 8px;
+}
+.sideHead {
+  padding: 4px 6px 8px;
+}
+.newChat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.newChat:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--fg);
+}
+.sideLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-3);
+  padding: 8px 6px 2px;
+}
+.sideList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* main column: header, messages, floating composer */
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.mainHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+}
+.mainBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* bottom room so the last message clears the floating bar */
+  padding: 8px 24px 96px;
+}
+.col {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* in full screen the dock (and its bar) float above the sheet, unchanged */
+.dockOver {
+  z-index: 90;
+}
+
+/* conversation panel — same frosted glass as the composer, grows from the bar */
+.conv {
+  display: flex;
+  flex-direction: column;
+  max-height: min(62vh, 580px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(16, 21, 28, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 64px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  overflow: hidden;
+}
+
+/* the composer bar — floating glass pill, matches the top nav's recipe */
+.bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(14, 18, 25, 0.85), rgba(10, 13, 18, 0.8));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+.barSpark {
+  flex: none;
+  color: var(--accent-soft);
+  margin: 0 0 8px;
+}
+.barClose {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 1px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.barClose:hover { color: var(--fg); background: rgba(255, 255, 255, 0.07); }
 .head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 14px 10px;
 }
-.title { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
 .spark {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #8bb4e8;
-  box-shadow: 0 0 8px #8bb4e8;
+  flex: none;
+  color: var(--accent-soft);
 }
 .headBtns { display: flex; align-items: center; gap: 6px; }
 .icon {
@@ -57,7 +222,60 @@
   padding: 4px 6px;
   border-radius: var(--radius-sm);
 }
-.icon:hover { color: var(--fg); background: #171c24; }
+.icon:hover { color: var(--fg); background: rgba(255, 255, 255, 0.07); }
+.iconOn { color: var(--fg); background: rgba(255, 255, 255, 0.09); }
+
+/* history view: one row per past conversation */
+.histRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.histMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--fg-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.histMain:hover { background: rgba(255, 255, 255, 0.08); color: var(--fg); }
+.histTitle {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.histTs {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--muted-3);
+  flex: none;
+}
+.histDel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted-3);
+  cursor: pointer;
+}
+.histDel:hover { color: var(--down); background: rgba(255, 92, 108, 0.1); }
 
 .body {
   flex: 1;
@@ -77,24 +295,38 @@
   line-height: 1.5;
   padding: 9px 12px;
   border-radius: 12px;
-  white-space: pre-wrap;
   word-break: break-word;
 }
-.user .msgText { background: #1d2a3d; color: var(--fg); border-bottom-right-radius: 4px; }
-.asst .msgText { background: #10141a; color: var(--fg-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+/* User text is plain, so preserve its line breaks; the assistant bubble renders
+   markdown as real block elements and manages its own spacing. */
+.user .msgText {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--fg);
+  border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
+}
+.asst .msgText {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--fg-2);
+  border-bottom-left-radius: 4px;
+}
 
 .buildBtn {
   align-self: flex-start;
-  border: 1px solid #2f5d8f;
-  background: #14243a;
-  color: #8bb4e8;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent-soft);
   font-size: 13px;
   font-weight: 500;
   padding: 7px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.buildBtn:hover { background: #18304d; }
+.buildBtn:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--accent);
+}
 
 .dots { display: inline-flex; gap: 4px; padding: 12px; }
 .dots span {
@@ -113,52 +345,50 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 12px;
-  padding: 6px 10px;
-  border: 1px solid #2f5d8f;
-  border-radius: var(--radius-sm);
-  background: #14243a;
-  color: #8bb4e8;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--trade) 14%, transparent);
+  color: var(--trade);
   font-size: 12px;
 }
 .focusChip button {
   border: none;
   background: none;
-  color: #8bb4e8;
+  color: var(--trade);
   cursor: pointer;
   font-size: 13px;
 }
-.inputRow {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 10px 12px 4px;
-  border-top: 1px solid var(--line);
-}
+/* the input sits directly in the glass bar — no inner box */
 .input {
   flex: 1;
   resize: none;
+  min-width: 0;
   max-height: 120px;
-  background: #0d1117;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
   color: var(--fg);
   font: inherit;
   font-size: 14px;
-  padding: 9px 11px;
+  line-height: 1.4;
+  padding: 8px 4px;
   outline: none;
 }
-.input:focus { border-color: var(--border-hover); }
+.input::placeholder { color: var(--muted-2); }
 .send {
   flex: none;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: none;
-  background: #2f5d8f;
-  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: #d9e6f7;
   font-size: 16px;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  border-color: var(--accent);
 }
 .send:disabled { opacity: 0.4; cursor: default; }
-.disclaimer { padding: 4px 14px 10px; font-size: 11px; color: var(--muted-2); line-height: 1.4; }
+.disclaimer { padding: 4px 2px 0; font-size: 11px; color: var(--muted-3); line-height: 1.4; }

@@ -1,0 +1,15 @@
+[Unit]
+Description=social scan (X/social posts -> pf_social_raw)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=trading
+WorkingDirectory=/opt/trading
+# needs SOCIAL_X_BEARER / SOCIAL_X_RULES in the environment (see runtime/scan/social.py)
+ExecStart=/opt/trading/engine-venv/bin/python -m runtime.scan.social
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

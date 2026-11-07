@@ -1,5 +1,6 @@
-import { DEFAULT_BOT_COLOR, botColor } from "../../lib/brand";
+import { botColor } from "../../lib/brand";
 import { BackBar } from "../../components/cells";
+import EquityRange from "../../components/EquityRange";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createBacktest, setBotStage, useBuildData, useMyBot } from "../../db/queries";
@@ -192,11 +193,8 @@ function Result({ bt, color, onTrials, onSweep, onEdit, onRetrain, retraining }:
 
       {bt.equity_curve && bt.equity_curve.length > 1 && (
         <section className="card" style={{ marginTop: 28, padding: "20px 22px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <h2 className={r.h2}>Equity curve</h2>
-            <span className="lbl num">{windowLabel(bt)}</span>
-          </div>
-          <div style={{ marginTop: 14 }}><Curve pts={bt.equity_curve} color={color} /></div>
+          <h2 className={r.h2} style={{ marginBottom: 14 }}>Equity curve</h2>
+          <EquityRange pts={bt.equity_curve} color={color} />
         </section>
       )}
     </>
@@ -298,31 +296,6 @@ function Stat({ label, value, cls, sub }: { label: string; value: string; cls?: 
       <div className={`num ${cls ?? ""} ${p.statBig}`}>{value}</div>
       {sub && <div className="lbl" style={{ marginTop: 4 }}>{sub}</div>}
     </div>
-  );
-}
-
-/** Filled equity area + line, responsive. */
-function Curve({ pts, color }: { pts: [number, number][]; color?: string }) {
-  const W = 1000, H = 240;
-  const xs = pts.map((d) => d[0]);
-  const ys = pts.map((d) => d[1]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys);
-  const X = (t: number) => ((t - x0) / (x1 - x0 || 1)) * W;
-  const Y = (e: number) => H - 6 - ((e - lo) / (hi - lo || 1)) * (H - 12);
-  const line = pts.map((d, i) => (i ? "L" : "M") + X(d[0]).toFixed(1) + " " + Y(d[1]).toFixed(1)).join(" ");
-  const area = `M${X(pts[0][0]).toFixed(1)} ${H} ` + pts.map((d) => "L" + X(d[0]).toFixed(1) + " " + Y(d[1]).toFixed(1)).join(" ") + ` L${X(pts[pts.length - 1][0]).toFixed(1)} ${H} Z`;
-  const col = color || DEFAULT_BOT_COLOR;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 240, display: "block" }}>
-      <defs>
-        <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={col} stopOpacity="0.16" />
-          <stop offset="1" stopColor={col} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#eqfill)" />
-      <path d={line} fill="none" stroke={col} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-    </svg>
   );
 }
 

@@ -6,6 +6,7 @@ import { useAuth } from "../../auth";
 import {
   autosaveDeployPrefs,
   botNameTaken,
+  countDeployedBots,
   createFleet,
   deployBot,
   useLatestBacktest,
@@ -13,11 +14,14 @@ import {
   useMyFleets,
 } from "../../db/queries";
 import type { DbFleet, Visibility } from "../../db/types";
+import { entitlementOf, FREE_MAX_DEPLOYED } from "../../lib/billing";
+import { useUpgrade } from "../../components/UpgradeModal";
 import { blockingIssues } from "../../lib/catalog";
 import { dol, identicon } from "../../lib/format";
 import p from "../pages.module.css";
 import r from "./build.module.css";
 import Steps from "./Steps";
+import Segmented from "../../components/Segmented";
 import { MissingBot, StepLoading } from "./parts";
 import { nameIssue } from "./setup";
 import { withBot } from "./stages";
@@ -30,7 +34,8 @@ const VIS: { key: Visibility; label: string }[] = [
 
 export default function Deploy() {
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
+  const upgrade = useUpgrade();
   const [sp] = useSearchParams();
   const botId = sp.get("bot") ?? "";
   const { data: bot, loading: botLoading } = useMyBot(botId || null);
@@ -116,6 +121,17 @@ export default function Deploy() {
       if (taken.taken) {
         setBusy(false);
         setErr("You already have a bot with that name. Pick another.");
+        return;
+      }
+    }
+
+    // Free covers up to FREE_MAX_DEPLOYED live bots; deploying a new one past
+    // that is a Pro action (re-deploying an already-live bot doesn't count).
+    if (user && !deployed && !entitlementOf(subscription).entitled) {
+      const live = await countDeployedBots(user.id);
+      if (live >= FREE_MAX_DEPLOYED) {
+        setBusy(false);
+        upgrade.open(`Free runs ${FREE_MAX_DEPLOYED} live bots at once. Go Pro for unlimited.`);
         return;
       }
     }
@@ -233,11 +249,12 @@ export default function Deploy() {
 
               <div className={r.field}>
                 <span className={r.label}>Visibility</span>
-                <div className={p.seg}>
-                  {VIS.map((o) => (
-                    <button key={o.key} className={`${p.segBtn} ${vis === o.key ? p.sel : ""}`} onClick={() => setVis(o.key)}>{o.label}</button>
-                  ))}
-                </div>
+                <Segmented
+                  ariaLabel="Visibility"
+                  value={vis}
+                  onChange={setVis}
+                  options={VIS.map((o) => ({ value: o.key, label: o.label }))}
+                />
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 20 }}>

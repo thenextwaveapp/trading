@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Wordmark from "./Wordmark";
 import { useNavigate } from "react-router-dom";
 import s from "./TopNav.module.css";
 
@@ -34,15 +35,11 @@ export default function TopNav({ onAuth }: { onAuth: (mode: "signin" | "signup")
           onClick={() => document.body.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="Paper Fleet home"
         >
-          <svg width="22" height="22" viewBox="0 0 200 200" fill="none" aria-hidden>
-            <path d="M170 30 L30 95 L95 125 L170 30 Z" fill="#E9ECF1" />
-            <path d="M170 30 L107 131 L122 170 L137 137 L170 30 Z" fill="#5E8FD8" />
-          </svg>
-          paper fleet
+          <Wordmark height={28} />
         </button>
         <nav className={s.links}>
           <button className={s.link} onClick={() => nav("/leaderboard")}>Leaderboard</button>
-          <button className={s.link} onClick={() => onAuth("signin")}>Log in</button>
+          <button className={`${s.link} ${s.linkQuiet}`} onClick={() => onAuth("signin")}>Log in</button>
           <button className={s.cta} onClick={() => onAuth("signup")}>Start free</button>
         </nav>
       </div>

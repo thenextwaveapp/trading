@@ -1,4 +1,5 @@
 import { Route, Routes } from "react-router-dom";
+import p from "./pages.module.css";
 import Hub from "./build/Hub";
 import Compose from "./build/Compose";
 import Training from "./build/Training";
@@ -10,6 +11,7 @@ import Report from "./build/Report";
 
 export default function Build() {
   return (
+    <div className={p.shell}>
     <Routes>
       <Route index element={<Hub />} />
       <Route path="compose" element={<Compose />} />
@@ -21,5 +23,6 @@ export default function Build() {
       <Route path="report/:name" element={<Report />} />
       <Route path="report" element={<Report />} />
     </Routes>
+    </div>
   );
 }

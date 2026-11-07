@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" height="28" viewBox="0 0 142 28" overflow="visible" fill="none" role="img" aria-label="Paper Fleet">
+  <!-- Paper Fleet brand lockup. The wordmark is live text: DM Sans 700 must be
+       available wherever this file renders (it is inside the app; it is NOT
+       inside an <img> tag or on a host without the font). -->
+  <path d="M23.8 4.2 L4.2 13.3 L13.3 17.5 L23.8 4.2 Z" fill="#E9ECF1"/>
+  <path d="M23.8 4.2 L14.98 18.34 L17.08 23.8 L19.18 19.18 L23.8 4.2 Z" fill="#5E8FD8"/>
+  <text x="30" y="19.1" font-family="'DM Sans', sans-serif" font-weight="700" font-size="19" letter-spacing="-0.035em" fill="#E9ECF1">paper fleet</text>
+</svg>

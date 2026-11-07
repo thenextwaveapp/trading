@@ -10,6 +10,7 @@ import {
 import type { Trade, Bot } from "../api/types";
 import { START, lt } from "../lib/format";
 import { LW_OPTS, applyRange, lineData } from "./FleetChart";
+import Segmented from "./Segmented";
 import s from "./BotChart.module.css";
 
 function curveAt(curve: [number, number][], t: number): number {
@@ -179,22 +180,24 @@ export default function BotChart({
             {showAvg && <span className={s.leg}><span className={s.sw} style={{ background: "#4B515A" }} />Fleet average</span>}
           </div>
           {backtestVariant && (
-            <div className={s.range}>
-              <button className={`${s.rb} ${mode === "live" ? s.sel : ""}`} onClick={() => pickMode("live")}>
-                Live
-              </button>
-              <button className={`${s.rb} ${mode === "backtest" ? s.sel : ""}`} onClick={() => pickMode("backtest")}>
-                Backtest
-              </button>
-            </div>
+            <Segmented
+              ariaLabel="Data source"
+              size="sm"
+              value={mode}
+              onChange={pickMode}
+              options={[
+                { value: "live", label: "Live" },
+                { value: "backtest", label: "Backtest" },
+              ]}
+            />
           )}
-          <div className={s.range}>
-            {RANGES.map(([label, days]) => (
-              <button key={label} className={`${s.rb} ${range === days ? s.sel : ""}`} onClick={() => pickRange(days)}>
-                {label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="Time range"
+            size="sm"
+            value={range}
+            onChange={pickRange}
+            options={RANGES.map(([label, days]) => ({ value: days, label }))}
+          />
         </div>
       </div>
       <div ref={elRef} className={s.chart} />

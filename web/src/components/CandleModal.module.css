@@ -8,7 +8,9 @@
   z-index: 60;
 }
 .box {
-  background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+  background: rgba(16, 21, 28, 0.82);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid var(--line-2);
   border-radius: var(--radius);
   padding: 16px 18px;
@@ -39,21 +41,7 @@
 .mkt:hover { color: var(--fg); }
 .iv {
   display: flex;
-  gap: 4px;
   margin-left: auto;
-}
-.ivb {
-  height: 28px;
-  padding: 0 12px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-}
-.ivb.sel {
-  background: #171c24;
-  color: var(--fg);
 }
 .close {
   height: 30px;

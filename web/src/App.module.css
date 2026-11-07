@@ -3,27 +3,22 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(
-      900px 440px at 12% -8%,
-      rgba(58, 129, 215, 0.12),
-      transparent 65%
-    ),
-    radial-gradient(760px 420px at 100% -4%, rgba(129, 78, 198, 0.07), transparent 60%),
-    var(--bg);
+  /* transparent on purpose: the viewport-fixed depth layer (body::before in
+     global.css) provides the background for every page */
+  background: transparent;
 }
 
 .main {
   flex: 1;
   width: 100%;
-  max-width: 1140px;        /* matches Home (Feed) so content pages align */
   margin: 0 auto;
   min-width: 0;
   padding-bottom: 72px;
 }
 
-/* the command center uses the full dashboard width */
+/* full-width everywhere now; kept for compat where still referenced */
 .wide {
-  max-width: 1360px;
+  max-width: none;
 }
 
 /* landing: full-width marketing layout (top nav, no sidebar).
@@ -45,6 +40,75 @@
   color: var(--muted-3);
   font-family: var(--font-sans);
   font-size: 15px;
+}
+
+/* ---- splash: the paper animation floating in a breathing pool of light ---- */
+.splash {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: splashIn 0.5s ease both;
+}
+/* the breathing pool: a soft fold-blue glow pooled behind the paper + wordmark
+   so the group sits in light instead of floating on flat black. Slow scale +
+   opacity swell paces near the loader's own 6s life, so the field feels alive
+   even on the frames between shape changes. */
+.splash::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 380px;
+  height: 380px;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(94, 143, 216, 0.26) 0%,
+    rgba(94, 143, 216, 0.1) 40%,
+    transparent 70%
+  );
+  animation: splashGlow 4s ease-in-out infinite;
+}
+@keyframes splashGlow {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.9); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes splashIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.splashPaper {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+}
+/* the wordmark in the brand voice, with a slow light sweep across it */
+.splashWord {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.035em;
+  background: linear-gradient(100deg, #6b717b 0%, #e9ecf1 35%, #ffffff 50%, #e9ecf1 65%, #6b717b 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: splashSheen 2.8s linear infinite;
+}
+@keyframes splashSheen {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash, .splashWord, .splash::before { animation: none; }
+  .splashWord { background-position: 50% 0; }
+  .splash::before { opacity: 0.8; }
 }
 
 /* ---- mobile top app bar + drawer (hidden on desktop) ---- */

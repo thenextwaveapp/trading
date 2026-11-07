@@ -1,14 +1,18 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./db/supabase";
-import type { DbProfile } from "./db/types";
+import { fetchMySubscription } from "./db/queries";
+import type { DbProfile, DbSubscription } from "./db/types";
 
 interface AuthState {
   session: Session | null;
   user: User | null;
   profile: DbProfile | null;
+  subscription: DbSubscription | null;
+  subLoading: boolean;
   loading: boolean;
   refreshProfile: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
   sendMagicLink: (email: string) => Promise<{ error: string | null }>;
   signInGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -19,6 +23,8 @@ const AuthCtx = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<DbProfile | null>(null);
+  const [subscription, setSubscription] = useState<DbSubscription | null>(null);
+  const [subLoading, setSubLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,14 +45,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile((data as DbProfile) ?? null);
   };
 
-  // Profile row is created by the handle_new_user trigger on signup (db/functions.sql).
+  const loadSubscription = async (uid: string) => {
+    setSubLoading(true);
+    const { data } = await fetchMySubscription(uid);
+    setSubscription((data as DbSubscription) ?? null);
+    setSubLoading(false);
+  };
+
+  // Profile + subscription rows: profile is seeded by the handle_new_user
+  // trigger on signup; subscription is absent until the first checkout and is
+  // mirrored from Stripe by the stripe-webhook edge function.
   useEffect(() => {
     const uid = session?.user?.id;
     if (!uid) {
       setProfile(null);
+      setSubscription(null);
+      setSubLoading(false);
       return;
     }
     void loadProfile(uid);
+    void loadSubscription(uid);
   }, [session?.user?.id]);
 
   // OAuth returns to the same page, stripping the HashRouter fragment.
@@ -57,9 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
+    subscription,
+    subLoading,
     loading,
     refreshProfile: async () => {
       if (session?.user?.id) await loadProfile(session.user.id);
+    },
+    refreshSubscription: async () => {
+      if (session?.user?.id) await loadSubscription(session.user.id);
     },
     // Passwordless: email a magic sign-in link. shouldCreateUser signs up new
     // emails (handle_new_user seeds the account on first click), so there is no

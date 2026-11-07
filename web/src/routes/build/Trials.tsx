@@ -63,12 +63,6 @@ export default function Trials() {
       <Steps current={3} />
       <div className={p.body}>
         <section style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16, padding: "32px 0 24px" }}>
-          <div>
-            <h1 className={p.title} style={{ fontSize: 34 }}>Trials</h1>
-            <div className={p.subtitle} style={{ marginTop: 8 }}>
-              Stress tests that show whether the edge is real, not luck. They inform the verdict; they don't block Weather.
-            </div>
-          </div>
           <div style={{ textAlign: "right" }}>
             <div className={`num ${r.big}`}>{passed}<span className="muted" style={{ fontSize: 24 }}> / {TRIALS.length}</span></div>
             <div className="lbl">{noBacktest ? "train first" : allDone ? "trials complete" : "running trials…"}</div>

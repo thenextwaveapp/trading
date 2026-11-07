@@ -1,0 +1,44 @@
+/* three lives on a 6s clock — each shape owns a 2s act: unfold, hold,
+   crumple. The ball bridges every transition on its own 2s cycle. */
+.box {
+  position: relative;
+  display: inline-block;
+}
+.shape,
+.ball {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform-origin: 50% 55%;
+}
+.shape {
+  animation: paperLife 6s infinite;
+}
+.s0 { animation-delay: 0s; }
+.s1 { animation-delay: 2s; }
+.s2 { animation-delay: 4s; }
+@keyframes paperLife {
+  0% { opacity: 0; transform: scale(0.3) rotate(-25deg); }
+  5% { opacity: 1; transform: scale(1.07) rotate(4deg); }
+  8% { transform: scale(1) rotate(0deg); }
+  26% { opacity: 1; transform: scale(1) rotate(0deg); }
+  28% { opacity: 1; transform: scale(0.8) rotate(10deg); }
+  31% { opacity: 0; transform: scale(0.28) rotate(30deg); }
+  32%, 100% { opacity: 0; transform: scale(0.28) rotate(30deg); }
+}
+.ball {
+  animation: paperBall 2s infinite;
+}
+@keyframes paperBall {
+  0%, 2% { opacity: 1; transform: scale(1) rotate(6deg); }
+  4% { opacity: 1; transform: scale(0.94) rotate(-6deg); }
+  7% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+  90% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+  94% { opacity: 1; transform: scale(0.9) rotate(-8deg); }
+  97% { opacity: 1; transform: scale(1.05) rotate(5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(6deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shape, .ball { animation: none; }
+  .s0 { opacity: 1; }
+}

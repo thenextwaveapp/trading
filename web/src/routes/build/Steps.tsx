@@ -39,14 +39,15 @@ export default function Steps({
   const go = (i: number) => {
     const n = i + 1;
     if (n === current) return;
+    // Only reachable rungs (anything up to the furthest the bot has genuinely
+    // earned) are navigable — you can't jump to Deploy from a fresh Compose.
+    if (n > maxDone) return;
     const target = withBot(FLOW_PATHS[i], botId);
     if (onNavigate) {
       onNavigate(target, n);
       return;
     }
-    if (botId || n <= maxDone || n < current) {
-      nav(target);
-    }
+    nav(target);
   };
 
   return (
@@ -55,7 +56,7 @@ export default function Steps({
         const n = i + 1;
         const now = n === current;
         const done = !now && n <= maxDone;
-        const canClick = !now && (Boolean(botId) || Boolean(onNavigate) || done);
+        const canClick = !now && n <= maxDone;
         return (
           <Fragment key={l}>
             {i > 0 && <span className={r.stepLine} />}

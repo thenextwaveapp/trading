@@ -3424,6 +3424,42 @@
       "params": []
     },
     {
+      "id": "FEED_NEWS_CONF",
+      "label": "News Signal Confidence",
+      "category": "feed",
+      "inputs": [
+        "news"
+      ],
+      "params": []
+    },
+    {
+      "id": "FEED_NEWS_SCORE",
+      "label": "News Signal Score",
+      "category": "feed",
+      "inputs": [
+        "news"
+      ],
+      "params": []
+    },
+    {
+      "id": "FEED_SOCIAL_CONF",
+      "label": "Social Signal Confidence",
+      "category": "feed",
+      "inputs": [
+        "social"
+      ],
+      "params": []
+    },
+    {
+      "id": "FEED_SOCIAL_SCORE",
+      "label": "Social Signal Score",
+      "category": "feed",
+      "inputs": [
+        "social"
+      ],
+      "params": []
+    },
+    {
       "id": "CLOSE_POS",
       "label": "Close Position in Range",
       "category": "geometry",
@@ -4000,6 +4036,10 @@
         "open",
         "volume"
       ],
+      "feeds": [
+        "news",
+        "social"
+      ],
       "series_kind": "continuous",
       "asset_class": "crypto_perp"
     },
@@ -4012,6 +4052,10 @@
         "low",
         "open",
         "volume"
+      ],
+      "feeds": [
+        "news",
+        "social"
       ],
       "series_kind": "continuous",
       "asset_class": "crypto_spot"
@@ -4026,6 +4070,10 @@
         "open",
         "volume"
       ],
+      "feeds": [
+        "news",
+        "social"
+      ],
       "series_kind": "continuous",
       "asset_class": "equity"
     },
@@ -4039,6 +4087,7 @@
         "open",
         "volume"
       ],
+      "feeds": [],
       "series_kind": "continuous",
       "asset_class": "futures"
     },
@@ -4051,6 +4100,7 @@
         "low",
         "open"
       ],
+      "feeds": [],
       "series_kind": "continuous",
       "asset_class": "fx_spot"
     },
@@ -4060,6 +4110,7 @@
       "provides": [
         "close"
       ],
+      "feeds": [],
       "series_kind": "resolution",
       "asset_class": "prediction"
     }
@@ -4344,6 +4395,50 @@
       "live": true,
       "sweep": true,
       "in_default": true,
+      "reason": ""
+    },
+    {
+      "key": "thesis",
+      "label": "Thesis",
+      "kind": "string",
+      "default": "",
+      "group": "feed",
+      "help": "Plain-language reason this bot exists \u2014 the event it bets on. Shown on the build page beside the logic so a feed bot's intent is never lost. Required for any spec that reads a social/news feed operand.",
+      "min": null,
+      "max": null,
+      "step": null,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
+      "reason": ""
+    },
+    {
+      "key": "feed.max_signal_age_sec",
+      "label": "Max signal age",
+      "kind": "int",
+      "default": 90,
+      "group": "feed",
+      "help": "Hard staleness gate: skip the entry if the triggering event is older than this many seconds at bar close. For an event-driven bot a late fill flips the edge negative, so a stale trigger never fires. Required for feed specs.",
+      "min": 1,
+      "max": null,
+      "step": 1,
+      "unit": "sec",
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
       "reason": ""
     },
     {
@@ -4819,6 +4914,50 @@
       "sweep": true,
       "in_default": false,
       "reason": "The single-bot backtest and runtime have no portfolio allocation step; this value is stored but has no effect."
+    },
+    {
+      "key": "sizing.confidence_scale.min_conf",
+      "label": "Min confidence to size",
+      "kind": "float",
+      "default": 0.5,
+      "group": "sizing",
+      "help": "Feed confidence below which position size scales to zero (no trade). Size ramps linearly from here to full_conf.",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
+      "reason": ""
+    },
+    {
+      "key": "sizing.confidence_scale.full_conf",
+      "label": "Full-size confidence",
+      "kind": "float",
+      "default": 0.9,
+      "group": "sizing",
+      "help": "Feed confidence at or above which the trade takes full risk. Below it (down to min_conf) risk is scaled down proportionally.",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": null,
+      "percent": false,
+      "choices": [],
+      "options": [],
+      "visible_if": null,
+      "status": "ok",
+      "backtest": true,
+      "live": true,
+      "sweep": true,
+      "in_default": false,
+      "reason": ""
     }
   ],
   "spec_features": [
@@ -4962,6 +5101,26 @@
       "reason": ""
     },
     {
+      "id": "operand.feed",
+      "label": "Social / news feed operand",
+      "path": "entry",
+      "op": "feed",
+      "backtest": true,
+      "live": true,
+      "status": "partial",
+      "reason": "Feed operands backtest and gate live against a supplied pf_feed_score series; historical backtests are only as good as the recorded (forward-logged) score history available."
+    },
+    {
+      "id": "sizing.confidence_scale",
+      "label": "Confidence-weighted sizing",
+      "path": "sizing.confidence_scale",
+      "op": "exists",
+      "backtest": true,
+      "live": true,
+      "status": "ok",
+      "reason": ""
+    },
+    {
       "id": "filters",
       "label": "Live regime filters",
       "path": "filters",
@@ -4995,6 +5154,10 @@
     {
       "id": "entry",
       "label": "Entry"
+    },
+    {
+      "id": "feed",
+      "label": "Feed / Social"
     },
     {
       "id": "timing",
@@ -5044,8 +5207,8 @@
     "filters": []
   },
   "counts": {
-    "indicators": 212,
+    "indicators": 216,
     "markets": 6,
-    "spec_params": 22
+    "spec_params": 26
   }
 }

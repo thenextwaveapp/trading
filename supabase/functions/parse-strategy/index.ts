@@ -5,6 +5,7 @@ Return ONLY a single compact JSON object (no markdown fences, no commentary) mat
 
 {
   "name": "Short descriptive bot name (max 28 chars)",
+  "thesis": "One-sentence plain-English reason the bot exists — the event it bets on (REQUIRED whenever a feed operand is used; omit otherwise)",
   "side": "short" | "long",
   "market": "crypto_perp" | "crypto_spot" | "equity" | "fx_spot",
   "universe": "fleet-60" | "majors" | "all-perps" | "top100-vol" | "mag-7" | "us-equities" | "fx-majors",
@@ -16,12 +17,13 @@ Return ONLY a single compact JSON object (no markdown fences, no commentary) mat
     "logic": "AND" | "OR" | "NOT",
     "children": [
       {
-        "left": { "ind": string, "params": { ... }, "offset": number } | number,
+        "left": { "ind": string, "params": { ... }, "offset": number } | { "feed": "social" | "news", "field": "score" | "confidence", "offset": number } | number,
         "op": "gt" | "ge" | "lt" | "le" | "eq" | "ne" | "crosses_above" | "crosses_below",
-        "right": { "ind": string, "params": { ... }, "offset": number } | number
+        "right": { "ind": string, "params": { ... }, "offset": number } | { "feed": "social" | "news", "field": "score" | "confidence", "offset": number } | number
       }
     ]
   },
+  "feed": { "max_signal_age_sec": integer seconds (REQUIRED whenever any feed operand is used; omit otherwise) },
   "exit": {
     "time_bars": integer (>= 1, e.g. 16 for 4h on 15m bars, 96 for 24h on 15m bars),
     "stop": {
@@ -34,7 +36,8 @@ Return ONLY a single compact JSON object (no markdown fences, no commentary) mat
   "sizing": {
     "risk": number (fraction, default 0.0075 for 0.75%),
     "notional_cap": number (fraction, default 0.20 for 20%),
-    "weight": 1.0
+    "weight": 1.0,
+    "confidence_scale": { "min_conf": number, "full_conf": number }  (optional; size by feed confidence — zero below min_conf, full at/above full_conf)
   },
   "filters": []
 }
@@ -55,6 +58,15 @@ Rules for indicators & operands:
   - "BBANDS_upperband", "BBANDS_middleband", "BBANDS_lowerband" (params: {"timeperiod": 20, "nbdevup": 2, "nbdevdn": 2})
   - "MACD_macd", "MACD_macdsignal", "MACD_macdhist" (params: {"fastperiod": 12, "slowperiod": 26, "signalperiod": 9})
   - "VWAP", "OBV" (params: {})
+- Feed operands (social-media & news signals): when the trigger is someone POSTING / TWEETING, a NEWS HEADLINE, or an account SAYING something (e.g. "when Elon tweets Doge", "when a hack headline hits", "when the SEC posts 'approved'", "when CZ reassures users"), use a feed operand instead of a price indicator:
+  - Shape: {"feed": "social" | "news", "field": "score" | "confidence", "offset": number}. "social" = posts/tweets; "news" = headlines. "score" is the signed signal (−1..1, bullish positive, bearish negative); "confidence" is 0..1.
+  - Example "go long when bullish social chatter spikes": {"left": {"feed": "social", "field": "score"}, "op": "crosses_above", "right": 0.8}. Bearish/short trigger: {"left": {"feed": "social", "field": "score"}, "op": "crosses_below", "right": -0.8}.
+  - Prefer confirming with price (a far better signal): AND the feed operand with a volume/volatility move, e.g. also {"left": {"ind": "VOL_RATIO", "params": {"period": 8}}, "op": "ge", "right": 1.5}.
+  - Feed operands exist ONLY on crypto (crypto_perp / crypto_spot) and equity — never fx_spot or prediction.
+  - MANDATORY whenever ANY feed operand is used (the spec is invalid without both):
+      1. "thesis": a one-sentence plain-English reason the bot exists (the event it bets on).
+      2. "feed": {"max_signal_age_sec": N}: the staleness gate — skip the entry if the triggering event is older than N seconds at bar close. Pick N for the event: fast market-moving posts/headlines ~60-120s, slower catalysts a few minutes.
+  - Optional: "sizing": {"confidence_scale": {"min_conf": 0.5, "full_conf": 0.9}} to size the position by trigger confidence.
 - If the user mentions stocks / equities / Mag 7 / S&P / Nasdaq / AAPL / NVDA / TSLA / SPY, set "market": "equity" and "universe": "mag-7" or "us-equities".
 - If the user mentions forex / FX / currencies / currency pairs (e.g. EUR/USD, EURUSD, GBPUSD, USDJPY, cable, dollar-yen), set "market": "fx_spot" and "universe": "fx-majors". For specific pairs, also put their BARE tickers in "coins" using these exact symbols: EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, USDCAD, NZDUSD. FX has NO volume, so do not use volume indicators (VOL_RATIO, OBV, MFI, VWAP) for fx_spot.
 - Otherwise default to "market": "crypto_perp" and "universe": "fleet-60" (or "majors" if they ask for majors/BTC/ETH).

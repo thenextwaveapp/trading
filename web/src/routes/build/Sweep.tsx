@@ -545,12 +545,6 @@ export default function Sweep() {
       <BackBar to={withBot("/build/training", bot.id)} label="Training" />
       <div className={p.body} style={{ paddingTop: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ fontSize: 34, letterSpacing: "-0.03em", fontWeight: 500 }}>Parameter sweep</h1>
-            <div className="lbl" style={{ marginTop: 6, lineHeight: 1.5 }}>
-              Run the same strategy over a grid of parameter values. Every point uses the same tape, costs and window.
-            </div>
-          </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className={p.btn} onClick={training}>Back to training</button>
             <button className={p.btn} onClick={edit}>Edit strategy</button>

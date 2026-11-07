@@ -11,6 +11,8 @@ import json
 import os
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -77,6 +79,43 @@ def fetch_24h():
         return json.loads(r.read())
 
 
+_yq = {"t": 0.0, "map": {}}
+YQ_TTL = 3600  # market caps drift slowly; one quote batch an hour is plenty
+
+
+def fetch_equity_caps(symbols):
+    """{SYMBOL: market_cap} via Yahoo's quote API. The endpoint is crumb-gated:
+    any yahoo page sets the session cookie, /v1/test/getcrumb pairs a crumb with
+    it, and the two together unlock /v7/finance/quote (same dance yfinance
+    does). Cached an hour; keeps the last good map on failure."""
+    now = time.time()
+    if _yq["map"] and now - _yq["t"] < YQ_TTL:
+        return _yq["map"]
+    ua = {"User-Agent": "Mozilla/5.0"}
+    try:
+        try:
+            r = urllib.request.urlopen(
+                urllib.request.Request("https://fc.yahoo.com/", headers=ua), timeout=15)
+            cookie = (r.headers.get("Set-Cookie") or "").split(";")[0]
+        except urllib.error.HTTPError as e:  # fc.yahoo.com 404s but still sets the cookie
+            cookie = (e.headers.get("Set-Cookie") or "").split(";")[0]
+        h = {**ua, "Cookie": cookie}
+        crumb = urllib.request.urlopen(
+            urllib.request.Request("https://query1.finance.yahoo.com/v1/test/getcrumb",
+                                   headers=h), timeout=15).read().decode()
+        url = ("https://query1.finance.yahoo.com/v7/finance/quote"
+               f"?symbols={','.join(symbols)}&crumb={urllib.parse.quote(crumb)}")
+        rows = json.loads(urllib.request.urlopen(
+            urllib.request.Request(url, headers=h), timeout=25).read()
+        )["quoteResponse"]["result"]
+        out = {x["symbol"]: x.get("marketCap") for x in rows if x.get("marketCap")}
+        if out:
+            _yq.update(t=now, map=out)
+    except Exception as e:
+        print(f"market_scan equity caps error: {e}", file=sys.stderr)
+    return _yq["map"]
+
+
 def _upsert(rows):
     req = urllib.request.Request(
         f"{URL}/rest/v1/pf_market_snapshot?on_conflict=symbol",
@@ -84,7 +123,11 @@ def _upsert(rows):
         headers={"apikey": KEY, "Authorization": f"Bearer {KEY}",
                  "Content-Type": "application/json",
                  "Prefer": "resolution=merge-duplicates,return=minimal"})
-    urllib.request.urlopen(req, timeout=30).read()
+    try:
+        urllib.request.urlopen(req, timeout=30).read()
+    except urllib.error.HTTPError as e:
+        # surface PostgREST's reason — "HTTP Error 400" alone cost us a week
+        raise RuntimeError(f"upsert HTTP {e.code}: {e.read()[:300]!r}") from None
 
 
 def scan_once():
@@ -109,6 +152,11 @@ def scan_once():
                 "quote_volume": float(d["quoteVolume"]),
                 "high": float(d["highPrice"]), "low": float(d["lowPrice"]),
                 "trades": int(d.get("count", 0)), "updated_at": now,
+                # PostgREST bulk upsert 400s unless every object carries the
+                # same keys — one unenriched coin next to enriched ones kills
+                # the whole batch, so default the enrichment fields explicitly.
+                "name": None, "logo": None, "market_cap": None,
+                "market_cap_rank": None, "circ_supply": None, "ath": None,
             }
             # strip Binance's numeric multiplier prefix (1000PEPE -> PEPE) to
             # match CoinGecko's symbol.
@@ -131,7 +179,9 @@ def scan_market(market):
     instruments the Builder can trade — so the discovery board never drifts from
     what's buildable. Missing fields (fx has no volume) stay null, not faked."""
     now = datetime.now(timezone.utc).isoformat()
-    coins = pf_db.get("pf_instruments", f"market=eq.{market}&select=symbol,binance_symbol,name") or []
+    coins = pf_db.get("pf_instruments", f"market=eq.{market}&select=symbol,binance_symbol,name,logo") or []
+    caps = fetch_equity_caps([c["binance_symbol"] for c in coins if c.get("binance_symbol")]) \
+        if market == "equity" else {}
     rows = []
     for c in coins:
         ysym, base = c.get("binance_symbol"), c.get("symbol")
@@ -150,6 +200,8 @@ def scan_market(market):
             "change_pct": (last["c"] / prev["c"] - 1) * 100 if prev["c"] else 0.0,
             "high": last["h"], "low": last["l"],
             "quote_volume": last.get("v") if market == "equity" else None,
+            "market_cap": caps.get(ysym),
+            "logo": c.get("logo"),
             "trades": None, "updated_at": now,
         })
     for i in range(0, len(rows), 200):

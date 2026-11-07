@@ -1,0 +1,71 @@
+.wrap {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 56px 20px 96px;
+}
+.bar {
+  height: 3px;
+  background: var(--line-2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.back {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 0;
+  margin-bottom: 20px;
+}
+.back:hover {
+  color: var(--fg-2);
+}
+.opts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 28px;
+}
+.opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 17px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line-2);
+  background: rgba(13, 16, 22, 0.52);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  color: var(--fg);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.05s;
+}
+.opt:hover {
+  border-color: var(--border-hover);
+}
+.opt:active {
+  transform: translateY(1px);
+}
+.optOn {
+  border-color: #e9ecf1;
+  box-shadow: inset 0 0 0 1px #e9ecf1;
+}
+.optSub {
+  color: var(--muted-2);
+  font-size: 13px;
+  margin-top: 2px;
+}

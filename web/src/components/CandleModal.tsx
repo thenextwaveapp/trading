@@ -19,6 +19,7 @@ import { fetchCandles } from "../api/client";
 import type { Candle } from "../api/types";
 import { lt } from "../lib/format";
 import { LW_OPTS } from "./FleetChart";
+import Segmented from "./Segmented";
 import s from "./CandleModal.module.css";
 
 export interface CandleReq {
@@ -47,6 +48,7 @@ const IVMS: Record<string, number> = {
   "4h": 14_400_000,
   "1d": 86_400_000,
 };
+export const CANDLE_IVS = Object.keys(IVMS);
 
 export function CandleProvider({ children }: { children: ReactNode }) {
   const [req, setReq] = useState<CandleReq | null>(null);
@@ -74,16 +76,10 @@ export function CandleProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
+/** The trade-zoomed candle chart (entry/exit/SL/TP lines + in/out markers),
+ *  shared by the modal and the Trade page. */
+export function TradeCandles({ req, iv, className }: { req: CandleReq; iv: string; className?: string }) {
   const elRef = useRef<HTMLDivElement>(null);
-  const [iv, setIv] = useState("15m");
-  const nav = useNavigate();
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   useEffect(() => {
     const el = elRef.current;
@@ -183,6 +179,19 @@ function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
     };
   }, [iv, req]);
 
+  return <div ref={elRef} className={className} />;
+}
+
+function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
+  const [iv, setIv] = useState("15m");
+  const nav = useNavigate();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
       className={s.overlay}
@@ -196,18 +205,20 @@ function Modal({ req, onClose }: { req: CandleReq; onClose: () => void }) {
           <button className={s.mkt} onClick={() => nav("/market/" + encodeURIComponent(req.sym))}>
             Market ↗
           </button>
-          <div className={s.iv}>
-            {Object.keys(IVMS).map((k) => (
-              <button key={k} className={`${s.ivb} ${iv === k ? s.sel : ""}`} onClick={() => setIv(k)}>
-                {k}
-              </button>
-            ))}
-          </div>
+          <span className={s.iv}>
+            <Segmented
+              ariaLabel="Candle interval"
+              size="sm"
+              value={iv}
+              onChange={setIv}
+              options={Object.keys(IVMS).map((k) => ({ value: k, label: k }))}
+            />
+          </span>
           <button className={s.close} onClick={onClose} aria-label="close">
             ✕
           </button>
         </div>
-        <div ref={elRef} className={s.chart} />
+        <TradeCandles req={req} iv={iv} className={s.chart} />
         <div className={s.readout}>
           <div className={s.cell}>
             <span className={s.k}>Entry</span>

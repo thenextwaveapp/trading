@@ -132,6 +132,25 @@ register(Indicator("CLOSE_POS", _close_pos, lambda p: p.get("period", 16) - 1,
                    params=(("period", int, 16, 2, 500),)))
 
 
+# ---- feed inputs (social / news) ----
+# These are palette/capability entries, not candle computations: a feed operand
+# ({"feed": "social"|"news", "field": "score"|"confidence"}) reads an externally
+# scored series supplied via the aux path (see core/expr.py, build_feed_aux), so
+# the fn is never invoked on candles. Registering them makes the feature visible
+# in the catalog and gates it per market through inputs <= (provides | feeds).
+def _feed_na(candles, **_):
+    return [None] * len(candles)
+
+
+for _fid, _fin, _flbl in (
+        ("FEED_SOCIAL_SCORE", "social", "Social Signal Score"),
+        ("FEED_SOCIAL_CONF", "social", "Social Signal Confidence"),
+        ("FEED_NEWS_SCORE", "news", "News Signal Score"),
+        ("FEED_NEWS_CONF", "news", "News Signal Confidence")):
+    register(Indicator(_fid, _feed_na, lambda p: 0, label=_flbl,
+                       category="feed", inputs=(_fin,)))
+
+
 # ---- standard set ----
 # The standard library (SMA, EMA, RSI, ATR, MACD, Bollinger, Stochastic, ADX,
 # candlestick patterns, …) is registered from TA-Lib metadata by

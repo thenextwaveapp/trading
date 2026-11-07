@@ -32,6 +32,13 @@ function labelForPath(fullPath: string): string {
   if (path.startsWith("/bot/")) return decodeURIComponent(path.slice(5)) || "Bot";
   if (path.startsWith("/builder/")) return "@" + decodeURIComponent(path.slice(9));
   if (path === "/builder") return "Builder";
+  // canonical readable paths: /@handle, /@handle/bot-slug, /@handle/slug/TICKER
+  if (path.startsWith("/@")) {
+    const seg = path.slice(1).split("/");
+    if (seg.length >= 3) return seg[2]; // the ticker on a trade page
+    if (seg.length === 2) return seg[1]; // the bot slug
+    return seg[0]; // @handle
+  }
   if (path.startsWith("/settings")) return "Settings";
   return "Back";
 }

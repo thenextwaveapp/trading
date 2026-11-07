@@ -36,6 +36,29 @@ export function px(x: number | null | undefined | string): string {
   return v.toFixed(d).replace(/\.?0+$/, (m) => (m.includes(".") ? "" : m));
 }
 
+/** Decimal places that render `sig` significant figures at |v|'s magnitude,
+ *  clamped so prices ≥ $1 keep at least cents and sub-dollar coins never exceed
+ *  the exchange's 8-dp tick resolution. One rule across magnitudes — a $0.000045
+ *  coin, a $1.0823 FX pair and a $68,000 index each get the right resolution
+ *  with no per-range buckets. Shared by the price axis and every price label so
+ *  they can never disagree. */
+export function priceDp(v: number, sig = 5): number {
+  const a = Math.abs(v);
+  if (!isFinite(a) || a === 0) return 2;
+  const mag = Math.floor(Math.log10(a)); // 605→2, 1.08→0, 0.000045→−5
+  return Math.min(8, Math.max(2, sig - 1 - mag));
+}
+
+/** Price string: `sig` significant figures (via priceDp) with thousands
+ *  grouping and fixed decimals, so a from→to range aligns (605.47 → 610.15).
+ *  Not for P&L or equity — those stay 2-dp dollars (see usd/dol). */
+export function price(v: number | null | undefined, sig = 5): string {
+  if (v == null || !isFinite(Number(v))) return "–";
+  const n = Number(v);
+  const dp = priceDp(n, sig);
+  return n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+}
+
 const p2 = (n: number) => String(n).padStart(2, "0");
 
 export function clock(ms: number): string {
@@ -86,6 +109,14 @@ export const DIRLBL: Record<string, string> = {
   short: "Short",
   long: "Long",
   both: "Two-sided",
+};
+
+export const MKTLBL: Record<string, string> = {
+  crypto: "Crypto",
+  equity: "Stocks",
+  fx_spot: "FX",
+  futures: "Futures",
+  prediction: "Predictions",
 };
 
 /** Deterministic 3x5 pixel identicon path, seeded by name. */
