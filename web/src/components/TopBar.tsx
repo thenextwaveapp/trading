@@ -65,7 +65,7 @@ export default function TopBar() {
   const [search, setSearch] = useState(false);
   const [menu, setMenu] = useState(false);
 
-  useEffect(() => { setOpen(false); setMenu(false); }, [loc.pathname]);
+  useEffect(() => { setOpen(false); setMenu(false); setSearch(false); }, [loc.pathname]);
   useEffect(() => {
     if (!user) return; // search is a logged-in tool — no palette for visitors
     const onKey = (e: KeyboardEvent) => {
@@ -201,8 +201,89 @@ export default function TopBar() {
     </button>
   ) : null;
 
+  // ── mobile bottom tab bar (logged-in only) ──────────────────────────────
+  // Phones drop the floating top bar for a thumb-zone tab bar. Five highest
+  // -traffic surfaces, uniform icon+label tabs: Fleet (home + live telltale),
+  // Feed, Search (opens the palette — also the route to Leaderboard/Arena),
+  // Markets, You (account sheet). Build launches from Fleet. The bar rides
+  // ABOVE the search overlay (z-index), so it stays crisp while the palette
+  // is open rather than sitting blurred behind it.
+  const tabbar = user ? (
+    <nav className={s.tabbar} aria-label="Primary">
+      <button
+        className={`${s.tab} ${isActive("/fleet") ? s.tabActive : ""}`}
+        onClick={go("/fleet")}
+        aria-label="Fleet"
+      >
+        <span className={s.tabIcon}>
+          <Logo size={22} mono />
+          <span className={`${s.tabLive} ${inTrade ? s.tabLiveOn : ""}`} aria-hidden />
+        </span>
+        <span className={s.tabLbl}>Fleet</span>
+      </button>
+
+      <button
+        className={`${s.tab} ${isActive("/feed") ? s.tabActive : ""}`}
+        onClick={go("/feed")}
+        aria-label="Feed"
+      >
+        <span className={s.tabIcon}><Newspaper size={22} strokeWidth={1.6} /></span>
+        <span className={s.tabLbl}>Feed</span>
+      </button>
+
+      <button
+        className={`${s.tab} ${search ? s.tabActive : ""}`}
+        onClick={() => setSearch(true)}
+        aria-label="Search"
+      >
+        <span className={s.tabIcon}><Search size={22} strokeWidth={1.6} /></span>
+        <span className={s.tabLbl}>Search</span>
+      </button>
+
+      <button
+        className={`${s.tab} ${isActive("/market") ? s.tabActive : ""}`}
+        onClick={go("/market")}
+        aria-label="Markets"
+      >
+        <span className={s.tabIcon}><Globe size={22} strokeWidth={1.6} /></span>
+        <span className={s.tabLbl}>Markets</span>
+      </button>
+
+      <button
+        className={`${s.tab} ${s.tabYou} ${menu ? s.tabActive : ""}`}
+        onClick={() => setMenu((m) => !m)}
+        aria-label="Account"
+      >
+        <span className={s.tabIcon}>
+          <UserAvatar
+            handle={handle}
+            name={profile?.display_name}
+            url={profile?.avatar_url}
+            color={profile?.avatar_color || undefined}
+            size={24}
+          />
+        </span>
+        <span className={s.tabLbl}>You</span>
+      </button>
+
+      {menu && <div className={s.tabMenuScrim} onClick={() => setMenu(false)} />}
+      {menu && (
+        <div className={s.tabMenu} role="menu">
+          <button className={s.menuItem} onClick={() => nav(handle ? builderPath(handle) : "/settings")}>
+            {ICONS.user}
+            Your profile
+          </button>
+          <button className={s.menuItem} onClick={go("/settings")}>{ICONS.gear}Settings</button>
+          <div className={s.menuSep} />
+          <button className={s.menuItem} onClick={() => { setMenu(false); signOut(); }}>{ICONS.out}Log out</button>
+        </div>
+      )}
+    </nav>
+  ) : null;
+
   return (
-    <header className={s.bar}>
+    <>
+    <header className={`${s.bar} ${user ? s.barHasTab : ""}`}>
       <div className={s.inner}>
         <button className={s.menuBtn} aria-label="Menu" onClick={() => setOpen((o) => !o)}>
           <Menu size={20} strokeWidth={1.5} />
@@ -263,7 +344,11 @@ export default function TopBar() {
       </div>
 
       {open && <div className={s.sheet}>{sheetLinks}</div>}
-      {search && <SearchPalette onClose={() => setSearch(false)} />}
     </header>
+    {tabbar}
+    {/* top-level, not inside the bar (hidden on mobile): the center Search tab
+        is what opens the palette there */}
+    {search && <SearchPalette onClose={() => setSearch(false)} />}
+    </>
   );
 }

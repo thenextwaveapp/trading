@@ -172,7 +172,8 @@
   .main {
     flex: none;
     width: 100%;
-    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+    /* clear the fixed bottom tab bar */
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
   }
 
   /* backdrop */
