@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { History, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Sparkle, SquarePen, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAssistant } from "./AssistantProvider";
 import Markdown from "./Markdown";
 import s from "./Assistant.module.css";
@@ -21,6 +21,10 @@ function histDate(iso: string): string {
 export default function Assistant() {
   const a = useAssistant();
   const nav = useNavigate();
+  const loc = useLocation();
+  // Compose is where Strategy Navigator does its headline work — building a bot —
+  // so the composer wears an animated outline there to invite you in.
+  const onBuild = loc.pathname.startsWith("/build/compose");
   const [draft, setDraft] = useState("");
   const [view, setView] = useState<"chat" | "history">("chat");
   const [full, setFull] = useState(false);
@@ -63,14 +67,15 @@ export default function Assistant() {
     void a.send(t);
   };
 
-  const build = (p: { description?: string }) => {
-    a.setOpen(false);
+  const build = (p: { spec?: Record<string, unknown> }) => {
+    // Leave full screen so the page is visible, but keep the composer dock open
+    // so you can keep iterating: type, Build, watch Compose rebuild, repeat.
     setFull(false);
-    // Do exactly what the manual "Compose your strategy" box does: hand the
-    // strategy text to the parser. The token changes every click so Compose
-    // re-parses even when it's already mounted.
-    if (!p.description) return;
-    nav(`/build/compose?prompt=${encodeURIComponent(p.description)}&k=${Date.now()}`);
+    // Hand Compose the exact spec the assistant already built, via router state —
+    // not a prompt to re-parse. The spec lands verbatim, no second model call and
+    // no sampling drift, so clicking Build twice yields the same bot every time.
+    if (!p.spec) return;
+    nav("/build/compose", { state: { assistantSpec: p.spec } });
   };
 
   // ---- shared pieces, so docked + full-screen render identically ----
@@ -87,7 +92,7 @@ export default function Assistant() {
           <div className={s.msgText}>
             {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
           </div>
-          {m.proposal && (
+          {m.proposal?.spec && (
             <button className={s.buildBtn} onClick={() => build(m.proposal!)}>
               ⚒ Build “{m.proposal.name}” →
             </button>
@@ -101,7 +106,7 @@ export default function Assistant() {
   // the one Strategy Navigator bar — identical whether docked or floating in
   // full screen; only the container around it changes
   const composer = (
-    <div className={s.bar}>
+    <div className={`${s.bar} ${onBuild ? s.barBuild : ""}`}>
       <Sparkle className={s.barSpark} size={18} strokeWidth={1.8} />
       <textarea
         className={s.input}

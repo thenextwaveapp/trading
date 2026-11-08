@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Crown,
   FlaskConical,
@@ -55,6 +55,12 @@ export default function TopBar() {
     return live.bots.reduce((a, b) => a + (names.has(b.name) ? (b.open?.length ?? 0) : 0), 0);
   }, [roster, currentId, live.bots]);
   const inTrade = openCount > 0;
+  // The Fleet pill is tight to whichever face shows; we measure both faces and
+  // animate its width between them so opening/closing glides instead of snapping.
+  const [fleetHover, setFleetHover] = useState(false);
+  const restFaceRef = useRef<HTMLSpanElement>(null);
+  const liveFaceRef = useRef<HTMLSpanElement>(null);
+  const [fleetW, setFleetW] = useState<number>();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -98,6 +104,14 @@ export default function TopBar() {
     );
   };
 
+  // Expanded = hovering the pill or sitting on the Fleet page. Measure the face
+  // that will show and pin the pill to its width (CSS transitions the change).
+  const fleetExpanded = fleetHover || isActive("/fleet");
+  useLayoutEffect(() => {
+    const el = fleetExpanded ? liveFaceRef.current : restFaceRef.current;
+    if (el) setFleetW(el.offsetWidth);
+  }, [fleetExpanded, inTrade, openCount, user]);
+
   const go = (p: string) => () => nav(p);
 
   // bar: badged icon that reveals its name on hover; sheet (mobile): icon + label
@@ -140,32 +154,49 @@ export default function TopBar() {
   const rightLinks = secondary.map(iconPillRight);
   const sheetLinks = [...primary, ...secondary].map(pill);
 
-  // says nothing at rest — a pulsing telltale; hover/on-station slides the
-  // status readout open inside the pill
+  // the live telltale — a travelling wave while a bot is in a trade, else a
+  // breathing dot. Reused on the flipped-in "live" face.
+  const telltale = inTrade ? (
+    <svg className={`${s.fleetWave} ${s.fleetWaveOn}`} viewBox="0 0 24 14" aria-hidden>
+      <g>
+        <path
+          d="M0 7 C3 1 3 1 6 7 C9 13 9 13 12 7 C15 1 15 1 18 7 C21 13 21 13 24 7 C27 1 27 1 30 7 C33 13 33 13 36 7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </g>
+    </svg>
+  ) : (
+    <span className={s.fleetDot} aria-hidden />
+  );
+
+  // Rolodex pill: at rest it reads "Fleet •" (word, then dot on the right);
+  // hover / on-station flips the card to "• WATCHING" (telltale on the left,
+  // then the status) around a horizontal hinge.
   const fleetBtn = user ? (
     <button
       className={`${s.fleet} ${isActive("/fleet") ? s.fleetActive : ""}`}
       onClick={go("/fleet")}
+      onMouseEnter={() => setFleetHover(true)}
+      onMouseLeave={() => setFleetHover(false)}
       title="Fleet"
       aria-label="Fleet"
     >
-      {inTrade ? (
-        <svg className={`${s.fleetWave} ${s.fleetWaveOn}`} viewBox="0 0 24 14" aria-hidden>
-          <g>
-            <path
-              d="M0 7 C3 1 3 1 6 7 C9 13 9 13 12 7 C15 1 15 1 18 7 C21 13 21 13 24 7 C27 1 27 1 30 7 C33 13 33 13 36 7"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </g>
-        </svg>
-      ) : (
-        <span className={s.fleetDot} aria-hidden />
-      )}
-      <span className={`${s.fleetStatus} ${inTrade ? s.fleetStatusOn : ""}`}>
-        {inTrade ? `IN TRADE · ${openCount}` : "WATCHING"}
+      <span className={s.rolodex} style={{ width: fleetW }}>
+        <span className={`${s.face} ${s.faceRest}`} ref={restFaceRef}>
+          <span className={s.fleetWord}>Fleet</span>
+          <span className={s.fleetDot} aria-hidden />
+        </span>
+        <span className={`${s.face} ${s.faceLive}`} ref={liveFaceRef}>
+          {telltale}
+          <span className={`${s.fleetStatus} ${inTrade ? s.fleetStatusOn : ""}`}>
+            {inTrade ? (
+              <>IN TRADE<span className={s.fleetCount}>{openCount}</span></>
+            ) : "WATCHING"}
+          </span>
+        </span>
       </span>
     </button>
   ) : null;

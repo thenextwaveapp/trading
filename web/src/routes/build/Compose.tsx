@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth";
 import {
   autosaveBot,
@@ -234,14 +234,6 @@ const MARKET_BLURB: Record<string, string> = {
 // stay hidden until the one before them is filled in, so you're never handed the
 // whole form at once — but by the end it's all on a single scrolling page.
 
-// Rotating entry-box examples — cycles while the prompt is empty to hint at range.
-const PROMPT_EXAMPLES = [
-  "short pumps: price up 12% in 4h, red candle, volume 2x, hold 16 bars",
-  "buy BTC when RSI(14) drops below 30 on the 1h, take profit at +3%",
-  "long SPY when it closes above its 50-day EMA, stop 2% below entry",
-  "fade the London open: short EUR/USD when RSI(14) is over 70",
-  "momentum: enter as price crosses above EMA(20) with volume over 1.5x average",
-];
 // Universes/coins are tagged by asset class ('crypto' / 'equity'), while the
 // market catalog ids are finer ('crypto_perp', 'crypto_spot', 'equity', …).
 const ASSET_CLASS = (marketId: string): string => (marketId.startsWith("crypto") ? "crypto" : marketId);
@@ -1258,6 +1250,7 @@ function TimingControl({
 
 export default function Compose() {
   const nav = useNavigate();
+  const loc = useLocation();
   const { user, profile } = useAuth();
   const [sp, setSp] = useSearchParams();
   const botId = sp.get("bot");
@@ -1269,17 +1262,16 @@ export default function Compose() {
   const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_BOT_COLOR);
   const [showColors, setShowColors] = useState(false);
-  const [egIdx, setEgIdx] = useState(0);
   const [visibility, setVisibility] = useState<Visibility>("private");
-  const [prompt, setPrompt] = useState(() => sp.get("prompt") ?? "");
-  const [started, setStarted] = useState(() => Boolean(botId || startFamily));
-  // Set when the spec was just built from a prompt, so we can say so.
+  // Compose always opens on the build form; the old prompt/parse intro screen is
+  // gone — natural-language entry lives in the Strategy Navigator now.
+  const [started, setStarted] = useState(true);
+  // Set when the spec was just handed off by the assistant, so we can say so.
   const [fromPrompt, setFromPrompt] = useState(false);
   const [presetKey, setPresetKey] = useState<string>("blank");
   const [spec, setSpec] = useState<StrategySpec>(blankSpec("fleet-60"));
   const [seeded, setSeeded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [parsing, setParsing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(botId);
   const [showUniModal, setShowUniModal] = useState(false);
@@ -1391,28 +1383,19 @@ export default function Compose() {
       ? { ...base, name: initName, universe: CUSTOM_UNI, filters: [] }
       : { ...base, name: initName };
     setSpec(seedSpec);
-    if (slug || startCoin) setStarted(true);
+    setStarted(true);
     setSeeded(true);
   }, [bot, botId, botLoading, seeded, startFamily, startCoin]);
 
-  // Assistant "Build" hands off via ?prompt= (plus a changing token) and we run
-  // the SAME parser the manual box uses — the one path that actually works. The
-  // token changes every click so this fires even when Compose is already mounted.
-  const parseTok = sp.get("k");
+  // Assistant "Build" hands off the exact StrategySpec it already built, via
+  // router state — not a prompt to re-parse. So the spec the conversation
+  // settled lands verbatim: no second model call, no sampling drift, instant.
+  // location.key changes on every hand-off, so clicking Build again re-applies.
   useEffect(() => {
-    const pr = (sp.get("prompt") || "").trim();
-    if (!parseTok || !pr) return;
-    runParse(pr);
+    const handed = (loc.state as { assistantSpec?: Record<string, any> } | null)?.assistantSpec;
+    if (handed) applyParsedSpec(handed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parseTok]);
-
-  // Cycle the entry-box example while it's empty on the start screen.
-  useEffect(() => {
-    if (started || prompt) return;
-    const t = setInterval(
-      () => setEgIdx((i) => (i + 1) % PROMPT_EXAMPLES.length), 3500);
-    return () => clearInterval(t);
-  }, [started, prompt]);
+  }, [loc.key]);
 
   // An existing bot whose universe is an owned, unsaved (throwaway) universe is
   // edited inline as a custom selection — not shown as a dropdown preset.
@@ -1596,16 +1579,6 @@ export default function Compose() {
     return { slug: spec.universe, id: found?.id ?? bot?.universe_id ?? null };
   };
 
-  const loadPreset = (key: string) => {
-    setPresetKey(key);
-    const pr = PRESETS.find((p) => p.key === key);
-    setSpec((s) => {
-      const base = blankSpec(s.universe || "fleet-60");
-      if (!pr || key === "blank") return { ...base, name: name || "New bot" };
-      return { ...mergeSpec(base, pr.spec), name: name || pr.spec.name };
-    });
-  };
-
   // Switching market. A universe belongs to exactly one market, so we never
   // carry the old one across: reach for a saved universe in the new market, and
   // if there is none drop into custom-build mode (the picker then only offers
@@ -1638,7 +1611,7 @@ export default function Compose() {
     const next = blankSpec(defaultUni);
     next.name = typeof cspec.name === "string" && cspec.name.trim() ? cspec.name.trim() : name || "New bot";
     setName(next.name);
-    next.side = cspec.side === "long" || cspec.side === "short" ? cspec.side : "short";
+    next.side = cspec.side === "long" || cspec.side === "short" || cspec.side === "both" ? cspec.side : "short";
     next.market =
       typeof cspec.market === "string" && CATALOG.markets.some((m) => m.id === cspec.market) ? cspec.market : "crypto_perp";
     next.universe =
@@ -1648,6 +1621,8 @@ export default function Compose() {
     next.timeframe = typeof cspec.timeframe === "string" && cspec.timeframe.trim() ? cspec.timeframe.trim() : "15m";
     next.fresh = typeof cspec.fresh === "boolean" ? cspec.fresh : false;
     next.entry = normGroup(cspec.entry);
+    // side "both" is two books: entry is the LONG book, entry_short the SHORT one.
+    if (next.side === "both") next.entry_short = normGroup(cspec.entry_short);
     if (cspec.timing && typeof cspec.timing === "object") {
       const uniq = (xs: number[]) => Array.from(new Set(xs));
       const hrs = Array.isArray(cspec.timing.hours_utc)
@@ -1658,22 +1633,36 @@ export default function Compose() {
         : [];
       next.timing = { hours_utc: hrs.length >= 24 ? [] : hrs, days_utc: dys.length >= 7 ? [] : dys };
     }
-    if (cspec.exit && typeof cspec.exit === "object") {
+    const parseExit = (ex: any): ExitCfg => {
       const baseExit = blankSpec(defaultUni).exit;
-      const stopRaw = cspec.exit.stop;
+      if (!ex || typeof ex !== "object") return baseExit;
+      const stopRaw = ex.stop;
       const stopMode =
         stopRaw && typeof stopRaw === "object" && ["none", "hh", "dstop", "sig"].includes(stopRaw.mode) ? stopRaw.mode : "none";
-      next.exit = {
+      const out: ExitCfg = {
         ...baseExit,
-        time_bars: typeof cspec.exit.time_bars === "number" && cspec.exit.time_bars >= 1 ? Math.round(cspec.exit.time_bars) : baseExit.time_bars,
+        time_bars: typeof ex.time_bars === "number" && ex.time_bars >= 1 ? Math.round(ex.time_bars) : baseExit.time_bars,
         stop: {
           mode: stopMode,
           window: typeof stopRaw?.window === "number" && stopRaw.window >= 1 ? Math.round(stopRaw.window) : 16,
           param: typeof stopRaw?.param === "number" ? stopRaw.param : 0,
         },
-        ...(typeof cspec.exit.take_profit === "number" && cspec.exit.take_profit > 0 ? { take_profit: cspec.exit.take_profit } : {}),
+        ...(typeof ex.take_profit === "number" && ex.take_profit > 0 ? { take_profit: ex.take_profit } : {}),
       };
-    }
+      if (ex.trailing && typeof ex.trailing === "object"
+          && typeof ex.trailing.k === "number" && typeof ex.trailing.natr === "number") {
+        out.trailing = { k: ex.trailing.k, natr: Math.round(ex.trailing.natr) };
+      }
+      if (ex.exit_conditions && typeof ex.exit_conditions === "object" && Array.isArray(ex.exit_conditions.children)) {
+        out.exit_conditions = normGroup(ex.exit_conditions);
+      }
+      if (typeof ex.tp_close === "boolean") out.tp_close = ex.tp_close;
+      if (typeof ex.limit === "number" && ex.limit > 0) out.limit = ex.limit;
+      return out;
+    };
+    if (cspec.exit && typeof cspec.exit === "object") next.exit = parseExit(cspec.exit);
+    // short book's exit (both-side only); defaults to the long exit if omitted.
+    if (next.side === "both") next.exit_short = cspec.exit_short ? parseExit(cspec.exit_short) : next.exit;
     if (cspec.sizing && typeof cspec.sizing === "object") {
       const baseSizing = blankSpec(defaultUni).sizing;
       next.sizing = {
@@ -1707,36 +1696,6 @@ export default function Compose() {
     setStarted(true);
     setFromPrompt(true);
     setErr(null);
-  };
-
-  // The one path that works: send text to the parser and apply the result. Used
-  // by the "Parse & build" box AND the assistant's Build button (via ?prompt=).
-  const runParse = (text: string) => {
-    setParsing(true);
-    setErr(null);
-    fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-strategy?text=${encodeURIComponent(text)}`,
-      { headers: { apikey: import.meta.env.VITE_SUPABASE_KEY } },
-    )
-      .then((r) => r.json())
-      .then((data) => {
-        setParsing(false);
-        if (data.error || !data.spec || data.spec._parseError) {
-          setSpec(blankSpec("fleet-60"));
-          setPresetKey("blank");
-          setStarted(true);
-          setErr(data.error || data.spec?._parseError || "Could not parse strategy");
-          return;
-        }
-        applyParsedSpec(data.spec as Partial<StrategySpec> & Record<string, any>);
-      })
-      .catch(() => {
-        setParsing(false);
-        setSpec(blankSpec("fleet-60"));
-        setPresetKey("blank");
-        setStarted(true);
-        setErr("Could not reach parsing service");
-      });
   };
 
   const save = async (toTraining: boolean) => {
@@ -1959,68 +1918,6 @@ export default function Compose() {
           </div>
         </div>
 
-        {!started && (
-          <section style={{ maxWidth: 720, padding: "0 0 48px" }}>
-            <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-              <textarea
-                className={r.input}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder={`e.g. "${PROMPT_EXAMPLES[egIdx]}"`}
-                rows={3}
-                style={{ resize: "vertical", padding: 12, fontFamily: "inherit" }}
-              />
-<div style={{ display: "flex", gap: 10 }}>
-                <button
-                  className={`${p.btn} ${p.pri}`}
-                  style={{ height: 46 }}
-                  disabled={parsing}
-                  onClick={() => {
-                    const text = (prompt || name).trim();
-                    if (!text) {
-                      setErr("Describe the strategy you want to build.");
-                      return;
-                    }
-                    runParse(text);
-                  }}
-                >
-                  {parsing ? "Building…" : "Build it"}
-                </button>
-                <button
-                  className={p.btn}
-                  style={{ height: 46 }}
-                  onClick={() => {
-                    setSpec(blankSpec("fleet-60"));
-                    setPresetKey("blank");
-                    setFromPrompt(false);
-                    setStarted(true);
-                  }}
-                >
-                  Skip — build manually
-                </button>
-              </div>
-            </div>
-            <div style={{ marginTop: 32 }}>
-              <span className="lbl" style={{ fontSize: 12 }}>Or start from a template</span>
-              <div className={r.tmplRow}>
-                {PRESETS.filter((pr) => pr.key !== "blank").map((pr) => (
-                  <button
-                    key={pr.key}
-                    type="button"
-                    className={r.tmpl}
-                    onClick={() => {
-                      loadPreset(pr.key);
-                      setFromPrompt(false);
-                      setStarted(true);
-                    }}
-                  >
-                    {pr.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            </section>
-          )}
         {started && (
 
         <section style={{ display: "flex", flexWrap: "wrap", gap: 32, paddingTop: 20, alignItems: "flex-start" }}>
@@ -2030,7 +1927,15 @@ export default function Compose() {
                 type="button"
                 className="lbl"
                 style={{ background: "none", border: "none", padding: 0, color: "var(--muted)", cursor: "pointer" }}
-                onClick={() => { setStarted(false); setFromPrompt(false); }}
+                onClick={() => {
+                  setSpec(blankSpec("fleet-60"));
+                  setName("");
+                  setPresetKey("blank");
+                  setCustomMode(false);
+                  setCustomCoins([]);
+                  customUni.current = null;
+                  setFromPrompt(false);
+                }}
               >
                 ← Start over
               </button>

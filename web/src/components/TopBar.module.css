@@ -77,40 +77,78 @@
   margin-right: 6px;
   /* concentric with the bar: 36px tall in the 54px shell = 9px inset, 18 − 9 = 9 */
   border-radius: 9px;
-  /* the Build wizard's market-glyph frosted glass, sized as a pill */
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  /* accent-blue pill, same palette as the copy button — at rest and in trade */
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -12px 22px -16px rgba(0, 0, 0, 0.5),
-    0 8px 20px -14px rgba(0, 0, 0, 0.6);
-  color: var(--fg-2);
+  color: var(--accent-soft);
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
-/* the readout: collapsed to nothing at rest, slides open on hover/on-station */
-.fleetStatus {
+/* two faces on a hinge (a rolodex card). Both float absolutely so neither drives
+   width; the pill's width is measured per face in JS and eased here, so the pill
+   is tight to "Fleet •" at rest and glides open to the live readout on turn. */
+.rolodex {
+  position: relative;
   display: inline-block;
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  margin-left: 0;
+  height: 18px;
+  perspective: 320px;
+  transition: width 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.face {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transform-origin: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.28s ease;
+}
+/* at rest the "Fleet •" card faces us; the live card waits rotated up behind the
+   hinge. Hover / on-station rolls rest up and out, live down into view. */
+.faceRest { transform: rotateX(0deg); }
+.faceLive { transform: rotateX(-90deg); opacity: 0; }
+.fleet:hover .faceRest,
+.fleetActive .faceRest { transform: rotateX(90deg); opacity: 0; }
+.fleet:hover .faceLive,
+.fleetActive .faceLive { transform: rotateX(0deg); opacity: 1; }
+.fleetWord {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.fleetStatus {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.09em;
-  transition: max-width 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease,
-    margin-left 0.35s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.fleet:hover .fleetStatus,
-.fleetActive .fleetStatus {
-  max-width: 130px;
-  opacity: 1;
-  margin-left: 9px;
-}
+/* "in trade" is a neutral status, not a win — accent blue, never green/red,
+   which bias how the readout feels. */
 .fleetStatusOn {
-  color: var(--up);
+  color: var(--accent-soft);
+}
+/* open-position count as a small circular badge (single digit = circle, more =
+   pill) — replaces the old "· N" dot divider. */
+.fleetCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-soft) 60%, transparent);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
 }
 .fleet svg {
   width: 15px;
@@ -142,7 +180,7 @@
   animation: fleetWave 2.8s linear infinite;
 }
 .fleetWaveOn {
-  color: var(--up);
+  color: var(--accent-soft);
 }
 .fleetWaveOn g {
   animation-duration: 0.7s;
@@ -153,18 +191,14 @@
 @media (prefers-reduced-motion: reduce) {
   .fleetWave g { animation: none; }
   .hoverLbl { transition: none; }
+  /* no 3D roll — just a gentle crossfade between the two faces */
+  .face { transition: opacity 0.2s ease; }
 }
-.fleet:hover {
-  color: var(--fg);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
-}
-/* on-station: the metal brightens a step — no accent, just more light */
+.fleet:hover,
 .fleetActive {
-  color: var(--fg);
-  border-color: rgba(255, 255, 255, 0.22);
-  background: linear-gradient(180deg, rgba(56, 66, 80, 0.64), rgba(24, 29, 37, 0.76));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 6px rgba(0, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--accent);
+  color: var(--accent-soft);
 }
 .nav {
   display: flex;

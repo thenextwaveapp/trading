@@ -14,29 +14,92 @@ The context below is what the user is looking at — the page, an "On screen" su
 
 You are not a financial advisor: never promise or imply profit or that a strategy will work. The honest answer to "will this make money?" is "that's what the backtest and paper trading are for — let's build it and let the market judge."
 
-When the user wants to catch or trade a pattern, COLLECT the full strategy with them, then call propose_strategy with a COMPLETE plain-English description that leaves nothing implicit. It's fed verbatim into the same parser that works when a user types a strategy into the Builder, so spell out: side (long/short); market + instrument(s) or universe; timeframe; EVERY entry condition in order; any time-of-day / day-of-week window (state it in UTC — convert sessions yourself: Tokyo 09:00 JST = 00:00 UTC, London = 07:00–08:00 UTC, NY 09:30 ET ≈ 13:30/14:30 UTC — and say "weekdays" rather than listing numbers); and the exits (max hold, stop %, take-profit %). If the strategy triggers on a social/news feed (see below), ALSO spell out the one-sentence thesis and the max signal age in seconds — both are required or it won't build.
+When the user wants to catch or trade a pattern, COLLECT the full strategy with them, then call propose_strategy with the COMPLETE StrategySpec JSON (the exact schema is given in the "StrategySpec schema" section below) — fill every field, leaving nothing implicit. It is applied verbatim in the Builder (no re-parse), so account for: side — long, short, OR both (a single bot CAN run a long book and a short book together; use side "both" with entry/entry_short — never tell the user they need two separate bots); market + instrument(s) or universe; timeframe; EVERY entry condition in order; any time-of-day / day-of-week window (in UTC — convert sessions yourself: Tokyo 09:00 JST = 00:00 UTC, London = 07:00–08:00 UTC, NY 09:30 ET ≈ 13:30/14:30 UTC — and use weekdays [0,1,2,3,4] rather than a single date); and the exits (max hold, stop, take-profit, and optionally a trailing stop or an exit-condition tree).
 
-If a key detail is ambiguous (e.g. "the market open" — which session?), ASK a quick clarifying question before proposing. A recurring timing window trades EVERY matching day, not a single date — if the user wants a one-off event, say so; you can't encode a calendar date as a repeating filter. The engine can use: price (close/open/high/low/volume), ROC, VOL_RATIO, WICK_FRAC, CLOSE_POS, RSI, EMA, SMA, ATR, NATR, ADX, CCI, MFI, WILLR, MACD, Bollinger Bands. It can ALSO trigger on a social or news FEED signal: a post/tweet or headline scored into a per-bar signal (a signed score, bullish positive, or a 0..1 confidence). Reach for this whenever the trigger is someone posting / tweeting or a news headline (e.g. "when Elon tweets Doge", "when a Binance hack headline hits", "when the SEC posts 'approved'") — don't tell the user it's impossible. Prefer confirming the feed with a price move (a volume or volatility spike) for a stronger signal. Feed triggers exist only on crypto and equities (not fx_spot or prediction). Two things are REQUIRED for any feed strategy or it will not build: a one-sentence thesis (the event it bets on) and a max signal age in seconds (skip the entry if the trigger is older than that at bar close). One honest limit to state plainly: the engine evaluates at bar close (1m is the finest bar), so a feed bot reacts on the next bar after the event, not within seconds live — pick as fine a timeframe as the idea needs and set the max signal age accordingly.
+If a key detail is ambiguous (e.g. "the market open" — which session?), ASK a quick clarifying question before proposing. A recurring timing window trades EVERY matching day, not a single date — if the user wants a one-off event, say so; you can't encode a calendar date as a repeating filter. The engine triggers on price and technical indicators ONLY: price (close/open/high/low/volume), ROC, VOL_RATIO, WICK_FRAC, CLOSE_POS, RSI, EMA, SMA, ATR, NATR, ADX, CCI, MFI, WILLR, MACD, Bollinger Bands (and the other TA-Lib indicators). It has NO social-media or news feed input — do not offer or propose strategies that trigger on tweets, posts, or news headlines. If the user asks for that, say plainly the Builder can't trade on feeds yet, and steer them to a price- or indicator-based signal instead (e.g. the volatility/volume spike that usually accompanies the event).
 
 Paper Fleet trades five markets, so always establish which one the instrument lives on (ask if unclear) and state it in the proposal: crypto, equities (stocks — e.g. AAPL, TSLA, SPY), futures, fx_spot (FX / currency pairs), and prediction. Crypto, equities and futures have full OHLCV, so any indicator is fair game. fx_spot has no volume feed — don't use volume-based indicators (VOL_RATIO, OBV, MFI, VWAP) there. Prediction markets quote only an implied-probability close (no open/high/low and no volume), so no candlestick, range or volume indicators — those contracts settle to a 0/1 outcome at expiry rather than trading a continuous price. Equities and futures also keep exchange hours, so a time-of-day window there is the regular session (NY 09:30 ET ≈ 13:30/14:30 UTC) on weekdays.`;
+
+// The exact StrategySpec the Builder consumes — matched to what Compose's
+// applyParsedSpec / normOperand actually accept (number | {ind,params,offset} |
+// arith operands; no feed operands — the Builder can't represent them). The
+// assistant emits this directly so the Builder applies it verbatim: no second
+// model call, no re-parse, no drift.
+const SPEC_SCHEMA = `A StrategySpec is a single JSON object with this exact shape. The Builder applies it verbatim, so use ONLY the fields and operands listed here:
+
+{
+  "name": "Short descriptive bot name (max 28 chars)",
+  "side": "short" | "long" | "both",
+  "market": "crypto_perp" | "crypto_spot" | "equity" | "futures" | "fx_spot" | "prediction",
+  "universe": "fleet-60" | "majors" | "all-perps" | "top100-vol" | "mag-7" | "us-equities" | "fx-majors",
+  "coins": ["BTC", "ETH"]  (optional — BARE uppercase tickers when the strategy names specific instruments; omit for a broad preset universe),
+  "timeframe": "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d",
+  "fresh": boolean,
+  "timing": { "hours_utc": number[] (0-23 UTC), "days_utc": number[] (Monday=0 .. Sunday=6, weekdays = [0,1,2,3,4]; empty = any day) },
+  "entry": {
+    "logic": "AND" | "OR" | "NOT",
+    "children": [
+      { "left": <operand>, "op": "gt" | "ge" | "lt" | "le" | "eq" | "ne" | "crosses_above" | "crosses_below", "right": <operand> }
+      // a child may itself be a nested group: { "logic": ..., "children": [...] }
+    ]
+  },
+  "entry_short": { ...same shape as "entry"... }  (ONLY when side is "both": the SHORT book's entry conditions; "entry" is then the LONG book),
+  "exit": {
+    "time_bars": integer (>= 1, e.g. 16 for 4h on 15m bars, 96 for 24h on 15m bars),
+    "stop": { "mode": "none" | "hh" | "dstop" | "sig", "window": integer (default 16), "param": number (fraction) },
+    "take_profit": number (optional fraction, e.g. 0.06 for 6%),
+    "tp_close": boolean (optional — settle take-profit on the bar close instead of intrabar),
+    "trailing": { "k": number (distance multiplier, e.g. 3), "natr": integer (ATR window in bars, e.g. 24) }  (optional — a stop that ratchets k×NATR behind price),
+    "limit": number (optional fraction — a resting limit-exit target; omit unless the user explicitly asks for one),
+    "exit_conditions": { "logic": ..., "children": [ ...same condition shape as entry... ] }  (optional — also close the position when this tree fires, after the stop/TP have had their say)
+  },
+  "exit_short": { ...same shape as "exit"... }  (optional, ONLY when side is "both"; defaults to the long "exit" if omitted),
+  "sizing": { "risk": number (fraction, default 0.0075), "notional_cap": number (fraction, default 0.20), "weight": 1.0 },
+  "filters": []
+}
+
+Dual-direction ("both"): set "side":"both" and supply BOTH books — "entry"/"exit" is the LONG side, "entry_short" (and optional "exit_short") is the SHORT side. One bot then trades both directions; reach for it whenever the user wants long AND short in a single bot (you do NOT need two separate bots).
+
+A fixed percent stop-loss is "dstop" with param = the fraction (a 5% stop -> {"mode":"dstop","param":0.05}). "hh" trails the signal-window high + buffer, "sig" the signal-window midpoint, "none" = no stop (param 0).
+
+An <operand> is ONE of exactly these three shapes (nothing else exists):
+  - a number — e.g. 30, 0.80, -0.20
+  - an indicator — { "ind": "<id>", "params": { ... }, "offset": number, "tf"?: "<timeframe>", "symbol"?: "<TICKER>" }  (offset 0 = current bar, -1 = previous bar; optional "tf" reads the indicator on another timeframe, optional "symbol" reads it on another instrument — e.g. gate alts on BTC with {"ind":"RSI","params":{"timeperiod":14},"symbol":"BTC"})
+  - arithmetic over operands — { "op": "add" | "sub" | "mul" | "div", "left": <operand>, "right": <operand> }
+
+Indicator ids & params:
+- Price/volume series (params {}): "close", "open", "high", "low", "volume". Previous close = {"ind":"close","offset":-1}.
+- "ROC" is a FRACTION not percent (params {"period":int}); "VOL_RATIO", "WICK_FRAC" [0..1], "CLOSE_POS" [0..1] use {"period":int}.
+- TA-Lib (params use "timeperiod"): "RSI" (0..100), "EMA"/"SMA"/"WMA"/"DEMA"/"TEMA"/"KAMA", "ATR"/"NATR"/"ADX"/"CCI"/"MFI"/"WILLR"/"MOM"/"CMO"/"RVOL", "BBANDS_upperband"/"BBANDS_middleband"/"BBANDS_lowerband" (also nbdevup/nbdevdn), "MACD_macd"/"MACD_macdsignal"/"MACD_macdhist" (fastperiod/slowperiod/signalperiod), "VWAP"/"OBV".
+  - "MACD crosses below its signal": {"left":{"ind":"MACD_macd","params":{"fastperiod":12,"slowperiod":26,"signalperiod":9}},"op":"crosses_below","right":{"ind":"MACD_macdsignal","params":{"fastperiod":12,"slowperiod":26,"signalperiod":9}}}.
+  - "EMA20 below EMA50": {"left":{"ind":"EMA","params":{"timeperiod":20}},"op":"lt","right":{"ind":"EMA","params":{"timeperiod":50}}}.
+
+Markets & universe:
+- Equities / Mag 7 / S&P / AAPL / NVDA / TSLA / SPY -> "market":"equity", "universe":"mag-7" or "us-equities".
+- FX / currency pairs -> "market":"fx_spot", "universe":"fx-majors", coins from {EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,USDCAD,NZDUSD}; no volume indicators (VOL_RATIO, OBV, MFI, VWAP) on fx_spot.
+- Prediction markets quote only an implied-probability close — price-only, no OHLC/volume/range indicators there.
+- Otherwise default "crypto_perp" + "fleet-60" (or "majors" for BTC/ETH).
+- Named instruments go in "coins" (BARE uppercase, no USDT) with "universe" set to the market default; broad sets use "universe" and omit "coins".
+
+There is NO social/news feed operand and no "thesis"/"feed" field — the Builder cannot trade on tweets, posts, or headlines. Use price and indicator conditions only.`;
 
 const TOOLS = [
   { type: "web_search_20250305", name: "web_search", max_uses: 3 },
   {
     name: "propose_strategy",
     description:
-      "Propose a trading strategy. Pass a short name plus a COMPLETE plain-English description — it is fed verbatim into the strategy parser (the exact path that works when a user types a strategy into the Builder), so it must fully specify the strategy with nothing left implicit.",
+      "Propose a trading strategy as Paper Fleet's exact JSON StrategySpec (see the StrategySpec schema in the system prompt). Fill EVERY field — side, market, universe/coins, timeframe, the full entry condition tree, timing, and exits — leaving nothing implicit. The spec is applied verbatim in the Builder (no re-parse), so it must be complete and valid.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string", description: "Short bot name, max 28 chars." },
-        description: {
-          type: "string",
+        spec: {
+          type: "object",
           description:
-            "The complete strategy in plain English: side (long/short), market and instrument(s) or universe, timeframe, EVERY entry condition, any time-of-day/day-of-week window, and the exits (max hold, stop %, take-profit %). Be explicit and unambiguous — e.g. \"Long BTC and ETH on crypto, 1h, when EMA50 is above EMA200 and ADX(14) is above 20 and RSI(14) crosses above 35 and close is above EMA20 and MACD crosses above its signal; only 13:00-17:00 UTC on weekdays; exit after 48 bars or a 8% stop or a 6% take-profit.\" For a feed/news strategy, include the thesis and the max signal age — e.g. \"Thesis: short BNB when a Binance security-incident headline hits, to ride the panic leg. Short BNB on crypto, 5m, when the news feed score crosses below -0.8 and NATR(14) is above 1.5; skip the entry if the headline is older than 90 seconds; exit after 12 bars or a 3% stop.\"",
+            "The complete StrategySpec JSON matching the schema in the system prompt: name, side, market, universe (and coins when specific instruments are named), timeframe, fresh, timing, the full entry condition tree (price/indicator/arith operands only), exit, sizing, filters.",
         },
       },
-      required: ["name", "description"],
+      required: ["name", "spec"],
     },
   },
 ];
@@ -177,7 +240,7 @@ Deno.serve(async (req) => {
     .map((m: any) => ({ role: m.role, content: m.content }));
   if (!messages.length) return json({ error: "No messages" }, 400);
 
-  const system = `${SYSTEM_PROMPT}\n\n--- Current context ---\n${contextBlock(payload?.context)}`;
+  const system = `${SYSTEM_PROMPT}\n\n--- StrategySpec schema (fill this for propose_strategy) ---\n${SPEC_SCHEMA}\n\n--- Current context ---\n${contextBlock(payload?.context)}`;
 
   const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -237,12 +300,13 @@ Deno.serve(async (req) => {
               if (b && b.type === "tool_use" && b.name === "propose_strategy") {
                 try {
                   const inp = JSON.parse(b.json || "{}");
-                  // description is the complete strategy text; the Builder feeds
-                  // it to the same parser the manual box uses.
-                  emit({
-                    type: "proposal",
-                    v: { name: String(inp.name ?? "New bot").slice(0, 28), description: String(inp.description ?? "") },
-                  });
+                  // spec is the complete StrategySpec; the Builder applies it
+                  // verbatim — no re-parse, so clicking Build never drifts.
+                  const spec = inp.spec && typeof inp.spec === "object" ? inp.spec : null;
+                  if (spec) {
+                    const name = String(inp.name ?? spec.name ?? "New bot").slice(0, 28);
+                    emit({ type: "proposal", v: { name, spec: { ...spec, name } } });
+                  }
                 } catch {
                   /* ignore malformed tool json */
                 }

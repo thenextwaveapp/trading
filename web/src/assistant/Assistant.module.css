@@ -173,6 +173,44 @@
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
+
+/* On the Compose page, the composer wears an elegant animated outline — a soft
+   accent gradient rotating around the pill (plus a faint lift), inviting you to
+   build with the Strategy Navigator. Ring-only via the mask-composite trick. */
+@property --sn-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.barBuild {
+  position: relative;
+}
+.barBuild::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--sn-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--accent-soft) 50%, transparent) 60deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: snSpin 6s linear infinite;
+  pointer-events: none;
+}
+@keyframes snSpin {
+  to { --sn-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .barBuild::before { animation: none; }
+}
 .barSpark {
   flex: none;
   color: var(--accent-soft);
