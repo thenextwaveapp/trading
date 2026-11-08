@@ -105,7 +105,7 @@ export function BotLink({ name }: { name: string }) {
   );
 }
 
-export function Coin(p: {
+export function Instrument(p: {
   ticker: string;
   bot?: string;
   t_sig: number;

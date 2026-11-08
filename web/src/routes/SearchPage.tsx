@@ -29,7 +29,7 @@ export default function SearchPage() {
           <input
             ref={inputRef}
             className={s.input}
-            placeholder="Search bots, challenges, builders, coins…"
+            placeholder="Search bots, challenges, builders, instruments…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />

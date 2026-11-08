@@ -100,12 +100,19 @@
    the headline number leads, the rest stand in bold white beside it */
 .stats {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px 26px;
   flex-wrap: wrap;
 }
 .stat {
   min-width: 0;
+}
+/* the headline % with P&L stacked under it */
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: flex-start;
 }
 .sk {
   font-size: 9.5px;
@@ -124,6 +131,16 @@
   font-weight: 600;
   margin-top: 2px;
   white-space: nowrap;
+}
+
+/* the closed-trade price spark sits at the right end of the vitals row; the
+   slot keeps its size before the candles land so nothing jumps */
+.spark {
+  margin-left: auto;
+  align-self: center;
+  width: 116px;
+  height: 34px;
+  flex: none;
 }
 
 /* social events: the head row IS the card */

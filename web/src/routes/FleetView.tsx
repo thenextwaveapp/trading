@@ -23,7 +23,7 @@ import Spark from "../components/Spark";
 import Rolling from "../components/Rolling";
 import ManagePosition from "../components/ManagePosition";
 import NewTrade from "../components/NewTrade";
-import { BotLink, Coin } from "../components/cells";
+import { BotLink, Instrument } from "../components/cells";
 import { useMyBots } from "../db/queries";
 import { botFromRow } from "../lib/bot";
 import { FlaskConical } from "lucide-react";
@@ -278,7 +278,7 @@ export default function FleetView() {
 
   const openCols: Column<Position>[] = [
     { key: "bot", label: "Bot", sortable: true, hidePhone: true, value: (o) => o.bot, render: (o) => <BotLink name={o.bot} /> },
-    { key: "ticker", label: "Coin", sortable: true, value: (o) => o.ticker, render: (o) => <Coin {...o} /> },
+    { key: "ticker", label: "Instrument", sortable: true, value: (o) => o.ticker, render: (o) => <Instrument {...o} /> },
     { key: "side", label: "Side", sortable: true, value: (o) => o.side, render: (o) => <span className={o.side === "short" ? "down" : "up"}>{o.side === "short" ? "Short" : "Long"}</span> },
     { key: "entry", label: "Entry", sortable: true, hidePhone: true, value: (o) => o.entry, render: (o) => <span className="num">{px(o.entry)}</span> },
     { key: "notional", label: "Size", sortable: true, hidePhone: true, value: (o) => o.notional, render: (o) => <span className="num muted">{usd(o.notional)}</span> },
@@ -299,7 +299,7 @@ export default function FleetView() {
 
   const closedCols: Column<Trade>[] = [
     { key: "bot", label: "Bot", sortable: true, hidePhone: true, value: (t) => t.bot, render: (t) => <BotLink name={t.bot} /> },
-    { key: "ticker", label: "Coin", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
+    { key: "ticker", label: "Instrument", sortable: true, value: (t) => t.ticker, render: (t) => <Instrument {...t} /> },
     { key: "side", label: "Side", sortable: true, value: (t) => t.side ?? "long", render: (t) => <span className={t.side === "short" ? "down" : "up"}>{t.side === "short" ? "Short" : "Long"}</span> },
     { key: "entry", label: "Entry", sortable: true, hidePhone: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
     { key: "notional", label: "Size", sortable: true, hidePhone: true, value: (t) => t.notional, render: (t) => <span className="num muted">{usd(t.notional)}</span> },

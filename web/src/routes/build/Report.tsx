@@ -6,7 +6,7 @@ import { useData } from "../../api/context";
 import { useLatestBacktest, useMyBots, useFamilies } from "../../db/queries";
 import DataTable, { type Column } from "../../components/DataTable";
 import BotChart from "../../components/BotChart";
-import { BackBar, BotLink, Coin } from "../../components/cells";
+import { BackBar, BotLink, Instrument } from "../../components/cells";
 import type { Trade } from "../../api/types";
 import { botFromRow } from "../../lib/bot";
 import { DIRLBL, REASON, START, clock, dol, dstr, held, identicon, pct, px, usd, windowReturn } from "../../lib/format";
@@ -53,7 +53,7 @@ export default function Report() {
   const defaultSide = (bot.direction === "long" ? "long" : "short") as "long" | "short";
   const tradeCols: Column<Trade>[] = [
     { key: "bot", label: "Bot", sortable: true, value: (t) => t.bot, render: (t) => <BotLink name={t.bot} /> },
-    { key: "ticker", label: "Coin", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
+    { key: "ticker", label: "Instrument", sortable: true, value: (t) => t.ticker, render: (t) => <Instrument {...t} /> },
     { key: "side", label: "Side", sortable: true, value: (t) => t.side ?? defaultSide, render: (t) => { const sd = t.side ?? defaultSide; return <span className={sd === "short" ? "down" : "up"}>{sd === "short" ? "Short" : "Long"}</span>; } },
     { key: "entry", label: "Entry", sortable: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
     { key: "notional", label: "Size", sortable: true, value: (t) => t.notional, render: (t) => <span className="num muted">{usd(t.notional)}</span> },

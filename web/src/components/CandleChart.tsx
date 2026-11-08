@@ -108,8 +108,8 @@ export default function CandleChart({ sym, market, height = 440, onPickTime }: {
     (async () => {
       const k: Candle[] = await fetchCandlesDeep({ symbol: sym, interval: iv, maxCandles: DEPTH[iv], market });
       if (dead || !k.length) return;
-      // price-scale precision from the coin's magnitude (shared with the brush
-      // readout), so sub-dollar coins and FX pairs get real digits on the axis
+      // price-scale precision from the instrument's magnitude (shared with the brush
+      // readout), so sub-dollar instruments and FX pairs get real digits on the axis
       // instead of the library's 0.00 default
       const precision = priceDp(k[k.length - 1].c);
       ser.applyOptions({ priceFormat: { type: "price", precision, minMove: 10 ** -precision } });

@@ -37,9 +37,9 @@ export function px(x: number | null | undefined | string): string {
 }
 
 /** Decimal places that render `sig` significant figures at |v|'s magnitude,
- *  clamped so prices ≥ $1 keep at least cents and sub-dollar coins never exceed
+ *  clamped so prices ≥ $1 keep at least cents and sub-dollar instruments never exceed
  *  the exchange's 8-dp tick resolution. One rule across magnitudes — a $0.000045
- *  coin, a $1.0823 FX pair and a $68,000 index each get the right resolution
+  *  instrument, a $1.0823 FX pair and a $68,000 index each get the right resolution
  *  with no per-range buckets. Shared by the price axis and every price label so
  *  they can never disagree. */
 export function priceDp(v: number, sig = 5): number {

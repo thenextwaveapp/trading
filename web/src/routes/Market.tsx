@@ -58,8 +58,8 @@ const HAS_MCAP = (m: MarketId) => m !== "fx_spot";     // crypto (CoinGecko) + e
 // Each market's default sort column; direction is always descending.
 const DEFAULT_COL: Record<MarketId, string> = { crypto: "mcap", equity: "mcap", fx_spot: "change" };
 // This isn't a crypto-only app — name the instrument column per market.
-const SYMBOL_LABEL: Record<MarketId, string> = { crypto: "Coin", equity: "Ticker", fx_spot: "Pair" };
-const SEARCH_PH: Record<MarketId, string> = { crypto: "Search coins", equity: "Search tickers", fx_spot: "Search pairs" };
+const SYMBOL_LABEL: Record<MarketId, string> = { crypto: "Instrument", equity: "Instrument", fx_spot: "Instrument" };
+const SEARCH_PH: Record<MarketId, string> = { crypto: "Search instruments", equity: "Search instruments", fx_spot: "Search instruments" };
 
 export default function Market() {
   const nav = useNavigate();
@@ -87,7 +87,7 @@ export default function Market() {
     const c: Column<DbMarketRow>[] = [
       { key: "rank", label: "#", render: (_r, i) => <span className="num muted">{i + 1}</span> },
       {
-        key: "coin",
+        key: "instrument",
         label: SYMBOL_LABEL[market],
         align: "left",
         sortable: true,
@@ -95,7 +95,7 @@ export default function Market() {
         render: (r) => {
           const stale = isStale(r);
           return (
-            <span className={s.coin}>
+            <span className={s.instrument}>
               {r.logo ? <img src={r.logo} alt="" width={20} height={20} className={s.logo} /> : <span className={s.logo} />}
               <span className={s.sym}>{r.base}</span>
               <span className={s.base}>{r.name ?? r.symbol}</span>

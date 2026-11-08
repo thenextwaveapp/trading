@@ -187,19 +187,19 @@ export function useFleet(intervalMs = 10_000): FleetState {
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
-        const needCoins = Object.keys(symbolsRef.current).length === 0;
-        const [{ data: bots }, { data: marks }, { data: trades }, coinsRes] = await Promise.all([
+        const needInstruments = Object.keys(symbolsRef.current).length === 0;
+        const [{ data: bots }, { data: marks }, { data: trades }, instrumentsRes] = await Promise.all([
           supabase.from("pf_bots").select("*").eq("stage", "deployed"),
           supabase.from("pf_bot_marks").select("*").order("t", { ascending: false }).limit(2000),
           supabase.from("pf_bot_trades").select("*").order("exit_t", { ascending: false }).limit(1000),
-          needCoins
+          needInstruments
             ? supabase.from("pf_instruments").select("symbol,binance_symbol")
             : Promise.resolve({ data: null }),
         ]);
         if (!alive) return;
-        if (coinsRes.data) {
+        if (instrumentsRes.data) {
           const map: Record<string, string> = {};
-          for (const c of coinsRes.data as { symbol: string; binance_symbol: string }[]) {
+          for (const c of instrumentsRes.data as { symbol: string; binance_symbol: string }[]) {
             if (c.symbol && c.binance_symbol) map[c.symbol] = c.binance_symbol;
           }
           symbolsRef.current = map;

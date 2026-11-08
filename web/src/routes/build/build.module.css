@@ -499,14 +499,14 @@
   flex-direction: column;
   gap: 10px;
 }
-.coinResults {
+.instrumentResults {
   max-height: 220px;
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--card-bottom);
 }
-.coinOpt {
+.instrumentOpt {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -520,8 +520,8 @@
   text-align: left;
   cursor: pointer;
 }
-.coinOpt:first-child { border-top: none; }
-.coinOpt:hover { background: #0c1219; }
+.instrumentOpt:first-child { border-top: none; }
+.instrumentOpt:hover { background: #0c1219; }
 .chips {
   display: flex;
   flex-wrap: wrap;

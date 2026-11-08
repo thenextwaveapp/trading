@@ -21,7 +21,7 @@ const QUESTIONS: Q[] = [
     title: "What do you want to trade?",
     options: [
       { value: "crypto_perp", label: "Crypto perps", sub: "Leveraged, no expiry" },
-      { value: "crypto_spot", label: "Crypto spot", sub: "The coins themselves" },
+      { value: "crypto_spot", label: "Crypto spot", sub: "The instruments themselves" },
       { value: "equity", label: "Stocks", sub: "US equities" },
       { value: "fx_spot", label: "FX", sub: "Currency pairs" },
     ],

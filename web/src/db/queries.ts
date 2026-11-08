@@ -19,10 +19,10 @@ import type {
   DbStrategyCondition,
   DbSweep,
   DbSweepRun,
-  DbCoin,
+  DbInstrument,
   DbUniverse,
   DbUniverseFilter,
-  DbUniverseWithCoins,
+  DbUniverseWithInstruments,
   Stage,
   SweepAxis,
   Visibility,
@@ -301,7 +301,7 @@ export function useMyBot(id: string | null, nonce = 0): {
 }
 export const useBot = (name: string) => useQuery<DbBot>(() => fetchBot(name), [name], "bot:" + name);
 export const useUniverse = (slug: string) =>
-  useQuery<DbUniverseWithCoins>(() => fetchUniverse(slug), [slug], "universe:" + slug);
+  useQuery<DbUniverseWithInstruments>(() => fetchUniverse(slug), [slug], "universe:" + slug);
 export const useUniverses = () =>
   useQuery<DbUniverse[]>(() => fetchUniverses(), [], "universes");
 export const useUniverseFilters = (universeId: string | null) =>
@@ -309,13 +309,13 @@ export const useUniverseFilters = (universeId: string | null) =>
     () => (universeId ? fetchUniverseFilters(universeId) : Promise.resolve({ data: [], error: null })),
     [universeId],
   );
-export const fetchCoins = (market: string) =>
+export const fetchInstruments = (market: string) =>
   supabase.from("pf_instruments").select("symbol, binance_symbol, name, market").eq("market", market).order("symbol");
 /** Instruments that belong to a market — the Builder's custom-universe picker. */
-export const useCoins = (market: string) =>
-  useQuery<DbCoin[]>(() => fetchCoins(market), [market], "coins:" + market);
+export const useInstruments = (market: string) =>
+  useQuery<DbInstrument[]>(() => fetchInstruments(market), [market], "instruments:" + market);
 
-/** Create an owned universe from a hand-picked set of coins. Backtest (by slug)
+/** Create an owned universe from a hand-picked set of instruments. Backtest (by slug)
  *  and live (by universe_id) both resolve pf_universe_instruments, so a custom subset
  *  trades exactly as it backtests. `saved` controls whether it's reusable in the
  *  dropdown; an unsaved one is a throwaway tied to a single bot. */
@@ -323,7 +323,7 @@ export const createUniverse = async (opts: {
   owner: string;
   name: string;
   market: string;
-  coins: string[];
+  instruments: string[];
   saved: boolean;
 }): Promise<{ id: string; slug: string } | null> => {
   const base =
@@ -341,10 +341,10 @@ export const createUniverse = async (opts: {
     .select("id, slug")
     .single();
   if (error || !data) return null;
-  if (opts.coins.length) {
-    const rows = opts.coins.map((instrument_symbol) => ({ universe_id: data.id, instrument_symbol }));
-    const { error: coinErr } = await supabase.from("pf_universe_instruments").insert(rows);
-    if (coinErr) {
+  if (opts.instruments.length) {
+    const rows = opts.instruments.map((instrument_symbol) => ({ universe_id: data.id, instrument_symbol }));
+    const { error: insErr } = await supabase.from("pf_universe_instruments").insert(rows);
+    if (insErr) {
       await supabase.from("pf_universes").delete().eq("id", data.id); // no orphan empty universe
       return null;
     }
@@ -352,10 +352,10 @@ export const createUniverse = async (opts: {
   return { id: data.id, slug: data.slug };
 };
 
-/** Replace an owned universe's coins and metadata (name/saved/market). */
+/** Replace an owned universe's instruments and metadata (name/saved/market). */
 export const updateUniverse = async (
   id: string,
-  patch: { name?: string; saved?: boolean; market?: string; coins?: string[] },
+  patch: { name?: string; saved?: boolean; market?: string; instruments?: string[] },
 ): Promise<boolean> => {
   const meta: Record<string, unknown> = {};
   if (patch.name !== undefined) meta.name = patch.name.trim() || "Custom universe";
@@ -365,12 +365,12 @@ export const updateUniverse = async (
     const { error } = await supabase.from("pf_universes").update(meta).eq("id", id);
     if (error) return false;
   }
-  if (patch.coins) {
+  if (patch.instruments) {
     await supabase.from("pf_universe_instruments").delete().eq("universe_id", id);
-    if (patch.coins.length) {
+    if (patch.instruments.length) {
       const { error } = await supabase
         .from("pf_universe_instruments")
-        .insert(patch.coins.map((instrument_symbol) => ({ universe_id: id, instrument_symbol })));
+        .insert(patch.instruments.map((instrument_symbol) => ({ universe_id: id, instrument_symbol })));
       if (error) return false;
     }
   }

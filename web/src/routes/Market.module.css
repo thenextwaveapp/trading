@@ -76,7 +76,7 @@
   background: #0c1219;
 }
 .left { text-align: left !important; }
-.coin {
+.instrument {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -97,7 +97,7 @@
 }
 
 /* phones: the leaner table shows ticker only — the long instrument name would
-   bloat the Coin column (handled by DataTable's hidePhone for other cols) */
+   bloat the Instrument column (handled by DataTable's hidePhone for other cols) */
 @media (max-width: 860px) {
   .base { display: none; }
 }

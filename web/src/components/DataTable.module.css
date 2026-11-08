@@ -94,7 +94,7 @@
 @media (max-width: 860px) {
   .hidePhone { display: none; }
   /* size columns to their content instead of equal thirds, then let the one
-     text column (coin/bot) soak up the slack so the numbers pack to the right */
+     text column (instrument/bot) soak up the slack so the numbers pack to the right */
   .table { table-layout: auto; }
   /* the text column soaks up slack AND may wrap, so a long name shrinks the
      column instead of forcing the whole table to scroll sideways */

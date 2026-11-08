@@ -292,7 +292,7 @@ export default function Settings() {
               <StatusCard title="Trading engine" ok={!!liveOk} status={liveOk ? "Running" : d.paused ? "Paused" : "Down"}
                 rows={[["State", d.loaded ? "loaded" : "not loaded"], ["Updated", ago(d.state_age_s)], ["Errors in log", String(errs)]]} />
               <StatusCard title="Market data" ok={d.state_age_s != null && d.state_age_s < 1800} status={d.state_age_s != null && d.state_age_s < 1800 ? "Healthy" : "Stale"}
-                rows={[["Coins", String(Object.keys(d.symbols).length)], ["BTC 4h", d.gate.bear == null ? "—" : d.gate.bear ? "bear" : "bull"], ["Last mark", ago(d.state_age_s)]]} />
+                rows={[["Instruments", String(Object.keys(d.symbols).length)], ["BTC 4h", d.gate.bear == null ? "—" : d.gate.bear ? "bear" : "bull"], ["Last mark", ago(d.state_age_s)]]} />
               <StatusCard title="Data source" ok={d._source !== "local-stale"} status={d._source === "upstream" ? "Live" : d._source === "local-stale" ? "Stale copy" : "Local"}
                 rows={[["Feed", d._source ?? "direct"], ["Timezone", TZ]]} />
             </div>

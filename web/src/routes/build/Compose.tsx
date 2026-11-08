@@ -12,7 +12,7 @@ import {
   setBotStage,
   updateDraftBot,
   updateUniverse,
-  useCoins,
+  useInstruments,
   useMyBot,
   useUniverse,
   useUniverses,
@@ -222,7 +222,7 @@ const instrumentNoun = (market: string) =>
 // couple of familiar examples so the choice reads at a glance.
 const MARKET_BLURB: Record<string, string> = {
   crypto_perp: "Leveraged crypto, no expiry. e.g. BTC, ETH, SOL",
-  crypto_spot: "The coins themselves. e.g. BTC, ETH, SOL",
+  crypto_spot: "The instruments themselves. e.g. BTC, ETH, SOL",
   equity: "Shares in public companies. e.g. AAPL, NVDA",
   futures: "Dated commodity & index contracts. e.g. ES, CL, GC",
   fx_spot: "Currency pairs. e.g. EUR/USD, GBP/USD",
@@ -234,7 +234,7 @@ const MARKET_BLURB: Record<string, string> = {
 // stay hidden until the one before them is filled in, so you're never handed the
 // whole form at once — but by the end it's all on a single scrolling page.
 
-// Universes/coins are tagged by asset class ('crypto' / 'equity'), while the
+// Universes/instruments are tagged by asset class ('crypto' / 'equity'), while the
 // market catalog ids are finer ('crypto_perp', 'crypto_spot', 'equity', …).
 const ASSET_CLASS = (marketId: string): string => (marketId.startsWith("crypto") ? "crypto" : marketId);
 
@@ -1255,7 +1255,7 @@ export default function Compose() {
   const [sp, setSp] = useSearchParams();
   const botId = sp.get("bot");
   const startFamily = sp.get("family");
-  const startCoin = sp.get("coin");
+  const startInstrument = sp.get("instrument");
   const { data: bot, loading: botLoading } = useMyBot(botId);
   const { data: universes } = useUniverses();
 
@@ -1277,18 +1277,18 @@ export default function Compose() {
   const [showUniModal, setShowUniModal] = useState(false);
   const creatingRef = useRef(false);
 
-  // Custom universe: a hand-picked subset of the current market. Coins live in
+  // Custom universe: a hand-picked subset of the current market. Instruments live in
   // local state while composing; the owned pf_universe is written at save time
   // so the backtest (by slug) and live (by universe_id) resolve the same set.
   const me = user?.id ?? null;
   const [customMode, setCustomMode] = useState(false);
-  const [customCoins, setCustomCoins] = useState<string[]>([]);
+  const [customInstruments, setCustomInstruments] = useState<string[]>([]);
   const [customName, setCustomName] = useState("");
   const [customSaved, setCustomSaved] = useState(false);
   const customUni = useRef<{ id: string; slug: string } | null>(null);
-  const [coinQuery, setCoinQuery] = useState("");
+  const [instrumentQuery, setInstrumentQuery] = useState("");
   const assetClass = ASSET_CLASS(spec.market);
-  const { data: coinList } = useCoins(assetClass);
+  const { data: instrumentList } = useInstruments(assetClass);
 
   const universeList = universes ?? [];
   const marketUniverses = useMemo(
@@ -1302,19 +1302,19 @@ export default function Compose() {
     marketUniverses.find((u) => u.slug === spec.universe) ??
     universeList.find((u) => u.slug === spec.universe);
   const { data: universeDetail } = useUniverse(spec.universe || "fleet-60");
-  const presetCoins = useMemo(
+  const presetInstruments = useMemo(
     () => (universeDetail?.pf_universe_instruments ?? []).map((c) => c.instrument_symbol),
     [universeDetail],
   );
-  const uniCoins = customMode ? customCoins : presetCoins;
-  const coinMatches = useMemo(() => {
-    const q = coinQuery.trim().toUpperCase();
-    const picked = new Set(customCoins);
-    return (coinList ?? [])
+  const uniInstruments = customMode ? customInstruments : presetInstruments;
+  const instrumentMatches = useMemo(() => {
+    const q = instrumentQuery.trim().toUpperCase();
+    const picked = new Set(customInstruments);
+    return (instrumentList ?? [])
       .filter((c) => !picked.has(c.symbol))
       .filter((c) => !q || c.symbol.includes(q) || (c.name ?? "").toUpperCase().includes(q))
       .slice(0, 40);
-  }, [coinList, coinQuery, customCoins]);
+  }, [instrumentList, instrumentQuery, customInstruments]);
   const marketMeta = CATALOG.markets.find((m) => m.id === spec.market);
   const noun = instrumentNoun(spec.market);
   const familySlug = PRESETS.find((pr) => pr.key === presetKey)?.family ?? null;
@@ -1346,7 +1346,7 @@ export default function Compose() {
         const only = (merged.filters ?? []).find((f) => f.kind === "universe") as { only?: string[] } | undefined;
         if (only?.only?.length) {
           setCustomMode(true);
-          setCustomCoins(only.only.map((x) => String(x).toUpperCase()));
+          setCustomInstruments(only.only.map((x) => String(x).toUpperCase()));
           customUni.current = null;
           setSpec({ ...merged, universe: CUSTOM_UNI, filters: merged.filters.filter((f) => f.kind !== "universe") });
         } else {
@@ -1372,20 +1372,20 @@ export default function Compose() {
     const initName = slug ? base.name : "";
     setName(initName);
     setVisibility(profile?.default_bot_visibility ?? "private");
-    // Arriving from the Market page with ?coin=BTC: start a custom universe of
-    // exactly that coin, so "Build a bot on X" trades X (backtest == live).
-    if (startCoin) {
+    // Arriving from the Market page with ?instrument=BTC: start a custom universe of
+    // exactly that instrument, so "Build a bot on X" trades X (backtest == live).
+    if (startInstrument) {
       setCustomMode(true);
-      setCustomCoins([startCoin.toUpperCase()]);
+      setCustomInstruments([startInstrument.toUpperCase()]);
       customUni.current = null;
     }
-    const seedSpec: StrategySpec = startCoin
+    const seedSpec: StrategySpec = startInstrument
       ? { ...base, name: initName, universe: CUSTOM_UNI, filters: [] }
       : { ...base, name: initName };
     setSpec(seedSpec);
     setStarted(true);
     setSeeded(true);
-  }, [bot, botId, botLoading, seeded, startFamily, startCoin]);
+  }, [bot, botId, botLoading, seeded, startFamily, startInstrument]);
 
   // Assistant "Build" hands off the exact StrategySpec it already built, via
   // router state — not a prompt to re-parse. So the spec the conversation
@@ -1410,12 +1410,12 @@ export default function Compose() {
     }
   }, [seeded, customMode, me, universeList, spec.universe]);
 
-  // Load that universe's coins once they resolve (existing custom only).
+  // Load that universe's instruments once they resolve (existing custom only).
   useEffect(() => {
-    if (customMode && customUni.current && customCoins.length === 0 && presetCoins.length) {
-      setCustomCoins(presetCoins);
+    if (customMode && customUni.current && customInstruments.length === 0 && presetInstruments.length) {
+      setCustomInstruments(presetInstruments);
     }
-  }, [customMode, customCoins.length, presetCoins]);
+  }, [customMode, customInstruments.length, presetInstruments]);
 
   const persistSilently = async (): Promise<string | null> => {
     if (!user || !seeded) return savedId;
@@ -1472,7 +1472,7 @@ export default function Compose() {
     }, 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, color, visibility, spec, familySlug, seeded, started, user, customMode, customCoins, customName, customSaved]);
+  }, [name, color, visibility, spec, familySlug, seeded, started, user, customMode, customInstruments, customName, customSaved]);
 
   // ensure universe list loaded -> default slug for current market (not in custom mode)
   useEffect(() => {
@@ -1534,7 +1534,7 @@ export default function Compose() {
 
   // --- custom universe (hand-picked subset of the market) ---
   const enterCustom = () => {
-    setCustomCoins((cur) => (cur.length ? cur : presetCoins));
+    setCustomInstruments((cur) => (cur.length ? cur : presetInstruments));
     setCustomMode(true);
     // drop any legacy universe filter — the picked set *is* the universe now
     setSpec((s) => ({ ...s, universe: CUSTOM_UNI, filters: s.filters.filter((f) => f.kind !== "universe") }));
@@ -1542,27 +1542,27 @@ export default function Compose() {
   const exitCustom = (slug: string) => {
     customUni.current = null;
     setCustomMode(false);
-    setCustomCoins([]);
+    setCustomInstruments([]);
     setCustomName("");
     setCustomSaved(false);
     setSpec((s) => ({ ...s, universe: slug }));
   };
-  const addCoin = (sym: string) => {
-    setCustomCoins((c) => (c.includes(sym) ? c : [...c, sym]));
-    setCoinQuery("");
+  const addInstrument = (sym: string) => {
+    setCustomInstruments((c) => (c.includes(sym) ? c : [...c, sym]));
+    setInstrumentQuery("");
   };
-  const removeCoin = (sym: string) => setCustomCoins((c) => c.filter((x) => x !== sym));
+  const removeInstrument = (sym: string) => setCustomInstruments((c) => c.filter((x) => x !== sym));
 
   const ensureCustomUniverse = async (): Promise<{ id: string; slug: string } | null> => {
     if (!user) return null;
     if (customUni.current) {
       const ok = await updateUniverse(customUni.current.id, {
-        name: customName, saved: customSaved, market: assetClass, coins: customCoins,
+        name: customName, saved: customSaved, market: assetClass, instruments: customInstruments,
       });
       return ok ? customUni.current : null;
     }
     const created = await createUniverse({
-      owner: user.id, name: customName, market: assetClass, coins: customCoins, saved: customSaved,
+      owner: user.id, name: customName, market: assetClass, instruments: customInstruments, saved: customSaved,
     });
     if (created) customUni.current = created;
     return created;
@@ -1571,7 +1571,7 @@ export default function Compose() {
   // The universe (slug + id) to persist. In custom mode this writes/updates the
   // owned pf_universe so the backtest and live both resolve the picked set.
   const resolveUniverse = async (): Promise<{ slug: string; id: string | null }> => {
-    if (customMode && customCoins.length && user) {
+    if (customMode && customInstruments.length && user) {
       const cu = await ensureCustomUniverse();
       if (cu) return { slug: cu.slug, id: cu.id };
     }
@@ -1590,7 +1590,7 @@ export default function Compose() {
     );
     customUni.current = null;
     setCustomMode(!first);
-    setCustomCoins([]);
+    setCustomInstruments([]);
     setCustomName("");
     setCustomSaved(false);
     setSpec((s) => ({
@@ -1676,7 +1676,7 @@ export default function Compose() {
     const onlyFilter = (next.filters as Array<{ kind?: string; only?: string[] }>).find((f) => f?.kind === "universe")?.only;
     const picked = Array.from(
       new Set(
-        [...(Array.isArray(cspec.coins) ? cspec.coins : []), ...(Array.isArray(onlyFilter) ? onlyFilter : [])]
+        [...(Array.isArray(cspec.instruments) ? cspec.instruments : Array.isArray(cspec.coins) ? cspec.coins : []), ...(Array.isArray(onlyFilter) ? onlyFilter : [])]
           .map((x) => String(x).toUpperCase().trim())
           .filter(Boolean),
       ),
@@ -1684,12 +1684,12 @@ export default function Compose() {
     customUni.current = null;
     if (picked.length) {
       setCustomMode(true);
-      setCustomCoins(picked);
+      setCustomInstruments(picked);
       next.universe = CUSTOM_UNI;
       next.filters = next.filters.filter((f) => (f as { kind?: string }).kind !== "universe");
     } else {
       setCustomMode(false);
-      setCustomCoins([]);
+      setCustomInstruments([]);
     }
     setSpec(next);
     setPresetKey("blank");
@@ -1742,7 +1742,7 @@ export default function Compose() {
       setErr("You already have a bot with that name. Pick another.");
       return;
     }
-    if (toTraining && customMode && customCoins.length === 0) {
+    if (toTraining && customMode && customInstruments.length === 0) {
       setSaving(false);
       setErr("Add at least one token to your custom universe.");
       return;
@@ -1837,8 +1837,8 @@ export default function Compose() {
     spec.side,
     bot?.condition_filter,
   );
-  const shortCoins = uniCoins.slice(0, 8);
-  const moreCoins = Math.max(0, uniCoins.length - shortCoins.length);
+  const shortInstruments = uniInstruments.slice(0, 8);
+  const moreInstruments = Math.max(0, uniInstruments.length - shortInstruments.length);
 
   const handleStepNav = async (targetPath: string) => {
     const id = await persistSilently();
@@ -1851,7 +1851,7 @@ export default function Compose() {
   // it"), so the form grows as you make real choices and ends up whole on one
   // page. Universe reveals the rules; the first entry condition reveals the rest.
   const bookFilled = (g?: CondGroup) => Boolean(g && g.children.length > 0);
-  const universeReady = customMode ? customCoins.length > 0 : Boolean(spec.universe);
+  const universeReady = customMode ? customInstruments.length > 0 : Boolean(spec.universe);
   const entryReady = isBoth
     ? bookFilled(spec.entry) && bookFilled(spec.entry_short)
     : bookFilled(spec.entry);
@@ -1932,7 +1932,7 @@ export default function Compose() {
                   setName("");
                   setPresetKey("blank");
                   setCustomMode(false);
-                  setCustomCoins([]);
+                  setCustomInstruments([]);
                   customUni.current = null;
                   setFromPrompt(false);
                 }}
@@ -2010,7 +2010,7 @@ export default function Compose() {
                   </select>
                   <span className="lbl">
                     {customMode
-                      ? `${customCoins.length} ${customCoins.length === 1 ? noun.one : noun.many} picked`
+                      ? `${customInstruments.length} ${customInstruments.length === 1 ? noun.one : noun.many} picked`
                       : (selectedUniverse?.description ?? "")}
                   </span>
                 </label>
@@ -2022,16 +2022,16 @@ export default function Compose() {
                   <input
                     className={r.input}
                     placeholder={`Search ${noun.many} to add…`}
-                    value={coinQuery}
-                    onChange={(e) => setCoinQuery(e.target.value)}
+                    value={instrumentQuery}
+                    onChange={(e) => setInstrumentQuery(e.target.value)}
                   />
-                  {coinQuery.trim() && (
-                    <div className={r.coinResults}>
-                      {coinMatches.length === 0 ? (
+                  {instrumentQuery.trim() && (
+                    <div className={r.instrumentResults}>
+                      {instrumentMatches.length === 0 ? (
                         <div className="lbl" style={{ padding: "8px 10px" }}>No matches.</div>
                       ) : (
-                        coinMatches.map((c) => (
-                          <button type="button" key={c.symbol} className={r.coinOpt} onClick={() => addCoin(c.symbol)}>
+                        instrumentMatches.map((c) => (
+                          <button type="button" key={c.symbol} className={r.instrumentOpt} onClick={() => addInstrument(c.symbol)}>
                             <span className="num">{c.symbol}</span>
                             {c.name && <span className="lbl">{c.name}</span>}
                           </button>
@@ -2039,10 +2039,10 @@ export default function Compose() {
                       )}
                     </div>
                   )}
-                  {customCoins.length > 0 ? (
+                  {customInstruments.length > 0 ? (
                     <div className={r.chips}>
-                      {customCoins.map((c) => (
-                        <button type="button" key={c} className={r.chip} onClick={() => removeCoin(c)} title="Remove">
+                      {customInstruments.map((c) => (
+                        <button type="button" key={c} className={r.chip} onClick={() => removeInstrument(c)} title="Remove">
                           {c} <span aria-hidden>×</span>
                         </button>
                       ))}
@@ -2064,17 +2064,17 @@ export default function Compose() {
                   )}
                 </div>
               )}
-              {!customMode && uniCoins.length > 0 && (
+              {!customMode && uniInstruments.length > 0 && (
                 <>
                   <div className={r.label} style={{ marginTop: 20 }}>
-                    {uniCoins.length} instrument{uniCoins.length === 1 ? "" : "s"} in this universe
+                    {uniInstruments.length} instrument{uniInstruments.length === 1 ? "" : "s"} in this universe
                   </div>
                   <div className={r.instGrid}>
-                    {uniCoins.slice(0, 24).map((c) => (
+                    {uniInstruments.slice(0, 24).map((c) => (
                       <div key={c} className={r.instCell}>{c}</div>
                     ))}
-                    {uniCoins.length > 24 && (
-                      <div className={r.instCell} style={{ color: "var(--muted)" }}>+{uniCoins.length - 24}</div>
+                    {uniInstruments.length > 24 && (
+                      <div className={r.instCell} style={{ color: "var(--muted)" }}>+{uniInstruments.length - 24}</div>
                     )}
                   </div>
                 </>
@@ -2340,12 +2340,12 @@ export default function Compose() {
                   <span className={r.tag} style={{ width: "auto" }}>
                     Universe · {selectedUniverse?.name ?? spec.universe}
                   </span>
-                  <span className="num lbl">{uniCoins.length} {noun.many}</span>
+                  <span className="num lbl">{uniInstruments.length} {noun.many}</span>
                 </div>
-                {uniCoins.length > 0 && (
+                {uniInstruments.length > 0 && (
                   <div className="num muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-                    {shortCoins.join(", ")}
-                    {moreCoins > 0 && (
+                    {shortInstruments.join(", ")}
+                    {moreInstruments > 0 && (
                       <>
                         {" "}
                         <span
@@ -2353,13 +2353,13 @@ export default function Compose() {
                           style={{ color: "#8BB4E8", fontWeight: 500 }}
                           onClick={() => setShowUniModal(true)}
                         >
-                          +{moreCoins} more
+                          +{moreInstruments} more
                         </span>
                       </>
                     )}
                   </div>
                 )}
-                {uniCoins.length > 0 && (
+                {uniInstruments.length > 0 && (
                   <button
                     type="button"
                     className="lk lbl"
@@ -2374,7 +2374,7 @@ export default function Compose() {
                     }}
                     onClick={() => setShowUniModal(true)}
                   >
-                    View all {uniCoins.length} {noun.many} →
+                    View all {uniInstruments.length} {noun.many} →
                   </button>
                 )}
               </div>
@@ -2486,7 +2486,7 @@ export default function Compose() {
                   <div style={{ fontSize: 18, fontWeight: 500 }}>
                     {selectedUniverse?.name ?? spec.universe}{" "}
                     <span className="num muted" style={{ fontSize: 14, fontWeight: 400 }}>
-                      ({uniCoins.length} {noun.many})
+                      ({uniInstruments.length} {noun.many})
                     </span>
                   </div>
                   {selectedUniverse?.description && (
@@ -2511,7 +2511,7 @@ export default function Compose() {
                   paddingTop: 6,
                 }}
               >
-                {uniCoins.map((c) => (
+                {uniInstruments.map((c) => (
                   <div
                     key={c}
                     className="num"

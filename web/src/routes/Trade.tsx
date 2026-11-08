@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
-import { useBots } from "../db/queries";
+import { useBots, useMarketRow } from "../db/queries";
 import { botColor } from "../lib/brand";
 import { BotAvatar } from "../components/Avatar";
 import { BackBar } from "../components/cells";
@@ -55,6 +55,7 @@ export default function Trade() {
 
   const color = dbBot ? botColor(dbBot) : "#5e8fd8";
   const sym = data.symbols[ticker] || (ticker.endsWith("USDT") ? ticker : `${ticker}USDT`);
+  const { data: mkt } = useMarketRow(sym);
 
   const req: CandleReq | null = useMemo(() => {
     if (!ticker) return null;
@@ -102,13 +103,18 @@ export default function Trade() {
             <div className={s.title}>
               <span className="lk" onClick={() => nav(dbBot ? botPath(dbBot) : "/bot/" + encodeURIComponent(botName))}>{botName}</span>
               <span className={s.sep}>·</span>
+              {mkt?.logo && <img src={mkt.logo} alt="" width={18} height={18} className={s.instrumentLogo} />}
               <span className={s.tkr}>{ticker}</span>
               {side && <span className={`${s.tag} ${side === "short" ? s.short : s.long}`}>{side.toUpperCase()}</span>}
               <span className={`${s.tag} ${isOpen ? s.openTag : s.mut}`}>{isOpen ? "OPEN" : "CLOSED"}</span>
             </div>
-            {dbBot?.builder?.handle && (
+            {(mkt?.name || dbBot?.builder?.handle) && (
               <div className={s.sub}>
-                by <span className="lk" onClick={() => nav(builderPath(dbBot.builder!.handle))}>@{dbBot.builder.handle}</span>
+                {mkt?.name && <span className={s.instrumentName}>{mkt.name}</span>}
+                {mkt?.name && dbBot?.builder?.handle && <span className={s.sep}> · </span>}
+                {dbBot?.builder?.handle && (
+                  <>by <span className="lk" onClick={() => nav(builderPath(dbBot.builder!.handle))}>@{dbBot.builder.handle}</span></>
+                )}
               </div>
             )}
           </div>

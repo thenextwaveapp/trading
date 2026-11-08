@@ -207,7 +207,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
             <input
               ref={inputRef}
               className={s.input}
-              placeholder="Search bots, challenges, builders, coins…"
+              placeholder="Search bots, challenges, builders, instruments…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />

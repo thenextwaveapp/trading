@@ -69,7 +69,7 @@ export interface DbUniverse {
   saved: boolean;
 }
 
-export interface DbUniverseWithCoins extends DbUniverse {
+export interface DbUniverseWithInstruments extends DbUniverse {
   pf_universe_instruments: { instrument_symbol: string }[];
 }
 
@@ -86,7 +86,7 @@ export interface DbUniverseFilter {
   position: number;
 }
 
-export interface DbCoin {
+export interface DbInstrument {
   symbol: string;
   binance_symbol: string;
   name: string | null;

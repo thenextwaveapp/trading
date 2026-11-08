@@ -27,7 +27,7 @@ import {
 } from "../lib/format";
 import DataTable, { type Column } from "../components/DataTable";
 import BotChart from "../components/BotChart";
-import { BackBar, BotLink, Coin } from "../components/cells";
+import { BackBar, BotLink, Instrument } from "../components/cells";
 import p from "./pages.module.css";
 import s from "./BotProfile.module.css";
 
@@ -344,7 +344,7 @@ export default function BotProfile() {
   const defaultSide = (v.group === "long" ? "long" : "short") as "long" | "short";
   const tradeCols: Column<Row>[] = [
     { key: "bot", label: "Bot", sortable: true, value: (r) => r.bot, render: (r) => <BotLink name={r.bot} /> },
-    { key: "ticker", label: "Coin", sortable: true, value: (r) => r.ticker, render: (r) => <Coin {...r} /> },
+    { key: "ticker", label: "Instrument", sortable: true, value: (r) => r.ticker, render: (r) => <Instrument {...r} /> },
     { key: "side", label: "Side", sortable: true, value: (r) => r.side ?? defaultSide, render: (r) => { const sd = r.side ?? defaultSide; return <span className={sd === "short" ? "down" : "up"}>{sd === "short" ? "Short" : "Long"}</span>; } },
     { key: "entry", label: "Entry", sortable: true, value: (r) => r.entry, render: (r) => <span className="num">{px(r.entry)}</span> },
     { key: "notional", label: "Size", sortable: true, value: (r) => r.notional, render: (r) => <span className="num muted">{usd(r.notional)}</span> },

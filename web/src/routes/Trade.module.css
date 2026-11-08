@@ -26,6 +26,13 @@
 .tkr {
   color: var(--fg-2);
 }
+.instrumentLogo {
+  border-radius: 50%;
+  flex: none;
+}
+.instrumentName {
+  color: var(--fg-2);
+}
 .sub {
   font-size: 12px;
   color: var(--muted);

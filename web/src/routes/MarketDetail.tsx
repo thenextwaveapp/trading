@@ -24,7 +24,7 @@ export default function MarketDetail() {
   const isPhone = useIsPhone();
   const { data: row, loading } = useMarketRow(symbol ?? "");
   const { data: news } = useNews(40);
-  const coinNews = useMemo(() => {
+  const instrumentNews = useMemo(() => {
     const all = news ?? [];
     if (!row) return { rows: all.slice(0, 8), filtered: false };
     const terms = [(row.name ?? "").toLowerCase(), row.base.length >= 4 ? row.base.toLowerCase() : ""].filter(Boolean);
@@ -32,7 +32,7 @@ export default function MarketDetail() {
     return hits.length ? { rows: hits.slice(0, 8), filtered: true } : { rows: all.slice(0, 8), filtered: false };
   }, [news, row]);
 
-  // Ground the assistant in the coin the user is looking at.
+  // Ground the assistant in the instrument the user is looking at.
   const { setPageContext, focusOn } = useAssistant();
   useEffect(() => {
     if (!row) {
@@ -46,10 +46,10 @@ export default function MarketDetail() {
         symbol: row.symbol, base: row.base, name: row.name,
         price: row.price, change_pct: row.change_pct, high: row.high, low: row.low, quote_volume: row.quote_volume,
       },
-      news: coinNews.rows.map((n) => ({ title: n.title })),
+      news: instrumentNews.rows.map((n) => ({ title: n.title })),
     });
     return () => setPageContext(null);
-  }, [row, coinNews, setPageContext]);
+  }, [row, instrumentNews, setPageContext]);
 
   if (loading) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
   if (!row) return <div className="muted" style={{ padding: 40 }}>{symbol} not found in the market feed.</div>;
@@ -83,7 +83,7 @@ export default function MarketDetail() {
             </div>
           </div>
         </div>
-        <button className={`${p.btn} ${p.pri} ${p.ctaFull}`} onClick={() => nav(`/build/compose?coin=${encodeURIComponent(row.base)}&market=crypto`)}>
+        <button className={`${p.btn} ${p.pri} ${p.ctaFull}`} onClick={() => nav(`/build/compose?instrument=${encodeURIComponent(row.base)}&market=crypto`)}>
           Build a bot on {row.base}
         </button>
       </div>
@@ -121,9 +121,9 @@ export default function MarketDetail() {
 
         <div style={{ marginTop: 24 }}>
           <div className="lbl" style={{ marginBottom: 10 }}>
-            News {coinNews.filtered ? `· ${row.base}` : "· latest"}
+            News {instrumentNews.filtered ? `· ${row.base}` : "· latest"}
           </div>
-          <NewsList rows={coinNews.rows} empty="No recent headlines." />
+          <NewsList rows={instrumentNews.rows} empty="No recent headlines." />
         </div>
       </div>
       </div>
