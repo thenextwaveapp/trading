@@ -70,6 +70,11 @@ export default function DataTable<T>({
   const arrow = (key: string) =>
     sort.col === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
 
+  // On phones the table reflows to stacked cards (CSS, ≤860px). Each cell shows
+  // its column name via `data-label`; we can only pull that from string labels,
+  // so JSX-labelled columns fall back to no label (the value stands alone).
+  const cardLabel = (c: Column<T>) => (typeof c.label === "string" ? c.label : undefined);
+
   return (
     <>
       <div className={s.wrap}>
@@ -97,9 +102,9 @@ export default function DataTable<T>({
               </tr>
             ) : (
               pageRows.map((row, i) => (
-                <tr key={i}>
+                <tr key={i} className={s.row}>
                   {columns.map((c) => (
-                    <td key={c.key} className={s.td}>
+                    <td key={c.key} className={s.td} data-label={cardLabel(c)}>
                       {c.render(row)}
                     </td>
                   ))}

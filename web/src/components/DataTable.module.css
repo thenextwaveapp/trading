@@ -81,3 +81,69 @@
 .perpg:hover {
   border-color: var(--border-hover);
 }
+
+/* ── phones: the table reflows to stacked cards (no sideways scrolling) ──────
+   Every <td> becomes a label→value row; the first cell is promoted to a full
+   -width card title. Headers are visually hidden but kept for accessibility. */
+@media (max-width: 860px) {
+  .wrap { overflow-x: visible; }
+  .table { table-layout: auto; }
+
+  /* keep <thead> for screen readers, remove it visually */
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .table,
+  .table tbody,
+  .row,
+  .td { display: block; }
+
+  .row {
+    margin-bottom: 10px;
+    padding: 4px 14px 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 9px 0;
+    border-top: 1px solid var(--line);
+    text-align: right;
+    white-space: normal;
+  }
+  /* the column name, pulled from data-label, sits on the left of each row */
+  .td::before {
+    content: attr(data-label);
+    color: var(--muted-2);
+    font-size: 12px;
+    text-align: left;
+    white-space: nowrap;
+    flex: none;
+  }
+  /* a cell with no label (JSX-labelled column) lets its value use the full row */
+  .td:not([data-label])::before { content: none; }
+
+  /* first cell = the card's headline (entity): full width, no label, bigger */
+  .row .td:first-child {
+    justify-content: flex-start;
+    padding: 4px 0 8px;
+    border-top: none;
+    font-size: 15px;
+    text-align: left;
+  }
+  .row .td:first-child::before { content: none; }
+
+  .empty { text-align: center; }
+}

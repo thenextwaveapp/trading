@@ -29,9 +29,20 @@
   /* layout */
   --gutter: 40px;          /* page left/right inset; shrinks on mobile */
   --topbar-h: 56px;        /* mobile top app bar height */
+  --tabbar-h: 58px;        /* mobile bottom tab bar height (phone nav) */
   /* THE column. The floating nav bar is min(100% - 28px, --shell-w); page
      content aligns to the same edges (see .shell in pages.module.css). */
   --shell-w: 1140px;
+
+  /* ── Responsive spine ──────────────────────────────────────────────────
+     Plain CSS modules can't read vars inside @media conditions, so these are
+     a CONVENTION, not live values: use these two widths and no others, so the
+     whole app flips at the same lines instead of 12 scattered guesses.
+       PHONE   @media (max-width: 860px)  → bottom tab nav, tables→cards,
+                                             single column, full-bleed surfaces
+       SMALL   @media (max-width: 480px)  → tighter type/padding only
+     Tablet rides the desktop layout. 860 is the historical primary line; it
+     stays the one true desktop↔mobile boundary. */
 
   /* radius scale — radius = meaning. Sharp for instrument/data surfaces,
      circles for living things (avatars/bots). Pill is reserved for ~toggles. */
