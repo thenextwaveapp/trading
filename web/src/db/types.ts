@@ -105,6 +105,7 @@ export interface DbProfile {
   currency: string | null;
   profile_public: boolean;
   bots_on_leaderboard: boolean;
+  share_to_feed: boolean;
   default_bot_visibility: Visibility;
   onboarding_step: number;
   onboarding_checklist: Record<string, unknown>;

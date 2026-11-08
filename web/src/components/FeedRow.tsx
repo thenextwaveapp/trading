@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { GitFork, Heart, MessageCircle, Share2 } from "lucide-react";
 import { botColor } from "../lib/brand";
 import { held, identicon, pct, px, usd } from "../lib/format";
 import { botPath, tradePath } from "../lib/paths";
@@ -5,6 +7,47 @@ import { useData } from "../api/context";
 import type { DbBot, DbEvent } from "../db/types";
 import type { Bot, Trade } from "../api/types";
 import s from "./FeedRow.module.css";
+
+/** stable pseudo-count from an id, so mock engagement numbers don't flicker on
+ *  re-render (no Math.random). */
+function hashNum(str: string, mod: number): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h % mod;
+}
+
+/** Mock social actions for a feed card. Like toggles locally; the rest are
+ *  placeholders. Copy is the trading-native one — clone the bot into your
+ *  fleet. Stops propagation so taps don't open the card. */
+function SocialBar({ e }: { e: DbEvent }) {
+  const [liked, setLiked] = useState(false);
+  const likes = hashNum(e.id + "l", 240) + (liked ? 1 : 0);
+  const comments = hashNum(e.id + "c", 36);
+  const stop = (fn?: () => void) => (ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    fn?.();
+  };
+  return (
+    <div className={s.actions} onClick={(ev) => ev.stopPropagation()}>
+      <button className={s.act} onClick={stop()} aria-label="Share">
+        <Share2 size={16} strokeWidth={1.6} />
+      </button>
+      <button className={s.act} onClick={stop()} aria-label="Comment">
+        <MessageCircle size={16} strokeWidth={1.6} />
+        <span className="num">{comments}</span>
+      </button>
+      <button className={`${s.act} ${liked ? s.liked : ""}`} onClick={stop(() => setLiked((v) => !v))} aria-pressed={liked}>
+        <Heart size={16} strokeWidth={1.6} fill={liked ? "currentColor" : "none"} />
+        <span className="num">{likes}</span>
+      </button>
+      {/* the app's signature accent copy-a-bot action, not a muted icon */}
+      <button className={`copyBtn ${s.actCopy}`} onClick={stop()}>
+        <GitFork size={14} strokeWidth={1.75} />
+        Copy
+      </button>
+    </div>
+  );
+}
 
 function rel(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -81,7 +124,7 @@ export default function FeedRow({ e, bot, live, onOpen }: {
     const clickable = !!e.bot_name;
     return (
       <div
-        className={`card ${s.c} ${s.social} ${e.type === "kill_switch" ? s.danger : ""} ${clickable ? s.click : ""}`}
+        className={`${s.c} ${s.social} ${e.type === "kill_switch" ? s.danger : ""} ${clickable ? s.click : ""}`}
         onClick={() => e.bot_name && onOpen(bot ? botPath(bot) : "/bot/" + encodeURIComponent(e.bot_name))}
       >
         {head(<span className={`${s.hl} ${e.type === "kill_switch" ? s.hlDanger : ""}`}>{verb}</span>)}
@@ -128,7 +171,7 @@ export default function FeedRow({ e, bot, live, onOpen }: {
 
   return (
     <div
-      className={`card ${s.c} ${s.click}`}
+      className={`${s.c} ${s.click}`}
       style={{ "--bot": color } as React.CSSProperties}
       onClick={() => tradeHref && onOpen(tradeHref)}
     >
@@ -157,6 +200,7 @@ export default function FeedRow({ e, bot, live, onOpen }: {
         {heldStr && <Stat k="HELD" v={heldStr} />}
         {pnl != null && <Stat k="P&L" v={usd(pnl, true)} cls={pnl >= 0 ? "up" : "down"} />}
       </div>
+      <SocialBar e={e} />
     </div>
   );
 }

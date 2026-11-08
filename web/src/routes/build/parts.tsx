@@ -9,7 +9,7 @@ export function StepLoading({ step }: { step: number }) {
   const [sp] = useSearchParams();
   const botId = sp.get("bot");
   const prevTo = step > 1 ? withBot(FLOW_PATHS[step - 2], botId) : "/build";
-  const prevLabel = step > 1 ? FLOW_STEPS[step - 2] : "Build";
+  const prevLabel = step > 1 ? FLOW_STEPS[step - 2] : "Lab";
   return (
     <>
       <BackBar to={prevTo} label={prevLabel} />
@@ -25,7 +25,7 @@ export function MissingBot({ step }: { step: number }) {
   const [sp] = useSearchParams();
   const botId = sp.get("bot");
   const prevTo = step > 1 ? withBot(FLOW_PATHS[step - 2], botId) : "/build";
-  const prevLabel = step > 1 ? FLOW_STEPS[step - 2] : "Build";
+  const prevLabel = step > 1 ? FLOW_STEPS[step - 2] : "Lab";
   return (
     <>
       <BackBar to={prevTo} label={prevLabel} />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, UserCheck } from "lucide-react";
+import { ChevronRight, Clock, Crown, Swords, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useMediaQuery } from "../lib/responsive";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useAuth, useCurrentHandle } from "../auth";
 import { useData } from "../api/context";
@@ -126,16 +127,87 @@ export default function Feed() {
 
   const topUsers = (profiles ?? []).filter((p) => p.id !== user?.id).slice(0, 6);
 
+  // On narrow screens the rail collapses (it needs its 312px). Rather than drop
+  // its discovery modules to the bottom — unreachable under a long feed — we
+  // surface them at the TOP as horizontal carousels, plus quick links to the
+  // Leaderboard and Arena (which otherwise only live in the nav/search).
+  const showDiscover = useMediaQuery("(max-width: 960px)");
+
   return (
     <div className={p.shell}>
     <div className={s.wrap}>
       <div>
+        {showDiscover && (
+          <div className={s.discover}>
+            <div className={s.quick}>
+              <button className={`${s.quickCard} ${s.qLeaders}`} onClick={() => nav("/leaderboard")}>
+                <span className={s.qIcon}><Crown size={18} strokeWidth={1.75} /></span>
+                <span className={s.qText}>
+                  <span className={s.qTitle}>Leaderboard</span>
+                  <span className={s.qSub}>Top performers</span>
+                </span>
+                <ChevronRight size={16} className={s.qChev} />
+              </button>
+              <button className={`${s.quickCard} ${s.qArena}`} onClick={() => nav("/challenges")}>
+                <span className={s.qIcon}><Swords size={18} strokeWidth={1.75} /></span>
+                <span className={s.qText}>
+                  <span className={s.qTitle}>Arena</span>
+                  <span className={s.qSub}>Live challenges</span>
+                </span>
+                <ChevronRight size={16} className={s.qChev} />
+              </button>
+            </div>
+
+            {topBots.length > 0 && (
+              <div>
+                <div className={s.railTitle}>Trending bots</div>
+                <div className={s.hscroll}>
+                  {topBots.map((v) => (
+                    <button
+                      key={v.name}
+                      className={s.chip}
+                      onClick={() => { const db = botMap.get(v.name); nav(db ? botPath(db) : "/bot/" + encodeURIComponent(v.name)); }}
+                    >
+                      <BotAvatar seed={v.name} color={v.color || undefined} size={30} />
+                      <span className={s.chipName}>{v.name}</span>
+                      <span className={`num ${v.ret >= 0 ? "up" : "down"}`} style={{ fontSize: 12 }}>{pct(v.ret, true)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {topUsers.length > 0 && (
+              <div>
+                <div className={s.railTitle}>Top builders</div>
+                <div className={s.hscroll}>
+                  {topUsers.map((pr: DbProfile) => {
+                    const on = followed.has(pr.id);
+                    return (
+                      <div key={pr.id} className={s.bchip}>
+                        <span onClick={() => nav(builderPath(pr.handle))} style={{ display: "inline-flex" }}>
+                          <UserAvatar handle={pr.handle} name={pr.display_name} url={pr.avatar_url} color={pr.avatar_color || undefined} size={32} />
+                        </span>
+                        <span className={s.chipName} onClick={() => nav(builderPath(pr.handle))}>@{pr.handle}</span>
+                        <button className={`${s.followBtn} ${s.chipFollow} ${on ? s.on : ""}`} onClick={() => void toggleFollow(pr.id)}>
+                          {on ? "Following" : "Follow"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className={s.tabsRow}>
           <Segmented
             ariaLabel="Feed filter"
             value={tab}
             onChange={setTab}
-            labels="selected"
+            block={showDiscover}
+            labels={showDiscover ? "always" : "selected"}
             options={TABS.map(([k, label, icon]) => ({ value: k, label, icon }))}
           />
         </div>

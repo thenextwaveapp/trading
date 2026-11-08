@@ -19,13 +19,16 @@ import {
 } from "../lib/format";
 import DataTable, { type Column } from "../components/DataTable";
 import FleetChart from "../components/FleetChart";
+import Spark from "../components/Spark";
 import Rolling from "../components/Rolling";
 import ManagePosition from "../components/ManagePosition";
 import NewTrade from "../components/NewTrade";
 import { BotLink, Coin } from "../components/cells";
 import { useMyBots } from "../db/queries";
 import { botFromRow } from "../lib/bot";
+import { FlaskConical } from "lucide-react";
 import { useCurrentFleet } from "../fleets/CurrentFleetProvider";
+import { useIsPhone } from "../lib/responsive";
 import FleetSwitcher from "../fleets/FleetSwitcher";
 import Segmented from "../components/Segmented";
 import s from "./FleetView.module.css";
@@ -84,6 +87,16 @@ export default function FleetView() {
   });
   const [dragName, setDragName] = useState<string | null>(null);
   const [dragOverName, setDragOverName] = useState<string | null>(null);
+  // phones replace the cards/rows toggle with a single-column accordion list;
+  // each row expands in place to reveal the stats a table would show.
+  const isPhone = useIsPhone();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (name: string) =>
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
 
   const filtering = selected.size > 0; // legend selection filters the page
 
@@ -170,6 +183,27 @@ export default function FleetView() {
     [trades, now],
   );
 
+  // the whole fleet's equity over time — every bot's curve summed onto one
+  // timeline (carry-forward between a bot's own points) — for the hero sparkline
+  const fleetSeries = useMemo(() => {
+    const curves = v.map((b) => [...b.curve].sort((a, c) => a[0] - c[0]));
+    const times = Array.from(new Set(curves.flat().map((p) => p[0]))).sort((a, b) => a - b);
+    if (times.length < 2) return [] as number[];
+    const ptr = curves.map(() => 0);
+    const last = curves.map((c) => (c.length ? c[0][1] : START));
+    const out: number[] = [];
+    for (const t of times) {
+      let sum = 0;
+      for (let i = 0; i < curves.length; i++) {
+        const c = curves[i];
+        while (ptr[i] < c.length && c[ptr[i]][0] <= t) { last[i] = c[ptr[i]][1]; ptr[i]++; }
+        sum += last[i];
+      }
+      out.push(sum);
+    }
+    return out;
+  }, [v]);
+
   const top = useMemo(() => [...v].sort((a, b) => b.ret - a.ret)[0], [v]);
 
   const bots = useMemo(() => {
@@ -243,14 +277,14 @@ export default function FleetView() {
   ];
 
   const openCols: Column<Position>[] = [
-    { key: "bot", label: "Bot", sortable: true, value: (o) => o.bot, render: (o) => <BotLink name={o.bot} /> },
+    { key: "bot", label: "Bot", sortable: true, hidePhone: true, value: (o) => o.bot, render: (o) => <BotLink name={o.bot} /> },
     { key: "ticker", label: "Coin", sortable: true, value: (o) => o.ticker, render: (o) => <Coin {...o} /> },
     { key: "side", label: "Side", sortable: true, value: (o) => o.side, render: (o) => <span className={o.side === "short" ? "down" : "up"}>{o.side === "short" ? "Short" : "Long"}</span> },
-    { key: "entry", label: "Entry", sortable: true, value: (o) => o.entry, render: (o) => <span className="num">{px(o.entry)}</span> },
-    { key: "notional", label: "Size", sortable: true, value: (o) => o.notional, render: (o) => <span className="num muted">{usd(o.notional)}</span> },
-    { key: "t_sig", label: "Opened", sortable: true, value: (o) => o.t_sig, render: (o) => <span className="num muted">{dstr(o.t_sig)} {clock(o.t_sig)}</span> },
-    { key: "held", label: "Held", sortable: true, value: (o) => now - o.t_sig, render: (o) => <span className="num muted">{held(Math.max(0, now - o.t_sig))}</span> },
-    { key: "kind", label: "Exit", sortable: true, value: () => "Open", render: () => <span className="up">Open</span> },
+    { key: "entry", label: "Entry", sortable: true, hidePhone: true, value: (o) => o.entry, render: (o) => <span className="num">{px(o.entry)}</span> },
+    { key: "notional", label: "Size", sortable: true, hidePhone: true, value: (o) => o.notional, render: (o) => <span className="num muted">{usd(o.notional)}</span> },
+    { key: "t_sig", label: "Opened", sortable: true, hidePhone: true, value: (o) => o.t_sig, render: (o) => <span className="num muted">{dstr(o.t_sig)} {clock(o.t_sig)}</span> },
+    { key: "held", label: "Held", sortable: true, hidePhone: true, value: (o) => now - o.t_sig, render: (o) => <span className="num muted">{held(Math.max(0, now - o.t_sig))}</span> },
+    { key: "kind", label: "Exit", sortable: true, hidePhone: true, value: () => "Open", render: () => <span className="up">Open</span> },
     { key: "net", label: "Net", sortable: true, value: (o) => o.upct, render: (o) => <span className={`num ${(o.upct ?? 0) >= 0 ? "up" : "down"}`}>{pct(o.upct != null ? o.upct * 100 : null, true)}</span> },
     { key: "pnl", label: "P&L", sortable: true, value: (o) => o.upnl, render: (o) => <span className={`num ${(o.upnl ?? 0) >= 0 ? "up" : "down"}`}>{usd(o.upnl, true)}</span> },
     { key: "manage", label: "", sortable: false, value: () => 0, render: (o) => (
@@ -264,57 +298,86 @@ export default function FleetView() {
   ];
 
   const closedCols: Column<Trade>[] = [
-    { key: "bot", label: "Bot", sortable: true, value: (t) => t.bot, render: (t) => <BotLink name={t.bot} /> },
+    { key: "bot", label: "Bot", sortable: true, hidePhone: true, value: (t) => t.bot, render: (t) => <BotLink name={t.bot} /> },
     { key: "ticker", label: "Coin", sortable: true, value: (t) => t.ticker, render: (t) => <Coin {...t} /> },
     { key: "side", label: "Side", sortable: true, value: (t) => t.side ?? "long", render: (t) => <span className={t.side === "short" ? "down" : "up"}>{t.side === "short" ? "Short" : "Long"}</span> },
-    { key: "entry", label: "Entry", sortable: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
-    { key: "notional", label: "Size", sortable: true, value: (t) => t.notional, render: (t) => <span className="num muted">{usd(t.notional)}</span> },
-    { key: "t_sig", label: "Opened", sortable: true, value: (t) => t.t_sig, render: (t) => <span className="num muted">{dstr(t.t_sig)} {clock(t.t_sig)}</span> },
-    { key: "held", label: "Held", sortable: true, value: (t) => t.exit_t - t.t_sig, render: (t) => <span className="num muted">{held(t.exit_t - t.t_sig)}</span> },
-    { key: "kind", label: "Exit", sortable: true, value: (t) => t.kind, render: (t) => <span className="muted">{REASON[t.kind] ?? t.kind}</span> },
+    { key: "entry", label: "Entry", sortable: true, hidePhone: true, value: (t) => t.entry, render: (t) => <span className="num">{px(t.entry)}</span> },
+    { key: "notional", label: "Size", sortable: true, hidePhone: true, value: (t) => t.notional, render: (t) => <span className="num muted">{usd(t.notional)}</span> },
+    { key: "t_sig", label: "Opened", sortable: true, hidePhone: true, value: (t) => t.t_sig, render: (t) => <span className="num muted">{dstr(t.t_sig)} {clock(t.t_sig)}</span> },
+    { key: "held", label: "Held", sortable: true, hidePhone: true, value: (t) => t.exit_t - t.t_sig, render: (t) => <span className="num muted">{held(t.exit_t - t.t_sig)}</span> },
     { key: "net", label: "Net", sortable: true, value: (t) => t.net, render: (t) => <span className={`num ${t.pnl >= 0 ? "up" : "down"}`}>{pct(t.net * 100, true)}</span> },
     { key: "pnl", label: "P&L", sortable: true, value: (t) => t.pnl, render: (t) => <span className={`num ${t.pnl >= 0 ? "up" : "down"}`}>{usd(t.pnl, true)}</span> },
+    { key: "kind", label: "Exit", sortable: true, value: (t) => t.kind, render: (t) => <span className="muted">{REASON[t.kind] ?? t.kind}</span> },
   ];
 
   return (
     <>
       {/* the whole command center rides the shell — one grid, no exceptions */}
       <div className={`${p.shell} ${s.body}`}>
-        <section className={s.hero}>
-          <div className={s.heroMain}>
+        {isPhone ? (
+          /* mobile: a portfolio hero — big number, the full-width fleet curve,
+             one thin stat row */
+          <section className={s.heroM}>
             <div className="lbl" style={{ fontSize: 13 }}>Fleet total profit</div>
             <div className={`num gradtext ${s.heroBig}`}><Rolling value={totalProfit} format={(n) => usd(n, true)} /></div>
-            <div className={s.heroSub}>
+            <div className={s.heroDelta}>
               <span className={`num ${todayPnl >= 0 ? "up" : "down"}`}><Rolling value={todayPnl} format={(n) => usd(n, true)} /> today</span>
-              <span className="muted">{closedCount} closed trades · since {dstr(d.start)}</span>
+              <span className="muted">{closedCount} trades · since {dstr(d.start)}</span>
             </div>
-          </div>
-          <div className={s.heroCards}>
-            {top ? (
-              <div className={`card ${s.statCard}`} style={{ cursor: "pointer" }} onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(top.name))}>
-                <div className="lbl">Top bot</div>
-                <div className={s.statName}>{top.name}</div>
-                <div className={`num ${top.ret >= 0 ? "up" : "down"}`} style={{ fontSize: 13, marginTop: 4 }}>{pct(top.ret, true)} · {dol(top.equity)}</div>
-              </div>
-            ) : (
-              <div className={`card ${s.statCard}`}>
-                <div className="lbl">Top bot</div>
-                <div className={s.statName}>–</div>
-                <div className="lbl" style={{ marginTop: 4 }}>no bots trading yet</div>
+            {fleetSeries.length > 1 && (
+              <div className={s.heroSpark}>
+                <Spark data={fleetSeries} w={640} h={76} up={totalProfit >= 0} area />
               </div>
             )}
-            <div className={`card ${s.statCard}`}>
-              <div className="lbl">Open · unrealized</div>
-              <div className={`num ${unreal >= 0 ? "up" : "down"} ${s.statBig}`}><Rolling value={unreal} format={(n) => usd(n, true)} /></div>
-              <div className="lbl" style={{ marginTop: 2 }}>{open.length} open position{open.length === 1 ? "" : "s"}</div>
+            <div className={s.heroStats}>
+              <div className={s.heroStat}>
+                <span className="lbl">{open.length} open · unrealized</span>
+                <span className={`num ${s.heroStatVal} ${unreal >= 0 ? "up" : "down"}`}>{usd(unreal, true)}</span>
+              </div>
+              <div className={s.heroStat}>
+                <span className="lbl">Last 7 days</span>
+                <span className={`num ${s.heroStatVal} ${weekPnl >= 0 ? "up" : "down"}`}>{usd(weekPnl, true)}</span>
+              </div>
             </div>
-            <div className={`card ${s.statCard}`}>
-              <div className="lbl">Last 7 days</div>
-              <div className={`num ${weekPnl >= 0 ? "up" : "down"} ${s.statBig}`}><Rolling value={weekPnl} format={(n) => usd(n, true)} /></div>
-              <div className="lbl" style={{ marginTop: 2 }}>closed P&L, your fleet</div>
+          </section>
+        ) : (
+          /* desktop: the original — big number left, three stat cards right */
+          <section className={s.hero}>
+            <div className={s.heroMain}>
+              <div className="lbl" style={{ fontSize: 13 }}>Fleet total profit</div>
+              <div className={`num gradtext ${s.heroBig}`}><Rolling value={totalProfit} format={(n) => usd(n, true)} /></div>
+              <div className={s.heroSub}>
+                <span className={`num ${todayPnl >= 0 ? "up" : "down"}`}><Rolling value={todayPnl} format={(n) => usd(n, true)} /> today</span>
+                <span className="muted">{closedCount} closed trades · since {dstr(d.start)}</span>
+              </div>
             </div>
-          </div>
-        </section>
+            <div className={s.heroCards}>
+              {top ? (
+                <div className={`card ${s.statCard}`} style={{ cursor: "pointer" }} onClick={() => (window.location.hash = "#/bot/" + encodeURIComponent(top.name))}>
+                  <div className="lbl">Top bot</div>
+                  <div className={s.statName}>{top.name}</div>
+                  <div className={`num ${top.ret >= 0 ? "up" : "down"}`} style={{ fontSize: 13, marginTop: 4 }}>{pct(top.ret, true)} · {dol(top.equity)}</div>
+                </div>
+              ) : (
+                <div className={`card ${s.statCard}`}>
+                  <div className="lbl">Top bot</div>
+                  <div className={s.statName}>–</div>
+                  <div className="lbl" style={{ marginTop: 4 }}>no bots trading yet</div>
+                </div>
+              )}
+              <div className={`card ${s.statCard}`}>
+                <div className="lbl">Open · unrealized</div>
+                <div className={`num ${unreal >= 0 ? "up" : "down"} ${s.statBig}`}><Rolling value={unreal} format={(n) => usd(n, true)} /></div>
+                <div className="lbl" style={{ marginTop: 2 }}>{open.length} open position{open.length === 1 ? "" : "s"}</div>
+              </div>
+              <div className={`card ${s.statCard}`}>
+                <div className="lbl">Last 7 days</div>
+                <div className={`num ${weekPnl >= 0 ? "up" : "down"} ${s.statBig}`}><Rolling value={weekPnl} format={(n) => usd(n, true)} /></div>
+                <div className="lbl" style={{ marginTop: 2 }}>closed P&L, your fleet</div>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className={s.section}>
           <div className={s.sectionHead}>
@@ -324,20 +387,33 @@ export default function FleetView() {
               {filterChip}
             </div>
             <div className={s.right}>
-              {/* the fleet grows from here — straight into Compose */}
-              <button className={`${p.btn} ${p.pri}`} onClick={() => (window.location.hash = "#/build/compose")}>
-                Create new +
+              {/* two doors into Build: the workshop (icon) vs. the fast path
+                  straight into Compose */}
+              <button
+                className={`${p.btn} ${s.buildBtn}`}
+                onClick={() => (window.location.hash = "#/build")}
+                title="Lab"
+                aria-label="Lab"
+              >
+                <FlaskConical size={16} strokeWidth={1.5} />
+                Lab
               </button>
-              <Segmented
-                ariaLabel="View mode"
-                size="sm"
-                value={view}
-                onChange={setViewP}
-                options={[
-                  { value: "cards", label: <CardsIcon />, title: "Cards view" },
-                  { value: "rows", label: <RowsIcon />, title: "Rows view" },
-                ]}
-              />
+              <button className={`${p.btn} ${p.pri}`} onClick={() => (window.location.hash = "#/build/compose")}>
+                Compose
+              </button>
+              {/* cards/rows is a desktop affordance; phones use the accordion list */}
+              {!isPhone && (
+                <Segmented
+                  ariaLabel="View mode"
+                  size="sm"
+                  value={view}
+                  onChange={setViewP}
+                  options={[
+                    { value: "cards", label: <CardsIcon />, title: "Cards view" },
+                    { value: "rows", label: <RowsIcon />, title: "Rows view" },
+                  ]}
+                />
+              )}
             </div>
           </div>
 
@@ -345,6 +421,55 @@ export default function FleetView() {
             <div className={s.emptyFleet}>
               No bots in this fleet yet — build one and deploy it here, or switch fleets above.
             </div>
+          ) : isPhone ? (
+            <ul className={s.mList}>
+              {shownBots.map((b) => {
+                const pos = b.v.ret >= 0;
+                const open = expanded.has(b.v.name);
+                return (
+                  <li key={b.v.name} className={`${s.mItem} ${open ? s.mItemOpen : ""}`}>
+                    <button
+                      className={s.mRow}
+                      onClick={() => toggleExpand(b.v.name)}
+                      aria-expanded={open}
+                    >
+                      <span className={s.mLeft}>
+                        <span
+                          className={s.mDot}
+                          style={{ background: b.v.color || "var(--muted-3)" }}
+                          aria-hidden
+                        />
+                        <span className={s.mNameWrap}>
+                          <span className={s.mName}>
+                            {b.v.name}
+                            {b.v.kill && <span className="down" style={{ fontSize: 10 }}> KILL</span>}
+                          </span>
+                          <span className={s.mSub}>
+                            {DIRLBL[b.v.group ?? ""] ?? b.v.group ?? "–"} · {b.v.open.length} open
+                          </span>
+                        </span>
+                      </span>
+                      <span className={s.mRight}>
+                        <span className={`num ${pos ? "up" : "down"} ${s.mRet}`}>{pct(b.v.ret, true)}</span>
+                        <span className={`num ${s.mEquity}`}>{dol(b.v.equity)}</span>
+                      </span>
+                      <svg className={`${s.mChev} ${open ? s.mChevOpen : ""}`} width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    {open && (
+                      <div className={s.mDetail}>
+                        <div className={s.mStat}><span>Closed</span><span className="num">{b.v.closed}</span></div>
+                        <div className={s.mStat}><span>Win</span><span className="num">{b.v.win == null ? "–" : b.v.win + "%"}</span></div>
+                        <div className={s.mStat}><span>Avg net</span><span className={`num ${(b.v.avg ?? 0) >= 0 ? "up" : "down"}`}>{pct(b.v.avg, true)}</span></div>
+                        <div className={s.mStat}><span>Backtest</span><span className="num">{pct(b.v.bt)}</span></div>
+                        <a className={s.mProfile} href={"#/bot/" + encodeURIComponent(b.v.name)}>View full profile →</a>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           ) : view === "rows" ? (
             <div style={{ marginTop: 18 }}>
               <DataTable columns={botCols} rows={shownBots.map((b) => b.v)} />

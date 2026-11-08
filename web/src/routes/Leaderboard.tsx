@@ -1,5 +1,6 @@
 import { botColor } from "../lib/brand";
 import { useEffect, useMemo, useState } from "react";
+import { GitFork } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAssistant } from "../assistant/AssistantProvider";
 import { useData } from "../api/context";
@@ -12,6 +13,8 @@ import Spark from "../components/Spark";
 import { RowsSkeleton } from "../components/Skeleton";
 import Segmented from "../components/Segmented";
 import SearchField from "../components/SearchField";
+import DataTable, { type Column } from "../components/DataTable";
+import { useIsPhone } from "../lib/responsive";
 import p from "./pages.module.css";
 import { botPath, builderPath } from "../lib/paths";
 import s from "./Leaderboard.module.css";
@@ -39,6 +42,7 @@ export default function Leaderboard() {
   const live = useData();
   const { user, profile } = useAuth();
   const me = useCurrentHandle();
+  const isPhone = useIsPhone();
   const { data: bots, loading } = useBots();
   const { data: profiles } = usePublicProfiles();
   const [marketFilter, setMarketFilter] = useState<"all" | "crypto" | "equity" | "prediction">("all");
@@ -141,6 +145,58 @@ export default function Leaderboard() {
 
   const top = rows.slice(0, 3);
 
+  const cols: Column<Row>[] = [
+    { key: "rank", label: "#", hidePhone: true, render: (_r, i) => <span className="num muted">{i + 1}</span> },
+    {
+      key: "bot",
+      label: "Bot",
+      align: "left",
+      sortable: true,
+      value: (r) => r.bot.name,
+      render: (r) => (
+        <span
+          className="lk"
+          style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
+          onClick={(e) => { e.stopPropagation(); nav(botPath(r.bot)); }}
+        >
+          <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: "none" }}>
+            <rect width="28" height="28" rx="14" fill="#12161D" />
+            <path d={identicon(r.bot.name, 18)} fill={botColor(r.bot)} transform="translate(5 5)" />
+          </svg>
+          <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{r.bot.name}</span>
+          {r.openCount > 0 && <span className="blueDot" style={{ flex: "none" }} title={`${r.openCount} open trade(s)`} />}
+        </span>
+      ),
+    },
+    { key: "builder", label: "Builder", align: "left", sortable: true, hidePhone: true, value: (r) => r.builder, render: (r) => <span className="lk muted" onClick={(e) => { e.stopPropagation(); r.builder && nav(builderPath(r.builder)); }}>{r.builder ? `@${r.builder}` : "–"}</span> },
+    { key: "direction", label: "Direction", align: "left", sortable: true, hidePhone: true, value: (r) => r.bot.direction ?? "", render: (r) => <span className="muted">{DIRLBL[r.bot.direction ?? ""] ?? r.bot.direction}</span> },
+    { key: "live", label: `Live (${RANGES[range][0]})`, sortable: true, value: (r) => r.ret, render: (r) => <span className={`num ${r.ret >= 0 ? "up" : "down"}`}>{pct(r.ret, true)}</span> },
+    { key: "equity", label: "Equity", sortable: true, value: (r) => r.equity, render: (r) => <span className="num">{dol(r.equity)}</span> },
+    { key: "win", label: "Win rate", sortable: true, hidePhone: true, value: (r) => r.win, render: (r) => <span className="num">{r.win == null ? "–" : r.win + "%"}</span> },
+    { key: "trades", label: "Trades", sortable: true, hidePhone: true, value: (r) => r.trades, render: (r) => <span className="num muted">{r.trades}{r.openCount ? ` (+${r.openCount})` : ""}</span> },
+    { key: "curve", label: "Curve", align: "left", hidePhone: true, render: (r) => <Spark data={r.v?.curve.length ? r.v.curve.map((c) => c[1]) : [START, r.equity]} w={120} h={28} up={r.ret >= 0} color={botColor(r.bot)} /> },
+    {
+      key: "actions",
+      label: "",
+      hidePhone: true,
+      render: (r) => (
+        <span style={{ display: "inline-flex", gap: 6 }}>
+          {(r.bot.visibility === "public" || (user && r.bot.owner === user.id)) && (
+            <button
+              className="copyBtn"
+              disabled={copyingId === r.bot.id}
+              onClick={(e) => { e.stopPropagation(); void handleCopy(r.bot); }}
+            >
+              <GitFork size={14} strokeWidth={1.75} />
+              {copyingId === r.bot.id ? "…" : "Copy"}
+            </button>
+          )}
+          <button className={`${p.btn} ${p.sm}`} onClick={(e) => { e.stopPropagation(); nav(botPath(r.bot)); }}>Open</button>
+        </span>
+      ),
+    },
+  ];
+
   return (
     <>
       {/* no page title — the nav's active pill already says where you are */}
@@ -169,7 +225,7 @@ export default function Leaderboard() {
               options={RANGES.map(([label], i) => ({ value: i, label }))}
             />
           </div>
-          <SearchField value={q} onChange={setQ} placeholder="Search bots, builders" className={s.fSearch} />
+          {!isPhone && <SearchField value={q} onChange={setQ} placeholder="Search bots, builders" className={s.fSearch} />}
         </div>
 
         {loading ? (
@@ -222,28 +278,31 @@ export default function Leaderboard() {
                     </div>
                     <div className={s.cardName} onClick={() => nav(botPath(row.bot))}>{row.bot.name}</div>
                     <div className={`lk ${s.builder}`} onClick={() => row.builder && nav(builderPath(row.builder))}>{row.builder ? `@${row.builder}` : "—"}</div>
-                    <Spark data={sparkPts} w={260} h={44} up={up} color={col} />
+                    {!isPhone && <Spark data={sparkPts} w={260} h={44} up={up} color={col} />}
                     <div className={s.cardFoot}>
                       <div>
                         <div className="lbl">Live · {RANGES[range][0]}</div>
-                        <div className={`num ${up ? "up" : "down"}`} style={{ fontSize: 28, marginTop: 4 }}>{pct(row.ret, true)}</div>
+                        <div className={`num ${up ? "up" : "down"}`} style={{ fontSize: isPhone ? 18 : 28, marginTop: 4 }}>{pct(row.ret, true)}</div>
                         <div className="lbl num" style={{ marginTop: 2 }}>{dol(row.equity)} · {row.trades} closed{row.openCount ? ` · ${row.openCount} open` : ""}</div>
                       </div>
-                      <div className={s.cardCta}>
-                        <span className="chip">{row.bot.visibility === "public" ? "Public strategy" : "Results only"}</span>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {(row.bot.visibility === "public" || (user && row.bot.owner === user.id)) && (
-                            <button
-                              className="copyBtn"
-                              disabled={copyingId === row.bot.id}
-                              onClick={() => void handleCopy(row.bot)}
-                            >
-                              {copyingId === row.bot.id ? "…" : "Copy"}
-                            </button>
-                          )}
-                          <button className={`${p.btn} ${p.sm}`} onClick={() => nav(botPath(row.bot))}>Open</button>
+                      {!isPhone && (
+                        <div className={s.cardCta}>
+                          <span className="chip">{row.bot.visibility === "public" ? "Public strategy" : "Results only"}</span>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {(row.bot.visibility === "public" || (user && row.bot.owner === user.id)) && (
+                              <button
+                                className="copyBtn"
+                                disabled={copyingId === row.bot.id}
+                                onClick={() => void handleCopy(row.bot)}
+                              >
+                                <GitFork size={14} strokeWidth={1.75} />
+                                {copyingId === row.bot.id ? "…" : "Copy"}
+                              </button>
+                            )}
+                            <button className={`${p.btn} ${p.sm}`} onClick={() => nav(botPath(row.bot))}>Open</button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -251,70 +310,14 @@ export default function Leaderboard() {
             </div>
             )}
 
-            <div className={s.tableWrap}>
-              <table className={s.table}>
-                <thead>
-                  <tr>
-                    <th className={s.num}>#</th>
-                    <th className={s.left}>Bot</th>
-                    <th className={s.left}>Builder</th>
-                    <th className={s.left}>Direction</th>
-                    <th>Live ({RANGES[range][0]})</th>
-                    <th>Equity</th>
-                    <th>Win rate</th>
-                    <th>Trades</th>
-                    <th className={s.left}>Curve</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => {
-                    const up = row.ret >= 0;
-                    const col = botColor(row.bot);
-                    const sparkPts = row.v?.curve.length ? row.v.curve.map((c) => c[1]) : [START, row.equity];
-                    return (
-                      <tr key={row.bot.id} className={me && row.builder === me ? s.me : ""}>
-                        <td className={`num ${s.num}`}>{i + 1}</td>
-                        <td className={s.left}>
-                          <span
-                            className="lk"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
-                            onClick={() => nav(botPath(row.bot))}
-                          >
-                            <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: "none" }}>
-                              <rect width="28" height="28" rx="14" fill="#12161D" />
-                              <path d={identicon(row.bot.name, 18)} fill={col} transform="translate(5 5)" />
-                            </svg>
-                            <span>{row.bot.name}</span>
-                            {row.openCount > 0 && <span className="blueDot" title={`${row.openCount} open trade(s)`} />}
-                          </span>
-                        </td>
-                        <td className={s.left}><span className="lk muted" onClick={() => row.builder && nav(builderPath(row.builder))}>{row.builder ? `@${row.builder}` : "–"}</span></td>
-                        <td className={s.left}><span className="muted">{DIRLBL[row.bot.direction ?? ""] ?? row.bot.direction}</span></td>
-                        <td className={`num ${up ? "up" : "down"}`}>{pct(row.ret, true)}</td>
-                        <td className="num">{dol(row.equity)}</td>
-                        <td className="num">{row.win == null ? "–" : row.win + "%"}</td>
-                        <td className="num muted">{row.trades}{row.openCount ? ` (+${row.openCount})` : ""}</td>
-                        <td className={s.left}><Spark data={sparkPts} w={120} h={28} up={up} color={col} /></td>
-                        <td>
-                          <span style={{ display: "inline-flex", gap: 6 }}>
-                            {(row.bot.visibility === "public" || (user && row.bot.owner === user.id)) && (
-                              <button
-                                className="copyBtn"
-                                disabled={copyingId === row.bot.id}
-                                onClick={() => void handleCopy(row.bot)}
-                              >
-                                {copyingId === row.bot.id ? "…" : "Copy"}
-                              </button>
-                            )}
-                            <button className={`${p.btn} ${p.sm}`} onClick={() => nav(botPath(row.bot))}>Open</button>
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div style={{ marginTop: 28 }}>
+              <DataTable
+                columns={cols}
+                rows={rows}
+                pageSize={25}
+                rowKey={(r) => r.bot.id}
+                rowClass={(r) => (me && r.builder === me ? s.me : undefined)}
+              />
             </div>
           </>
         )}

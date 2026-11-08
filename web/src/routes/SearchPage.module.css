@@ -1,0 +1,53 @@
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(12px + env(safe-area-inset-top)) 0 12px;
+}
+.back {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-left: -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--fg);
+  font: inherit;
+  /* 16px minimum — anything smaller makes iOS Safari zoom on focus */
+  font-size: 16px;
+}
+.input::placeholder { color: var(--muted-3); }
+.results {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}

@@ -1,5 +1,6 @@
 import { DEFAULT_BOT_COLOR, botColor } from "../lib/brand";
 import { useEffect, useMemo, useState } from "react";
+import { GitFork } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useData } from "../api/context";
 import { useAssistant } from "../assistant/AssistantProvider";
@@ -9,6 +10,7 @@ import { botPath, botSlugOf, builderPath } from "../lib/paths";
 import type { Visibility } from "../db/types";
 import type { Position, Trade } from "../api/types";
 import { botFromRow } from "../lib/bot";
+import { useIsPhone } from "../lib/responsive";
 import {
   DIRLBL,
   REASON,
@@ -157,6 +159,7 @@ export default function BotProfile() {
           (b) => b.builder?.handle === hParam.slice(1) && botSlugOf(b) === botSlug,
         )?.name ?? ""
       : "");
+  const isPhone = useIsPhone();
   const liveV = d.bots.find((x) => x.name === name);
   const { data: bot, loading: botLoading } = useBot(name);
   const { data: parentBot } = useMyBot(bot?.copied_from ?? null);
@@ -264,7 +267,7 @@ export default function BotProfile() {
   if (bot && vis === "private" && !isOwner) {
     return (
       <>
-        <BackBar fallbackPath="/" fallbackLabel="Fleet" />
+        {!isPhone && <BackBar fallbackPath="/" fallbackLabel="Fleet" />}
         <div className={s.body}>
           <div className={s.missing}>
             This bot is private.{" "}
@@ -281,7 +284,7 @@ export default function BotProfile() {
     if (botLoading) return <div className="muted" style={{ padding: 40 }}>Loading…</div>;
     return (
       <>
-        <BackBar fallbackPath="/" fallbackLabel="Fleet" />
+        {!isPhone && <BackBar fallbackPath="/" fallbackLabel="Fleet" />}
         <div className={s.body}>
           <div className={s.missing}>
             No bot named “{name}”.{" "}
@@ -378,10 +381,11 @@ export default function BotProfile() {
 
   return (
     <>
-      <BackBar fallbackPath="/" fallbackLabel="Fleet" />
+      {!isPhone && <BackBar fallbackPath="/" fallbackLabel="Fleet" />}
       <div className={`${p.narrow} ${s.body}`}>
         <section className={s.hero}>
-          <svg width="104" height="104" viewBox="0 0 104 104">
+          {isPhone && <BackBar bare fallbackPath="/" fallbackLabel="Fleet" />}
+          <svg width={isPhone ? 72 : 104} height={isPhone ? 72 : 104} viewBox="0 0 104 104" style={{ flex: "none" }}>
             <rect width="104" height="104" rx="52" fill="#12161D" />
             <path d={identicon(name, 60)} fill={v.color || DEFAULT_BOT_COLOR} transform="translate(22 22)" />
           </svg>
@@ -433,6 +437,7 @@ export default function BotProfile() {
                 disabled={copying}
                 onClick={() => void onCopy()}
               >
+                <GitFork size={14} strokeWidth={1.75} />
                 {copying ? "Copying…" : "Copy"}
               </button>
             )}

@@ -11,6 +11,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Allow Cloudflare quick-tunnel hosts so the dev server can be reached over
+    // HTTPS (a secure context) from a phone — required for Supabase auth, which
+    // needs crypto.subtle and so breaks over a bare-IP http origin.
+    allowedHosts: [".trycloudflare.com"],
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },
       "/candles": { target: API_TARGET, changeOrigin: true },

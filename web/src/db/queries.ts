@@ -612,6 +612,7 @@ export const updateBuilderProfile = (
       | "avatar_color"
       | "profile_public"
       | "bots_on_leaderboard"
+      | "share_to_feed"
       | "default_bot_visibility"
     >
   >,

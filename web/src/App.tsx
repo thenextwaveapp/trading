@@ -20,6 +20,7 @@ import BotProfile from "./routes/BotProfile";
 import Leaderboard from "./routes/Leaderboard";
 import Market from "./routes/Market";
 import MarketDetail from "./routes/MarketDetail";
+import SearchPage from "./routes/SearchPage";
 import Challenges from "./routes/Challenges";
 import ChallengeDetail from "./routes/ChallengeDetail";
 import Builder from "./routes/Builder";
@@ -95,6 +96,7 @@ export default function App() {
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/market" element={<Market />} />
               <Route path="/market/:symbol" element={<MarketDetail />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/challenges" element={<Challenges />} />
               <Route path="/challenge/:slug" element={<ChallengeDetail />} />
               <Route path="/builder/:handle?" element={<Builder />} />
@@ -112,7 +114,9 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
-          <Assistant />
+          {/* the search page is its own full-screen search surface — the
+              Strategy Navigator composer would just compete with it */}
+          {loc.pathname !== "/search" && <Assistant />}
         </div>
        </AssistantProvider>
        </UpgradeProvider>

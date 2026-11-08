@@ -191,10 +191,39 @@
 /* ---- mobile ---- */
 @media (max-width: 860px) {
   .hero {
-    gap: 20px;
-    padding: 24px 0;
+    gap: 16px;
+    padding: 24px 0 28px;
+    align-items: flex-start;
+  }
+  /* avatar left, name/note/chips to its right (no wrap-under); the action
+     buttons drop to their own full-width row beneath */
+  .heroMain {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .actions {
+    width: 100%;
   }
   .h1 {
-    font-size: 30px;
+    font-size: 26px;
+  }
+  .note {
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .chips {
+    margin-top: 12px;
+  }
+  /* stat tiles: a tidy 2-up grid, tighter than the desktop glass slabs */
+  .statgrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .statcell {
+    padding: 14px 15px;
+  }
+  .statBig {
+    font-size: 20px;
+    margin-top: 4px;
   }
 }

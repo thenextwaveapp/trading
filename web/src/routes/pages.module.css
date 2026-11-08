@@ -47,23 +47,21 @@
   color: var(--fg);
   font-weight: 400;
 }
-.crumbLink {
+.backBtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 12px 0 9px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-left: -9px;
+  border: none;
+  background: none;
   color: var(--muted);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease;
 }
-.crumbLink:hover {
+.backBtn:hover {
   color: var(--fg);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
 }
 
 /* Thin glass control: a faint translucent fill over the dark page reads as light
@@ -178,6 +176,13 @@
   font-size: 26px;
   margin-top: 8px;
 }
+/* a free-flowing row of label/value stats (market detail) — not glass tiles */
+.inlineStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  margin-bottom: 24px;
+}
 .gradtext {
   background: linear-gradient(180deg, #ffffff 35%, #9aa4b2 100%);
   -webkit-background-clip: text;
@@ -210,8 +215,21 @@
   .sectionHead {
     margin: 28px 0 14px;
   }
+  .statcell {
+    padding: 14px 15px;
+  }
   .statBig {
-    font-size: 22px;
+    font-size: 20px;
+    margin-top: 4px;
+  }
+  .inlineStats {
+    gap: 14px 22px;
+    margin-bottom: 20px;
+  }
+  /* the "Build a bot on X" CTA reads cleaner full-width on a phone */
+  .ctaFull {
+    width: 100%;
+    justify-content: center;
   }
 }
 @media (max-width: 480px) {

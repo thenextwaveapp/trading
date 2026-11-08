@@ -2,6 +2,7 @@
   padding: 0 var(--gutter);
 }
 
+/* ── desktop hero (original): big number left, three stat cards right ──────── */
 .hero {
   display: flex;
   flex-wrap: wrap;
@@ -55,6 +56,47 @@
 .statName {
   font-size: 18px;
   margin-top: 8px;
+}
+
+/* ── mobile hero: portfolio number + full-width fleet curve + one stat row ─── */
+.heroM {
+  padding: 26px 0;
+  border-bottom: 1px solid var(--line);
+}
+.heroM .heroBig {
+  font-size: 46px;
+  line-height: 1;
+  margin-top: 8px;
+}
+.heroDelta {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 14px;
+}
+.heroSpark {
+  margin-top: 20px;
+}
+.heroSpark svg {
+  display: block;
+  width: 100%;
+  height: 64px;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.4));
+}
+.heroStats {
+  display: flex;
+  gap: 36px;
+  margin-top: 20px;
+}
+.heroStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.heroStatVal {
+  font-size: 20px;
 }
 
 .section {
@@ -245,23 +287,6 @@
 
 /* ---- mobile ---- */
 @media (max-width: 860px) {
-  .hero {
-    gap: 24px;
-    padding: 28px 0;
-  }
-  .heroBig {
-    font-size: 42px;
-  }
-  .heroCards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .statCard {
-    padding: 14px;
-  }
-  .statBig {
-    font-size: 20px;
-  }
   .section {
     padding-top: 28px;
   }
@@ -270,10 +295,141 @@
   }
 }
 @media (max-width: 480px) {
-  .heroBig {
-    font-size: 36px;
+  .heroM .heroBig {
+    font-size: 40px;
   }
-  .heroCards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+}
+
+/* ── phones: single-column accordion list of bots (replaces cards/rows) ──────
+   Each row shows the headline (name + return + equity); tap expands in place to
+   reveal the stats the desktop table would show, plus a link to the full page. */
+.mList {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mItem {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.015);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.mItemOpen {
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.03);
+}
+.mRow {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mLeft {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.mNameWrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mName {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mSub {
+  font-size: 11.5px;
+  color: var(--muted-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mRight {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.mRet {
+  font-size: 14px;
+  font-weight: 600;
+}
+.mEquity {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mChev {
+  flex: none;
+  color: var(--muted-3);
+  transition: transform 0.2s ease;
+}
+.mChevOpen {
+  transform: rotate(180deg);
+}
+.mDetail {
+  padding: 2px 14px 12px;
+  animation: mDetailIn 0.18s ease both;
+}
+@keyframes mDetailIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.mStat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+  border-top: 1px solid var(--line);
+}
+.mStat > span:first-child {
+  color: var(--muted-2);
+}
+.mProfile {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--accent-soft);
+  text-decoration: none;
+}
+.mProfile:active {
+  opacity: 0.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mDetail { animation: none; }
+}
+
+/* the flask doorway into the Build hub (the "Lab"), paired left of the primary
+   Compose key — icon + short word so it reads with context, not as a mystery */
+.buildBtn {
+  padding: 0 14px;
+}
+.buildBtn svg {
+  opacity: 0.85;
 }

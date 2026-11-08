@@ -95,3 +95,9 @@
   font-size: 12px;
   margin-left: auto;
 }
+
+/* phones: the leaner table shows ticker only — the long instrument name would
+   bloat the Coin column (handled by DataTable's hidePhone for other cols) */
+@media (max-width: 860px) {
+  .base { display: none; }
+}

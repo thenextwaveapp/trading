@@ -86,7 +86,7 @@ export default function TopBar() {
     ? [
         { l: "Feed", p: "/feed", i: "feed" },
         { l: "Markets", p: "/market", i: "market" },
-        { l: "Build", p: "/build", i: "build" },
+        { l: "Lab", p: "/build", i: "build" },
       ]
     : [{ l: "Markets", p: "/market", i: "market" }];
   const secondary = [
@@ -201,6 +201,9 @@ export default function TopBar() {
     </button>
   ) : null;
 
+  // the signed-in user's own profile (falls back to settings if no handle yet)
+  const profilePath = handle ? builderPath(handle) : "/settings";
+
   // ── mobile bottom tab bar (logged-in only) ──────────────────────────────
   // Phones drop the floating top bar for a thumb-zone tab bar. Five highest
   // -traffic surfaces, uniform icon+label tabs: Fleet (home + live telltale),
@@ -232,8 +235,8 @@ export default function TopBar() {
       </button>
 
       <button
-        className={`${s.tab} ${search ? s.tabActive : ""}`}
-        onClick={() => setSearch(true)}
+        className={`${s.tab} ${isActive("/search") ? s.tabActive : ""}`}
+        onClick={go("/search")}
         aria-label="Search"
       >
         <span className={s.tabIcon}><Search size={22} strokeWidth={1.6} /></span>
@@ -250,34 +253,13 @@ export default function TopBar() {
       </button>
 
       <button
-        className={`${s.tab} ${s.tabYou} ${menu ? s.tabActive : ""}`}
-        onClick={() => setMenu((m) => !m)}
-        aria-label="Account"
+        className={`${s.tab} ${s.tabYou} ${isActive(profilePath) ? s.tabActive : ""}`}
+        onClick={go(profilePath)}
+        aria-label="Your profile"
       >
-        <span className={s.tabIcon}>
-          <UserAvatar
-            handle={handle}
-            name={profile?.display_name}
-            url={profile?.avatar_url}
-            color={profile?.avatar_color || undefined}
-            size={24}
-          />
-        </span>
+        <span className={s.tabIcon}><User size={22} strokeWidth={1.6} /></span>
         <span className={s.tabLbl}>You</span>
       </button>
-
-      {menu && <div className={s.tabMenuScrim} onClick={() => setMenu(false)} />}
-      {menu && (
-        <div className={s.tabMenu} role="menu">
-          <button className={s.menuItem} onClick={() => nav(handle ? builderPath(handle) : "/settings")}>
-            {ICONS.user}
-            Your profile
-          </button>
-          <button className={s.menuItem} onClick={go("/settings")}>{ICONS.gear}Settings</button>
-          <div className={s.menuSep} />
-          <button className={s.menuItem} onClick={() => { setMenu(false); signOut(); }}>{ICONS.out}Log out</button>
-        </div>
-      )}
     </nav>
   ) : null;
 

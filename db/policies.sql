@@ -86,7 +86,9 @@ CREATE POLICY pf_universe_filters_read ON public.pf_universe_filters FOR SELECT 
 -- follows (follower writes; public read) and events (visibility read; service writes)
 CREATE POLICY pf_follows_rw   ON public.pf_follows FOR ALL USING (follower = auth.uid()) WITH CHECK (follower = auth.uid());
 CREATE POLICY pf_follows_read ON public.pf_follows FOR SELECT USING (true);
-CREATE POLICY pf_events_read  ON public.pf_events  FOR SELECT USING (visibility <> 'private' OR actor = auth.uid());
+-- feed gating by bot visibility tier + the owner's share_to_feed master switch
+-- (see pf_event_in_feed() + migration 20261107_feed_privacy.sql)
+CREATE POLICY pf_events_read  ON public.pf_events  FOR SELECT USING (public.pf_event_in_feed(type, bot_id));
 
 -- assistant chat history (strictly private to its owner)
 CREATE POLICY assistant_msgs_select_own ON public.pf_assistant_messages FOR SELECT USING (auth.uid() = user_id);

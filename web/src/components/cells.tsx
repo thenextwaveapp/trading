@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useData } from "../api/context";
 import p from "../routes/pages.module.css";
@@ -21,7 +22,7 @@ function labelForPath(fullPath: string): string {
   const path = fullPath.split("?")[0];
   if (path === "/" || path === "/fleet") return "Fleet";
   if (path === "/leaderboard") return "Leaderboard";
-  if (path === "/build") return "Build";
+  if (path === "/build") return "Lab";
   if (path === "/build/compose") return "Compose";
   if (path === "/build/training") return "Training";
   if (path === "/build/trials") return "Trials";
@@ -48,38 +49,36 @@ export function BackBar({
   label: explicitLabel,
   fallbackPath = "/",
   fallbackLabel = "Fleet",
+  bare = false,
 }: {
   to?: string;
   label?: string;
   fallbackPath?: string;
   fallbackLabel?: string;
+  /** render just the arrow button (no row wrapper) so it can sit inside a
+   *  page header — on phones this keeps the back control from eating a row */
+  bare?: boolean;
 }) {
   const nav = useNavigate();
   const loc = useLocation();
   const cur = loc.pathname + loc.search;
-  if (to && explicitLabel) {
-    return (
-      <div className={p.crumb}>
-        <span className={p.crumbLink} onClick={() => nav(to)}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M9.5 3.5 5 8l4.5 4.5" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-          {explicitLabel}
-        </span>
-      </div>
-    );
-  }
-  // Find most recent previous entry different from current path (ignoring query-only self-updates)
+
+  // Most recent previous entry whose path differs from here (query-only
+  // self-updates don't count as a place to go back to).
   let prev: string | null = null;
-  for (let i = navStack.length - 1; i >= 0; i--) {
-    if (navStack[i].split("?")[0] !== loc.pathname) {
-      prev = navStack[i];
-      break;
+  if (!(to && explicitLabel)) {
+    for (let i = navStack.length - 1; i >= 0; i--) {
+      if (navStack[i].split("?")[0] !== loc.pathname) {
+        prev = navStack[i];
+        break;
+      }
     }
   }
-  const label = prev ? labelForPath(prev) : fallbackLabel;
+  const label = to && explicitLabel ? explicitLabel : prev ? labelForPath(prev) : fallbackLabel;
   const onClick = () => {
-    if (prev) {
+    if (to && explicitLabel) {
+      nav(to);
+    } else if (prev) {
       while (navStack.length > 1 && navStack[navStack.length - 1] !== prev) {
         navStack.pop();
       }
@@ -88,16 +87,13 @@ export function BackBar({
       nav(fallbackPath);
     }
   };
-  return (
-    <div className={p.crumb}>
-      <span className={p.crumbLink} onClick={onClick}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M9.5 3.5 5 8l4.5 4.5" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-        {label}
-      </span>
-    </div>
+
+  const btn = (
+    <button className={p.backBtn} onClick={onClick} aria-label={`Back to ${label}`}>
+      <ArrowLeft size={20} strokeWidth={1.75} />
+    </button>
   );
+  return bare ? btn : <div className={p.crumb}>{btn}</div>;
 }
 
 export function BotLink({ name }: { name: string }) {

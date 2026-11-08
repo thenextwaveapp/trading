@@ -5,6 +5,7 @@ import { enterChallenge, useChallenge, useChallengeBoard } from "../db/queries";
 import type { DbBotCard, DbChallengeStanding } from "../db/types";
 import { pct } from "../lib/format";
 import { JUDGE_LABEL, holeSummary } from "./Challenges";
+import { BackBar } from "../components/cells";
 import p from "./pages.module.css";
 import s from "./Challenges.module.css";
 
@@ -58,9 +59,7 @@ export default function ChallengeDetail() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className={p.crumbLink} onClick={() => nav("/challenges")}>← Challenges</span>
-      </div>
+      <BackBar to="/challenges" label="Challenges" />
 
       <div className={p.shell}>
       <div className={p.top}>

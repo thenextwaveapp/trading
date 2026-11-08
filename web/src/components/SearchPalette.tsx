@@ -77,19 +77,14 @@ function ident(seed: string, color: string) {
   );
 }
 
-export default function SearchPalette({ onClose }: { onClose: () => void }) {
-  const nav = useNavigate();
-  const [q, setQ] = useState("");
-  const [active, setActive] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-
+/** The search index + filtering, shared by the desktop overlay palette and the
+ *  mobile full-page search. Returns grouped results and a flat list (for
+ *  keyboard navigation). */
+export function useSearchResults(q: string) {
   const { data: bots } = useBots();
   const { data: challenges } = useChallenges();
   const { data: profiles } = usePublicProfiles();
   const { data: market } = useMarket("crypto");
-
-  useEffect(() => inputRef.current?.focus(), []);
-  useEffect(() => setActive(0), [q]);
 
   const query = q.trim().toLowerCase();
 
@@ -129,6 +124,65 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
 
   const flat = useMemo(() => groups.flatMap(([, r]) => r), [groups]);
 
+  return { groups, flat };
+}
+
+/** The grouped result rows, shared by the overlay and the page. Callers own the
+ *  scroll container around it. */
+export function SearchResults({
+  groups,
+  flat,
+  query,
+  active,
+  setActive,
+  onPick,
+}: {
+  groups: [string, Res[]][];
+  flat: Res[];
+  query: string;
+  active: number;
+  setActive: (i: number) => void;
+  onPick: (r: Res) => void;
+}) {
+  if (flat.length === 0) {
+    return <div className={s.empty}>No matches{query ? ` for “${query}”` : ""}.</div>;
+  }
+  return (
+    <>
+      {groups.map(([name, rows]) => (
+        <div key={name}>
+          <div className={s.group}>{name}</div>
+          {rows.map((r) => {
+            const idx = flat.indexOf(r);
+            return (
+              <div
+                key={r.id}
+                className={`${s.item} ${idx === active ? s.active : ""}`}
+                onMouseEnter={() => setActive(idx)}
+                onClick={() => onPick(r)}
+              >
+                {r.dot}
+                <span className={s.label}>{r.label}</span>
+                <span className={s.sub}>{r.sub}</span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
+export default function SearchPalette({ onClose }: { onClose: () => void }) {
+  const nav = useNavigate();
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { groups, flat } = useSearchResults(q);
+
+  useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => setActive(0), [q]);
+
   const go = (r: Res) => {
     nav(r.path);
     onClose();
@@ -160,30 +214,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
             <span className={s.esc}>esc</span>
           </div>
           <div className={s.results}>
-            {flat.length === 0 ? (
-              <div className={s.empty}>No matches{q ? ` for “${q}”` : ""}.</div>
-            ) : (
-              groups.map(([name, rows]) => (
-                <div key={name}>
-                  <div className={s.group}>{name}</div>
-                  {rows.map((r) => {
-                    const idx = flat.indexOf(r);
-                    return (
-                      <div
-                        key={r.id}
-                        className={`${s.item} ${idx === active ? s.active : ""}`}
-                        onMouseEnter={() => setActive(idx)}
-                        onClick={() => go(r)}
-                      >
-                        {r.dot}
-                        <span className={s.label}>{r.label}</span>
-                        <span className={s.sub}>{r.sub}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))
-            )}
+            <SearchResults groups={groups} flat={flat} query={q} active={active} setActive={setActive} onPick={go} />
           </div>
         </div>
       </div>

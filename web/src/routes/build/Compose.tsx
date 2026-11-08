@@ -1859,7 +1859,7 @@ export default function Compose() {
 
   return (
     <>
-      <BackBar to="/build" label="Build" />
+      <BackBar to="/build" label="Lab" />
       <Steps current={1} onNavigate={(target) => void handleStepNav(target)} />
        <div className={p.body}>
         <div className="lbl" style={{ fontSize: 12, marginBottom: 16 }}>

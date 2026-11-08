@@ -99,7 +99,7 @@ export default function Sidebar({
     ? [
         home,
         market,
-        { label: "Build", path: "/build", icon: "build", active: loc.pathname.startsWith("/build") },
+        { label: "Lab", path: "/build", icon: "build", active: loc.pathname.startsWith("/build") },
         board,
         challenges,
         { label: "Settings", path: "/settings", icon: "settings", active: loc.pathname.startsWith("/settings") },
@@ -129,7 +129,7 @@ export default function Sidebar({
               {icons[it.icon]}
               <span className={s.txt}>{it.label}</span>
             </button>
-            {it.label === "Build" && !!buildBots?.length && (
+            {it.path === "/build" && !!buildBots?.length && (
               <div className={s.buildList}>
                 {buildBots.map((b) => (
                   <button

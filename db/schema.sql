@@ -246,6 +246,7 @@ CREATE TABLE IF NOT EXISTS public.pf_profiles (
     email text,
     profile_public boolean NOT NULL DEFAULT false,
     bots_on_leaderboard boolean NOT NULL DEFAULT false,
+    share_to_feed boolean NOT NULL DEFAULT true,
     default_bot_visibility text NOT NULL DEFAULT 'results'::text,
     onboarding_step integer NOT NULL DEFAULT 0,
     onboarding_checklist jsonb NOT NULL DEFAULT '{}'::jsonb,

@@ -523,7 +523,7 @@ export default function Sweep() {
   if (botLoading) {
     return (
       <>
-        <BackBar fallbackPath="/build" fallbackLabel="Build" />
+        <BackBar fallbackPath="/build" fallbackLabel="Lab" />
         <div className={p.body} style={{ paddingTop: 28 }}><span className="muted">Loading…</span></div>
       </>
     );
@@ -531,7 +531,7 @@ export default function Sweep() {
   if (!bot) {
     return (
       <>
-        <BackBar fallbackPath="/build" fallbackLabel="Build" />
+        <BackBar fallbackPath="/build" fallbackLabel="Lab" />
         <div className={p.body} style={{ paddingTop: 28 }}>
           <span className="muted">Pick a bot to sweep. </span>
           <span className="lk" style={{ color: "#8BB4E8" }} onClick={() => nav("/build")}>Back to Build →</span>

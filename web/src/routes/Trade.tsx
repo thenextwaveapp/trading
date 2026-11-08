@@ -9,6 +9,7 @@ import Segmented from "../components/Segmented";
 import { CANDLE_IVS, TradeCandles, type CandleReq } from "../components/CandleModal";
 import { held, pct, px, usd } from "../lib/format";
 import { botPath, botSlugOf, builderPath } from "../lib/paths";
+import { useIsPhone } from "../lib/responsive";
 import p from "./pages.module.css";
 import s from "./Trade.module.css";
 
@@ -21,6 +22,7 @@ export default function Trade() {
   const ts = t ? Number(t) : null;
   const nav = useNavigate();
   const data = useData();
+  const isPhone = useIsPhone();
   const { data: allBots } = useBots();
   const [iv, setIv] = useState("15m");
 
@@ -91,9 +93,10 @@ export default function Trade() {
 
   return (
     <>
-      <BackBar fallbackPath="/feed" fallbackLabel="Feed" />
-      <div className={`${p.shell} ${p.body}`} style={{ paddingTop: 10 }}>
+      {!isPhone && <BackBar fallbackPath="/feed" fallbackLabel="Feed" />}
+      <div className={`${p.shell} ${p.body}`} style={{ paddingTop: isPhone ? 14 : 10 }}>
         <div className={s.head}>
+          {isPhone && <BackBar bare fallbackPath="/feed" fallbackLabel="Feed" />}
           <BotAvatar seed={botName} color={color} size={42} />
           <div className={s.names}>
             <div className={s.title}>

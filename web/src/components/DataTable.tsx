@@ -8,7 +8,10 @@ export interface Column<T> {
   sortable?: boolean;
   /** sort value; omit for non-sortable columns */
   value?: (row: T) => string | number | null | undefined;
-  render: (row: T) => ReactNode;
+  render: (row: T, index: number) => ReactNode;
+  /** Drop this column on phones — the table stays a table, just narrower. Use
+   *  on the low-value columns so the best few fields fit without scrolling. */
+  hidePhone?: boolean;
 }
 
 interface Sort {
@@ -23,11 +26,17 @@ export default function DataTable<T>({
   rows,
   initialSort,
   pageSize = 10,
+  onRowClick,
+  rowClass,
+  rowKey,
 }: {
   columns: Column<T>[];
   rows: T[];
   initialSort?: { col: string; dir?: 1 | -1 };
   pageSize?: number;
+  onRowClick?: (row: T) => void;
+  rowClass?: (row: T) => string | undefined;
+  rowKey?: (row: T) => string | number;
 }) {
   const [sort, setSort] = useState<Sort>(
     initialSort ? { col: initialSort.col, dir: initialSort.dir ?? -1 } : { col: null, dir: -1 },
@@ -70,11 +79,6 @@ export default function DataTable<T>({
   const arrow = (key: string) =>
     sort.col === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
 
-  // On phones the table reflows to stacked cards (CSS, ≤860px). Each cell shows
-  // its column name via `data-label`; we can only pull that from string labels,
-  // so JSX-labelled columns fall back to no label (the value stands alone).
-  const cardLabel = (c: Column<T>) => (typeof c.label === "string" ? c.label : undefined);
-
   return (
     <>
       <div className={s.wrap}>
@@ -84,7 +88,7 @@ export default function DataTable<T>({
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={`${s.th} ${c.sortable ? s.sortable : ""}`}
+                  className={`${s.th} ${c.align === "left" ? s.left : ""} ${c.sortable ? s.sortable : ""} ${c.hidePhone ? s.hidePhone : ""}`}
                   onClick={() => onSort(c)}
                 >
                   {c.label}
@@ -102,10 +106,17 @@ export default function DataTable<T>({
               </tr>
             ) : (
               pageRows.map((row, i) => (
-                <tr key={i} className={s.row}>
+                <tr
+                  key={rowKey ? rowKey(row) : i}
+                  className={`${s.row} ${onRowClick ? s.clickable : ""} ${rowClass?.(row) ?? ""}`}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                >
                   {columns.map((c) => (
-                    <td key={c.key} className={s.td} data-label={cardLabel(c)}>
-                      {c.render(row)}
+                    <td
+                      key={c.key}
+                      className={`${s.td} ${c.align === "left" ? s.left : ""} ${c.hidePhone ? s.hidePhone : ""}`}
+                    >
+                      {c.render(row, p * per + i)}
                     </td>
                   ))}
                 </tr>

@@ -1,5 +1,5 @@
 import { botColor } from "../lib/brand";
-import { Settings } from "lucide-react";
+import { GitFork, Settings } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth, useCurrentHandle } from "../auth";
@@ -11,6 +11,7 @@ import { BotAvatar, UserAvatar } from "../components/Avatar";
 import FeedRow from "../components/FeedRow";
 import { DIRLBL, MKTLBL, pct, windowReturn } from "../lib/format";
 import { edgeGlow } from "../lib/fx";
+import { useIsPhone } from "../lib/responsive";
 import p from "./pages.module.css";
 import s from "./Builder.module.css";
 import r from "./build/build.module.css";
@@ -27,6 +28,7 @@ export default function Builder() {
   const param = rawParam?.startsWith("@") ? rawParam.slice(1) : rawParam;
   const { user, profile: myProfile } = useAuth();
   const me = useCurrentHandle();
+  const isPhone = useIsPhone();
   const handle = param ?? me ?? null;
   const badPath = !!rawParam && !rawParam.startsWith("@") && !isLegacyRoute;
   const isMe = !!me && handle === me;
@@ -92,7 +94,7 @@ export default function Builder() {
   if (profile && profile.profile_public === false && !isMe) {
     return (
       <>
-        <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />
+        {!isPhone && <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />}
         <div className={p.body} style={{ paddingTop: 40 }}>
           <div className="muted">@{handle}'s builder profile is private.</div>
         </div>
@@ -102,7 +104,7 @@ export default function Builder() {
 
   return (
     <>
-      <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />
+      {!isPhone && <BackBar fallbackPath="/leaderboard" fallbackLabel="Leaderboard" />}
 
       <div className={`${p.narrow} ${p.body}`}>
         <section className={s.hero}>
@@ -111,7 +113,7 @@ export default function Builder() {
             name={profile?.display_name}
             url={profile?.avatar_url}
             color={profile?.avatar_color || undefined}
-            size={112}
+            size={isPhone ? 84 : 112}
           />
           {/* flex-none keeps the hero avatar from squeezing when the name wraps */}
           <div className={s.heroMain}>
@@ -177,6 +179,7 @@ export default function Builder() {
                           disabled={copyingId === b.id}
                           onClick={(e) => { e.stopPropagation(); void handleCopy(b); }}
                         >
+                          <GitFork size={14} strokeWidth={1.75} />
                           {copyingId === b.id ? "…" : "Copy"}
                         </button>
                       )}

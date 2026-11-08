@@ -47,6 +47,7 @@ export default function Settings() {
   const [avatarColor, setAvatarColor] = useState(DEFAULT_BOT_COLOR);
   const [profilePublic, setProfilePublic] = useState(true);
   const [botsOnBoard, setBotsOnBoard] = useState(true);
+  const [shareToFeed, setShareToFeed] = useState(true);
   const [seeded, setSeeded] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -75,6 +76,7 @@ export default function Settings() {
       setAvatarColor(profile.avatar_color || DEFAULT_BOT_COLOR);
       setProfilePublic(profile.profile_public ?? true);
       setBotsOnBoard(profile.bots_on_leaderboard ?? true);
+      setShareToFeed(profile.share_to_feed ?? true);
       setSeeded(true);
     }
   }, [profile, seeded]);
@@ -88,12 +90,13 @@ export default function Settings() {
         avatar_color: avatarColor,
         profile_public: profilePublic,
         bots_on_leaderboard: botsOnBoard,
+        share_to_feed: shareToFeed,
       });
       await refreshProfile();
     }, 450);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayName, bio, avatarColor, profilePublic, botsOnBoard, seeded, user]);
+  }, [displayName, bio, avatarColor, profilePublic, botsOnBoard, shareToFeed, seeded, user]);
 
   const liveOk = d.running && !d.paused;
   const errs = d.log.filter((l) => /error|exception|traceback/i.test(l)).length;
@@ -188,7 +191,7 @@ export default function Settings() {
               <div>
                 <div style={{ fontSize: 16, fontWeight: 500 }}>Builder privacy</div>
                 <div className="lbl" style={{ marginTop: 4, lineHeight: 1.5 }}>
-                  Control whether your builder profile and deployed bots appear in public search and on the Leaderboard.
+                  Account-wide switches for what you share publicly — your builder profile, the Leaderboard, and the activity feed. Each bot's own visibility (Private / Results / Public, set when you deploy) is the finer dial, and also decides who can copy it.
                 </div>
               </div>
 
@@ -224,6 +227,24 @@ export default function Settings() {
                   options={[
                     { value: "shown", label: "Shown" },
                     { value: "hidden", label: "Hidden" },
+                  ]}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Broadcast activity to feed</div>
+                  <div className="lbl" style={{ marginTop: 3 }}>
+                    Stream your non-private bots to the global feed. A <b>Public</b> bot shows live entries, exits and kill-switches; a <b>Results</b> bot shows closed trades only; a <b>Private</b> bot never appears. Off silences all of them at once.
+                  </div>
+                </div>
+                <Segmented
+                  ariaLabel="Feed broadcast"
+                  value={shareToFeed ? "on" : "off"}
+                  onChange={(v) => setShareToFeed(v === "on")}
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
                   ]}
                 />
               </div>

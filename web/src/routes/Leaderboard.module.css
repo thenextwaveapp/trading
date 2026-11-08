@@ -15,7 +15,46 @@
 .fRange { grid-column: span 3; }
 .fSearch { grid-column: 10 / -1; }
 @media (max-width: 860px) {
+  /* search is gone on phones; the two filters stack full-width and tight */
+  .filters {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
   .fMarket, .fRange, .fSearch { grid-column: 1 / -1; }
+
+  /* top 3 become a compact podium strip: avatar + rank, name, return only */
+  .cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .card {
+    padding: 10px;
+    min-width: 0;
+  }
+  .cardTop svg {
+    width: 34px;
+    height: 34px;
+  }
+  .rank {
+    font-size: 22px;
+  }
+  .cardName {
+    font-size: 13px;
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .builder {
+    display: none;
+  }
+  .cardFoot {
+    margin-top: 4px;
+  }
+  /* drop the "Live · …" label and the equity sub-line — mini card shows the % */
+  .cardFoot .lbl {
+    display: none;
+  }
 }
 .cards {
   display: grid;

@@ -81,69 +81,29 @@
 .perpg:hover {
   border-color: var(--border-hover);
 }
+.clickable {
+  cursor: pointer;
+}
+.clickable:hover {
+  background: #0c1219;
+}
 
-/* ── phones: the table reflows to stacked cards (no sideways scrolling) ──────
-   Every <td> becomes a label→value row; the first cell is promoted to a full
-   -width card title. Headers are visually hidden but kept for accessibility. */
+/* ── phones: stay a table, just a leaner one ────────────────────────────────
+   Columns flagged `hidePhone` drop out so the best few fields fit the width;
+   padding tightens so what's left doesn't need sideways scrolling. */
 @media (max-width: 860px) {
-  .wrap { overflow-x: visible; }
+  .hidePhone { display: none; }
+  /* size columns to their content instead of equal thirds, then let the one
+     text column (coin/bot) soak up the slack so the numbers pack to the right */
   .table { table-layout: auto; }
-
-  /* keep <thead> for screen readers, remove it visually */
-  .table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .table,
-  .table tbody,
-  .row,
-  .td { display: block; }
-
-  .row {
-    margin-bottom: 10px;
-    padding: 4px 14px 6px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: rgba(255, 255, 255, 0.015);
-  }
-
-  .td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 9px 0;
-    border-top: 1px solid var(--line);
-    text-align: right;
-    white-space: normal;
-  }
-  /* the column name, pulled from data-label, sits on the left of each row */
-  .td::before {
-    content: attr(data-label);
-    color: var(--muted-2);
-    font-size: 12px;
-    text-align: left;
-    white-space: nowrap;
-    flex: none;
-  }
-  /* a cell with no label (JSX-labelled column) lets its value use the full row */
-  .td:not([data-label])::before { content: none; }
-
-  /* first cell = the card's headline (entity): full width, no label, bigger */
-  .row .td:first-child {
-    justify-content: flex-start;
-    padding: 4px 0 8px;
-    border-top: none;
-    font-size: 15px;
-    text-align: left;
-  }
-  .row .td:first-child::before { content: none; }
-
-  .empty { text-align: center; }
+  /* the text column soaks up slack AND may wrap, so a long name shrinks the
+     column instead of forcing the whole table to scroll sideways */
+  .left { width: 100%; white-space: normal; }
+  .th { padding: 0 8px 10px; }
+  .td { padding: 11px 8px; font-size: 13px; }
+  /* first/last cells hug the page edges for a touch more room */
+  .th:first-child,
+  .td:first-child { padding-left: 2px; }
+  .th:last-child,
+  .td:last-child { padding-right: 2px; }
 }

@@ -6,6 +6,8 @@ import { useAssistant } from "../assistant/AssistantProvider";
 import { useMarketRow, useNews } from "../db/queries";
 import { pct } from "../lib/format";
 import { agoLabel, fmtPrice, fmtVol, isStale } from "./Market";
+import { BackBar } from "../components/cells";
+import { useIsPhone } from "../lib/responsive";
 import p from "./pages.module.css";
 
 function fmtCount(n: number): string {
@@ -19,6 +21,7 @@ function fmtCount(n: number): string {
 export default function MarketDetail() {
   const { symbol } = useParams();
   const nav = useNavigate();
+  const isPhone = useIsPhone();
   const { data: row, loading } = useMarketRow(symbol ?? "");
   const { data: news } = useNews(40);
   const coinNews = useMemo(() => {
@@ -63,23 +66,24 @@ export default function MarketDetail() {
 
   return (
     <>
-      <div className={p.crumb}>
-        <span className={p.crumbLink} onClick={() => nav("/market")}>← Market</span>
-      </div>
+      {!isPhone && <BackBar to="/market" label="Market" />}
 
       <div className={p.shell}>
       <div className={p.top}>
-        <div>
-          <h1 className={p.title} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {row.logo && <img src={row.logo} alt="" width={34} height={34} style={{ borderRadius: "50%" }} />}
-            {row.name ?? row.base}
-          </h1>
-          <div className={p.subtitle}>
-            {row.base} · {row.symbol}
-            {row.market_cap_rank ? ` · rank #${row.market_cap_rank}` : ""} · crypto perp
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", minWidth: 0 }}>
+          {isPhone && <BackBar bare to="/market" label="Market" />}
+          <div style={{ minWidth: 0 }}>
+            <h1 className={p.title} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {row.logo && <img src={row.logo} alt="" width={34} height={34} style={{ borderRadius: "50%" }} />}
+              {row.name ?? row.base}
+            </h1>
+            <div className={p.subtitle}>
+              {row.base} · {row.symbol}
+              {row.market_cap_rank ? ` · rank #${row.market_cap_rank}` : ""} · crypto perp
+            </div>
           </div>
         </div>
-        <button className={`${p.btn} ${p.pri}`} onClick={() => nav(`/build/compose?coin=${encodeURIComponent(row.base)}&market=crypto`)}>
+        <button className={`${p.btn} ${p.pri} ${p.ctaFull}`} onClick={() => nav(`/build/compose?coin=${encodeURIComponent(row.base)}&market=crypto`)}>
           Build a bot on {row.base}
         </button>
       </div>
@@ -92,7 +96,7 @@ export default function MarketDetail() {
             The chart below is live and may disagree.
           </div>
         )}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "20px 40px", marginBottom: 24 }}>
+        <div className={p.inlineStats}>
           {stat("Price", fmtPrice(row.price))}
           {stat("24h", pct(row.change_pct, true), up ? "up" : "down")}
           {stat("24h high", fmtPrice(row.high))}

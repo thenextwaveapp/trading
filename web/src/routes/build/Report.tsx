@@ -72,7 +72,7 @@ export default function Report() {
 
   return (
     <>
-      <BackBar fallbackPath="/build" fallbackLabel="Build" />
+      <BackBar fallbackPath="/build" fallbackLabel="Lab" />
       <div className={p.body}>
         <section style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "center", padding: "36px 0 24px" }}>
           <svg width="88" height="88" viewBox="0 0 88 88"><rect width="88" height="88" rx="44" fill="#12161D" /><path d={identicon(name, 52)} fill={botColor(bot)} transform="translate(18 18)" /></svg>
